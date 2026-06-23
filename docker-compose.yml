@@ -1,0 +1,24 @@
+# Local development database for Triya Manager.
+# Usage: `docker compose up -d` then `npm run db:migrate`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: triya-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: triya
+      POSTGRES_PASSWORD: triya_dev_password
+      POSTGRES_DB: triya_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - triya_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U triya -d triya_manager"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  triya_pgdata:
+    name: triya_pgdata
