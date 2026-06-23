@@ -1,0 +1,43 @@
+import { z } from "zod";
+
+// Server-side schema for saving a bed. Tenant fields are optional here and only
+// required when the bed is being marked OCCUPIED (validated in the action).
+// Empty FormData strings are converted to undefined before parsing.
+export const saveBedSchema = z.object({
+  bedId: z.string().min(1),
+  occupancyStatus: z.enum(["AVAILABLE", "OCCUPIED"]),
+  fullName: z.string().trim().min(2, "Tenant name is required").max(120).optional(),
+  phone: z.string().trim().min(7, "Enter a valid phone number").max(20).optional(),
+  rentAmount: z.coerce.number().int("Enter a valid amount").min(0).max(10_000_000).optional(),
+  checkInDate: z.coerce.date().optional(),
+  paymentStatus: z.enum(["PAID", "PENDING"]).optional(),
+});
+
+// Client-side form schema (plain strings, friendly for React Hook Form).
+// Tenant fields are required only when the bed is marked Occupied.
+export const bedFormSchema = z
+  .object({
+    occupancyStatus: z.enum(["AVAILABLE", "OCCUPIED"]),
+    fullName: z.string().trim().max(120),
+    phone: z.string().trim().max(20),
+    rentAmount: z.string(),
+    checkInDate: z.string(),
+    paymentStatus: z.enum(["PAID", "PENDING"]),
+  })
+  .superRefine((val, ctx) => {
+    if (val.occupancyStatus !== "OCCUPIED") return;
+    if (val.fullName.trim().length < 2) {
+      ctx.addIssue({ code: "custom", path: ["fullName"], message: "Tenant name is required" });
+    }
+    if (val.phone.trim().length < 7) {
+      ctx.addIssue({ code: "custom", path: ["phone"], message: "Enter a valid phone number" });
+    }
+    if (!val.rentAmount || Number.isNaN(Number(val.rentAmount)) || Number(val.rentAmount) < 0) {
+      ctx.addIssue({ code: "custom", path: ["rentAmount"], message: "Enter the rent amount" });
+    }
+    if (!val.checkInDate) {
+      ctx.addIssue({ code: "custom", path: ["checkInDate"], message: "Select a check-in date" });
+    }
+  });
+
+export type BedFormValues = z.infer<typeof bedFormSchema>;
