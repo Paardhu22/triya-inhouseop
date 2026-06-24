@@ -86,10 +86,7 @@ export function Topbar({ property, properties, user }: Props) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[240px]">
-          <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">
-            Switch Property
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
+
           {properties.map((p) => (
             <DropdownMenuItem
               key={p.id}
