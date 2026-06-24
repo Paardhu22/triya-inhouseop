@@ -9,6 +9,12 @@ export async function GET(request: Request) {
   const propertyId = await getSelectedPropertyId();
   if (!propertyId) return Response.json({ results: [] });
 
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: { slug: true },
+  });
+  const isFlat = property?.slug === "cozy-gowlidoddy";
+
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 80) ?? "";
   if (query.length < 2) return Response.json({ results: [] });
 
@@ -89,7 +95,9 @@ export async function GET(request: Request) {
       type: "tenant",
       title: tenant.fullName,
       subtitle: stay
-        ? `${tenant.phone} · Room ${stay.bed.room.number}, bed ${stay.bed.label}`
+        ? isFlat
+          ? `${tenant.phone} · Flat ${stay.bed.room.number}`
+          : `${tenant.phone} · Room ${stay.bed.room.number}, bed ${stay.bed.label}`
         : `${tenant.phone} · Past tenant`,
       href: `/tenants/${tenant.id}`,
     });
@@ -102,18 +110,20 @@ export async function GET(request: Request) {
     results.push({
       id: `room-${room.id}`,
       type: "room",
-      title: `Room ${room.number}`,
-      subtitle: `${location} · ${room.sharingType} sharing`,
+      title: isFlat ? `Flat ${room.number}` : `Room ${room.number}`,
+      subtitle: isFlat ? `${location} · Flat` : `${location} · ${room.sharingType} sharing`,
       href,
     });
-    for (const bed of room.beds.slice(0, 4)) {
-      results.push({
-        id: `bed-${bed.id}`,
-        type: "bed",
-        title: `Room ${room.number}, bed ${bed.label}`,
-        subtitle: `${location} · ${bed.status === "OCCUPIED" ? "Occupied" : "Available"}`,
-        href,
-      });
+    if (!isFlat) {
+      for (const bed of room.beds.slice(0, 4)) {
+        results.push({
+          id: `bed-${bed.id}`,
+          type: "bed",
+          title: `Room ${room.number}, bed ${bed.label}`,
+          subtitle: `${location} · ${bed.status === "OCCUPIED" ? "Occupied" : "Available"}`,
+          href,
+        });
+      }
     }
   }
   for (const complaint of complaints) {

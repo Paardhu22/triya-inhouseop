@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { StatCard } from "@/components/dashboard/stat-card";
 import { PageHeader } from "@/components/shell/page-header";
-import { getSelectedPropertyId } from "@/lib/property";
+import { getActiveProperty } from "@/lib/property";
 import { getDashboardData } from "@/lib/queries/dashboard";
 
 export const metadata: Metadata = {
@@ -11,10 +11,11 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const propertyId = await getSelectedPropertyId();
-  if (!propertyId) redirect("/select-property");
+  const property = await getActiveProperty();
+  if (!property) redirect("/select-property");
 
-  const data = await getDashboardData(propertyId);
+  const data = await getDashboardData(property.id);
+  const isFlat = property.slug === "cozy-gowlidoddy";
 
   return (
     <div className="space-y-14">
@@ -25,10 +26,20 @@ export default async function DashboardPage() {
           Capacity
         </h2>
         <div className="grid grid-cols-2 gap-x-10 gap-y-10 lg:grid-cols-4">
-          <StatCard label="Total Rooms" value={data.totalRooms} />
-          <StatCard label="Total Beds" value={data.totalBeds} />
-          <StatCard label="Occupied Beds" value={data.occupiedBeds} />
-          <StatCard label="Available Beds" value={data.availableBeds} />
+          {isFlat ? (
+            <>
+              <StatCard label="Total Flats" value={data.totalRooms} />
+              <StatCard label="Occupied Flats" value={data.occupiedBeds} />
+              <StatCard label="Available Flats" value={data.availableBeds} />
+            </>
+          ) : (
+            <>
+              <StatCard label="Total Rooms" value={data.totalRooms} />
+              <StatCard label="Total Beds" value={data.totalBeds} />
+              <StatCard label="Occupied Beds" value={data.occupiedBeds} />
+              <StatCard label="Available Beds" value={data.availableBeds} />
+            </>
+          )}
         </div>
       </section>
 

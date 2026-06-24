@@ -38,8 +38,10 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-3">
         <Summary value={config.floors.length} label="Floors" />
-        <Summary value={roomCount} label="Rooms" />
-        <Summary value={bedCount} label="Beds" />
+        <Summary value={roomCount} label={config.slug === "cozy-gowlidoddy" ? "Flats" : "Rooms"} />
+        {config.slug !== "cozy-gowlidoddy" ? (
+          <Summary value={bedCount} label="Beds" />
+        ) : null}
       </div>
 
       <Card>
@@ -70,7 +72,7 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
               <div className="mt-3 flex flex-wrap gap-1">
                 {template.roomTemplates.map((room) => (
                   <span key={room.id} className="rounded border bg-muted/40 px-1.5 py-0.5 text-[11px] tabular-nums">
-                    {room.sharingType}
+                    {config.slug === "cozy-gowlidoddy" ? "Flat" : room.sharingType}
                   </span>
                 ))}
               </div>
@@ -85,8 +87,12 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
       <Card>
         <CardHeader className="border-b sm:grid-cols-[1fr_auto]">
           <div>
-            <CardTitle>Room capacity</CardTitle>
-            <CardDescription>Occupied beds cannot be deleted during capacity changes.</CardDescription>
+            <CardTitle>{config.slug === "cozy-gowlidoddy" ? "Flat management" : "Room capacity"}</CardTitle>
+            <CardDescription>
+              {config.slug === "cozy-gowlidoddy"
+                ? "Manage configurations of flats."
+                : "Occupied beds cannot be deleted during capacity changes."}
+            </CardDescription>
           </div>
           {config.floors.length > 0 ? (
             <Select value={floor?.id} onValueChange={setFloorId}>
@@ -112,9 +118,13 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
                       <BedDouble className="size-4 text-muted-foreground" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium">Room {room.number}</p>
+                      <p className="font-medium">
+                        {config.slug === "cozy-gowlidoddy" ? `Flat ${room.number}` : `Room ${room.number}`}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {room.beds.length} sharing · {occupied} occupied
+                        {config.slug === "cozy-gowlidoddy"
+                          ? occupied > 0 ? "Occupied" : "Available"
+                          : `${room.beds.length} sharing · ${occupied} occupied`}
                       </p>
                     </div>
                     <RoomCapacityDialog room={room} />

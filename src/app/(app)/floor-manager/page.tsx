@@ -6,7 +6,7 @@ import { FloorSelectors } from "@/components/floor/floor-selectors";
 import { FloorBanner } from "@/components/floor/floor-banner";
 import { PageHeader } from "@/components/shell/page-header";
 import { getFloorLayout, getFloorNavigation } from "@/lib/queries/floor";
-import { getSelectedPropertyId } from "@/lib/property";
+import { getActiveProperty } from "@/lib/property";
 
 export const metadata: Metadata = {
   title: "Floor Manager",
@@ -32,8 +32,9 @@ export default async function FloorManagerPage({
 }: {
   searchParams: Promise<{ block?: string; floor?: string }>;
 }) {
-  const propertyId = await getSelectedPropertyId();
-  if (!propertyId) redirect("/select-property");
+  const property = await getActiveProperty();
+  if (!property) redirect("/select-property");
+  const propertyId = property.id;
 
   const nav = await getFloorNavigation(propertyId);
   const { block, floor } = await searchParams;
@@ -73,7 +74,7 @@ export default async function FloorManagerPage({
         />
         <Legend />
       </div>
-      <FloorBoard rooms={rooms} />
+      <FloorBoard rooms={rooms} propertySlug={property.slug} />
       {/* Spacer to prevent fixed footer from covering content when scrolling */}
       <div className="h-56 sm:h-[260px] md:h-[300px] lg:h-[350px]" />
       <FloorBanner 

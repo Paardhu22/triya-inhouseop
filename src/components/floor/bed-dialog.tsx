@@ -46,10 +46,12 @@ function buildDefaults(bed: FloorBed): BedFormValues {
 export function BedDialog({
   bed,
   roomNumber,
+  isFlat = false,
   onOpenChange,
 }: {
   bed: FloorBed | null;
   roomNumber: string;
+  isFlat?: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   return (
@@ -57,10 +59,10 @@ export function BedDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Room {roomNumber} · Bed {bed?.label}
+            {isFlat ? `Flat ${roomNumber}` : `Room ${roomNumber} · Bed ${bed?.label}`}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Edit this bed&apos;s occupancy and tenant details.
+            Edit this {isFlat ? "flat" : "bed"}&apos;s occupancy and tenant details.
           </DialogDescription>
         </DialogHeader>
 

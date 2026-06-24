@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 import { BedDialog } from "./bed-dialog";
 import { RoomView } from "./room-view";
 
-function RoomCard({ room, onOpen }: { room: FloorRoom; onOpen: () => void }) {
+function RoomCard({ room, propertySlug, onOpen }: { room: FloorRoom; propertySlug?: string; onOpen: () => void }) {
   const occupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
   const hasAvailable = room.beds.length === 0 || occupied < room.beds.length;
+  const isFlat = propertySlug === "cozy-gowlidoddy";
 
   return (
     <button
@@ -26,13 +27,13 @@ function RoomCard({ room, onOpen }: { room: FloorRoom; onOpen: () => void }) {
         {room.number}
       </span>
       <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-        {room.beds.length} Sharing
+        {isFlat ? "Flat" : `${room.beds.length} Sharing`}
       </span>
     </button>
   );
 }
 
-export function FloorBoard({ rooms }: { rooms: FloorRoom[] }) {
+export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; propertySlug?: string }) {
   const [openRoomId, setOpenRoomId] = useState<string | null>(null);
   const [openBedId, setOpenBedId] = useState<string | null>(null);
 
@@ -78,7 +79,13 @@ export function FloorBoard({ rooms }: { rooms: FloorRoom[] }) {
               <RoomCard
                 key={room.id}
                 room={room}
-                onOpen={() => setOpenRoomId(room.id)}
+                propertySlug={propertySlug}
+                onOpen={() => {
+                  setOpenRoomId(room.id);
+                  if (propertySlug === "cozy-gowlidoddy" && room.beds.length > 0) {
+                    setOpenBedId(room.beds[0].id);
+                  }
+                }}
               />
             );
           })}
@@ -86,7 +93,7 @@ export function FloorBoard({ rooms }: { rooms: FloorRoom[] }) {
       </div>
 
       <RoomView
-        room={openRoom}
+        room={propertySlug === "cozy-gowlidoddy" ? null : openRoom}
         onOpenChange={(open) => {
           if (!open) {
             setOpenRoomId(null);
@@ -99,8 +106,12 @@ export function FloorBoard({ rooms }: { rooms: FloorRoom[] }) {
       <BedDialog
         bed={openBed}
         roomNumber={openRoom?.number ?? ""}
+        isFlat={propertySlug === "cozy-gowlidoddy"}
         onOpenChange={(open) => {
-          if (!open) setOpenBedId(null);
+          if (!open) {
+            setOpenBedId(null);
+            setOpenRoomId(null);
+          }
         }}
       />
     </>

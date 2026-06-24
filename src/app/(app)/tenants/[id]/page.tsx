@@ -6,7 +6,7 @@ import { ArrowLeft, FileText, Phone, User } from "lucide-react";
 
 import { StatusBadge } from "@/components/common/status-badge";
 import { formatINR } from "@/lib/money";
-import { getSelectedPropertyId } from "@/lib/property";
+import { getActiveProperty } from "@/lib/property";
 import { getTenantProfile, type TenantProfile } from "@/lib/queries/tenants";
 import { COMPLAINT_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
 
@@ -54,8 +54,10 @@ export default async function TenantProfilePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const propertyId = await getSelectedPropertyId();
-  if (!propertyId) redirect("/select-property");
+  const property = await getActiveProperty();
+  if (!property) redirect("/select-property");
+  const propertyId = property.id;
+  const isFlat = property.slug === "cozy-gowlidoddy";
 
   const { id } = await params;
   const tenant = await getTenantProfile(id, propertyId);
@@ -116,7 +118,10 @@ export default async function TenantProfilePage({
           </p>
           {active ? (
             <p className="text-sm text-muted-foreground">
-              Room {active.bed.room.number} · Bed {active.bed.label} · {formatINR(active.monthlyRent)}/mo
+              {isFlat
+                ? `Flat ${active.bed.room.number}`
+                : `Room ${active.bed.room.number} · Bed ${active.bed.label}`}{" "}
+              · {formatINR(active.monthlyRent)}/mo
             </p>
           ) : null}
         </div>
@@ -154,7 +159,9 @@ export default async function TenantProfilePage({
                 >
                   <div>
                     <p className="text-sm font-medium">
-                      Room {t.bed.room.number} · Bed {t.bed.label}
+                      {isFlat
+                        ? `Flat ${t.bed.room.number}`
+                        : `Room ${t.bed.room.number} · Bed ${t.bed.label}`}
                     </p>
                     <p className="text-xs text-muted-foreground">{tenancyPeriod(t)}</p>
                   </div>

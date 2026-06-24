@@ -38,8 +38,8 @@ type PropertyConfig = {
 
 const JOYSTAYZ_FLOOR: TemplateDef = {
   name: "Standard Residential Floor",
-  description: "14 rooms per floor: a mix of double and triple sharing with two single rooms.",
-  rooms: [2, 2, 3, 3, 2, 2, 1, 1, 2, 2, 3, 3, 2, 2],
+  description: "14 rooms per floor: configured sharing types.",
+  rooms: [3, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 3, 3, 2],
 };
 
 const PROPERTIES: PropertyConfig[] = [
@@ -63,8 +63,8 @@ const PROPERTIES: PropertyConfig[] = [
         name: "A",
         template: {
           name: "Block A Floor",
-          description: "Compact block: doubles, triples and two single rooms.",
-          rooms: [2, 2, 2, 2, 3, 3, 1, 1],
+          description: "Block A: 10 rooms per floor.",
+          rooms: [2, 2, 2, 3, 2, 2, 3, 2, 3, 3],
         },
         floors: [1, 2].map((number) => ({ number, name: `Floor ${number}` })),
       },
@@ -72,8 +72,8 @@ const PROPERTIES: PropertyConfig[] = [
         name: "B",
         template: {
           name: "Block B Floor",
-          description: "Premium block with larger shared rooms.",
-          rooms: [3, 3, 2, 2, 2, 2, 4, 4],
+          description: "Block B: 10 rooms per floor.",
+          rooms: [2, 2, 2, 3, 3, 3, 3, 2, 3, 2],
         },
         floors: [1, 2].map((number) => ({ number, name: `Floor ${number}` })),
       },
@@ -84,13 +84,36 @@ const PROPERTIES: PropertyConfig[] = [
     slug: "cozy-gowlidoddy",
     address: "Survey 88, Gowlidoddy",
     city: "Hyderabad",
-    hasBlocks: false,
-    template: {
-      name: "Cozy Floor",
-      description: "10 rooms per floor, mostly double sharing.",
-      rooms: [2, 2, 2, 2, 2, 3, 3, 1, 1, 2],
-    },
-    floors: [1, 2].map((number) => ({ number, name: `Floor ${number}` })),
+    hasBlocks: true,
+    blocks: [
+      {
+        name: "A",
+        template: {
+          name: "STUDIO",
+          description: "Studio Flat Block",
+          rooms: [1, 1, 1, 1, 1],
+        },
+        floors: [1, 2, 3, 4, 5].map((number) => ({ number, name: `Floor ${number}` })),
+      },
+      {
+        name: "B",
+        template: {
+          name: "Premium",
+          description: "Premium Flat Block",
+          rooms: [1, 1, 1, 1, 1],
+        },
+        floors: [1, 2, 3, 4, 5].map((number) => ({ number, name: `Floor ${number}` })),
+      },
+      {
+        name: "C",
+        template: {
+          name: "Hotel",
+          description: "Hotel Flat Block",
+          rooms: [1, 1, 1, 1, 1],
+        },
+        floors: [1, 2, 3, 4, 5].map((number) => ({ number, name: `Floor ${number}` })),
+      },
+    ],
   },
 ];
 
