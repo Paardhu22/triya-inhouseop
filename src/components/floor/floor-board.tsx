@@ -14,16 +14,19 @@ function RoomCard({ room, onOpen }: { room: FloorRoom; onOpen: () => void }) {
   return (
     <button
       onClick={onOpen}
-      className="flex aspect-square flex-col items-center justify-center gap-3 rounded-xl bg-transparent transition-[transform,background-color] duration-150 hover:bg-black/5 active:scale-[0.97]"
+      className="flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 rounded-xl bg-transparent py-3 sm:py-5 transition-[transform,background-color] duration-150 hover:bg-black/5 active:scale-[0.97]"
     >
       <span
         className={cn(
-          "size-6 rounded-full",
+          "size-5 sm:size-6 rounded-full",
           hasAvailable ? "bg-available" : "bg-occupied",
         )}
       />
-      <span className="text-xl font-semibold tabular-nums tracking-tight text-foreground">
+      <span className="text-base sm:text-xl font-semibold tabular-nums tracking-tight text-foreground">
         {room.number}
+      </span>
+      <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+        {room.beds.length} Sharing
       </span>
     </button>
   );
