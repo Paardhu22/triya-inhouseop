@@ -40,7 +40,7 @@ export function RoomView({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4 py-2 sm:grid-cols-3">
+        <div className="flex flex-wrap justify-center gap-4 py-2">
           {room?.beds.map((bed) => {
             const state = bedState(bed);
             return (
@@ -48,7 +48,7 @@ export function RoomView({
                 key={bed.id}
                 onClick={() => onSelectBed(bed.id)}
                 className={cn(
-                  "flex min-h-[168px] flex-col items-center justify-between rounded-2xl p-6 transition duration-150 hover:brightness-[0.98] active:scale-[0.98]",
+                  "flex w-full max-w-[160px] sm:max-w-[185px] min-h-[168px] flex-col items-center justify-between rounded-2xl p-6 transition duration-150 hover:brightness-[0.98] active:scale-[0.98]",
                   state.cardClass,
                 )}
               >
