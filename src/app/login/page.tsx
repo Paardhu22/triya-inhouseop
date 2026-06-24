@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Building2 } from "lucide-react";
 
 import { auth } from "@/auth";
 import { LoginForm } from "@/components/auth/login-form";
@@ -22,25 +21,45 @@ export default async function LoginPage({
   const { callbackUrl } = await searchParams;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Building2 className="size-6" />
+    <div className="flex min-h-screen items-center justify-center bg-[#2c3040] px-4 py-10">
+      <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl bg-card shadow-lg md:grid-cols-[0.82fr_1.18fr]">
+        {/* Editorial sand panel — brand + headline, baseline-anchored */}
+        <div className="relative flex flex-col justify-between gap-12 overflow-hidden bg-secondary-surface p-8 lg:p-10">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-5 -bottom-12 leading-none font-bold tracking-tighter text-primary/[0.06] select-none"
+            style={{ fontSize: "11rem" }}
+          >
+            PG
+          </span>
+          <span className="relative text-xs font-semibold tracking-[0.18em] text-primary/55 uppercase">
+            Property Manager
+          </span>
+          <div className="relative">
+            <h2 className="text-[2.25rem] leading-[1.02] font-bold tracking-[-0.02em] text-primary">
+              Triya
+              <br />
+              Manager
+            </h2>
+            <p className="mt-4 max-w-[26ch] text-sm leading-relaxed text-primary/70">
+              Rooms, beds, tenants and payments — organized on one precise grid.
+            </p>
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">Triya Manager</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Sign in to manage your properties
+        </div>
+
+        {/* Form panel */}
+        <div className="p-8 sm:p-10 lg:p-12">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Welcome back. Enter your credentials to continue.
+            </p>
+          </div>
+          <LoginForm callbackUrl={callbackUrl ?? "/dashboard"} />
+          <p className="mt-8 text-xs text-muted-foreground">
+            Demo: admin@triya.local · Admin@12345
           </p>
         </div>
-
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <LoginForm callbackUrl={callbackUrl ?? "/dashboard"} />
-        </div>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Demo: admin@triya.local · Admin@12345
-        </p>
       </div>
     </div>
   );

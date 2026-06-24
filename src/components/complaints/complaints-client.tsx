@@ -86,8 +86,8 @@ export function ComplaintsClient({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -124,7 +124,7 @@ export function ComplaintsClient({
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>

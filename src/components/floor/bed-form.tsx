@@ -201,14 +201,14 @@ export function BedForm({ bedId, defaults, existingPhotoKey, onClose }: Props) {
               <button
                 type="button"
                 onClick={clearPhoto}
-                className="absolute -right-2 -top-2 rounded-full border bg-white p-0.5 shadow-sm"
+                className="absolute -right-2 -top-2 rounded-full border border-border bg-background p-1 transition hover:bg-hover"
                 aria-label="Remove image"
               >
                 <X className="size-3.5" />
               </button>
             </div>
           ) : (
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground transition hover:bg-neutral-50">
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-input px-3 py-4 text-sm text-muted-foreground transition hover:bg-hover">
               <Upload className="size-4" />
               Upload image
               <input

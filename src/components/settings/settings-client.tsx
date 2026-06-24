@@ -20,7 +20,7 @@ type Props = {
 
 export function SettingsClient({ user, property, canManageProperty }: Props) {
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-6 xl:grid-cols-2">
       <AccountCard user={user} />
       <PasswordCard />
       <PropertyCard property={property} canManage={canManageProperty} />

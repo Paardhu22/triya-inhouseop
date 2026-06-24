@@ -52,14 +52,14 @@ export function Topbar({ property, properties, user }: Props) {
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-neutral-200 bg-white px-4">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background px-4">
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
             <Menu className="size-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
+        <SheetContent side="left" className="w-64 bg-sidebar p-0 text-sidebar-foreground">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarContent role={user.role} onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
@@ -67,7 +67,7 @@ export function Topbar({ property, properties, user }: Props) {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="flex min-w-0 items-center gap-2 px-2 hover:bg-neutral-100" disabled={isPending}>
+          <Button variant="ghost" className="flex min-w-0 items-center gap-2 px-2.5 hover:bg-hover" disabled={isPending}>
             <div className="flex flex-col items-start min-w-0 text-left">
               <span className="truncate text-sm font-semibold leading-none">{property.name}</span>
               {property.city ? (

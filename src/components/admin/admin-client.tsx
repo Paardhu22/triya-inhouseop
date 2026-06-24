@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BedDouble, Building2, Layers3 } from "lucide-react";
+import { BedDouble } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -36,10 +36,10 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Summary icon={Building2} value={config.floors.length} label="Floors" />
-        <Summary icon={Layers3} value={roomCount} label="Rooms" />
-        <Summary icon={BedDouble} value={bedCount} label="Beds" />
+      <div className="grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-3">
+        <Summary value={config.floors.length} label="Floors" />
+        <Summary value={roomCount} label="Rooms" />
+        <Summary value={bedCount} label="Beds" />
       </div>
 
       <Card>
@@ -131,11 +131,11 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
   );
 }
 
-function Summary({ icon: Icon, value, label }: { icon: typeof Building2; value: number; label: string }) {
+function Summary({ value, label }: { value: number; label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
-      <div className="flex size-9 items-center justify-center rounded-lg bg-muted"><Icon className="size-4" /></div>
-      <div><p className="text-xl font-semibold tabular-nums">{value}</p><p className="text-xs text-muted-foreground">{label}</p></div>
+    <div className="border-t border-border pt-4">
+      <p className="text-3xl font-bold tracking-tight tabular-nums">{value}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{label}</p>
     </div>
   );
 }

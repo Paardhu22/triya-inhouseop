@@ -9,7 +9,6 @@ import { formatINR } from "@/lib/money";
 import { getSelectedPropertyId } from "@/lib/property";
 import { getTenantProfile, type TenantProfile } from "@/lib/queries/tenants";
 import { COMPLAINT_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Tenant profile",
@@ -27,9 +26,11 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border bg-card shadow-sm">
-      <div className="border-b px-4 py-3 text-sm font-medium">{title}</div>
-      <div className="p-4">{children}</div>
+    <div className="rounded-xl border border-border bg-card">
+      <div className="border-b border-border px-5 py-3.5 text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+        {title}
+      </div>
+      <div className="p-5">{children}</div>
     </div>
   );
 }
@@ -84,32 +85,30 @@ export default async function TenantProfilePage({
         Back to tenants
       </Link>
 
-      <div className="flex items-center gap-4 rounded-xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-6">
         {tenant.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/api/files/${tenant.photoUrl}`}
             alt={tenant.fullName}
-            className="size-16 rounded-xl border object-cover"
+            className="size-16 rounded-xl border border-border object-cover"
           />
         ) : (
-          <div className="flex size-16 items-center justify-center rounded-xl border bg-muted text-muted-foreground">
+          <div className="flex size-16 items-center justify-center rounded-xl bg-muted text-muted-foreground">
             <User className="size-7" />
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-xl font-semibold tracking-tight">{tenant.fullName}</h1>
-            <span
-              className={cn(
-                "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
-                active
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400"
-                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400",
-              )}
-            >
-              {active ? "Current" : "Past"}
-            </span>
+          <div className="flex items-center gap-2.5">
+            <h1 className="truncate text-xl font-bold tracking-tight">{tenant.fullName}</h1>
+            {active ? (
+              <span className="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-foreground">
+                <span className="size-1.5 rounded-full bg-available" />
+                Current
+              </span>
+            ) : (
+              <span className="shrink-0 text-xs text-muted-foreground">Past</span>
+            )}
           </div>
           <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
             <Phone className="size-3.5" />

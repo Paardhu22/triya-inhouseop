@@ -17,17 +17,30 @@ export default async function DashboardPage() {
   const data = await getDashboardData(propertyId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-14">
       <PageHeader title="Dashboard" />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label="Total Rooms" value={data.totalRooms} />
-        <StatCard label="Total Beds" value={data.totalBeds} />
-        <StatCard label="Occupied Beds" value={data.occupiedBeds} />
-        <StatCard label="Available Beds" value={data.availableBeds} />
-        <StatCard label="Paid" value={data.paidCount} />
-        <StatCard label="Pending" value={data.pendingCount} />
-      </div>
+      <section>
+        <h2 className="mb-7 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+          Capacity
+        </h2>
+        <div className="grid grid-cols-2 gap-x-10 gap-y-10 lg:grid-cols-4">
+          <StatCard label="Total Rooms" value={data.totalRooms} />
+          <StatCard label="Total Beds" value={data.totalBeds} />
+          <StatCard label="Occupied Beds" value={data.occupiedBeds} />
+          <StatCard label="Available Beds" value={data.availableBeds} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-7 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+          Payments
+        </h2>
+        <div className="grid max-w-md grid-cols-2 gap-x-10 gap-y-10">
+          <StatCard label="Paid" value={data.paidCount} />
+          <StatCard label="Pending" value={data.pendingCount} />
+        </div>
+      </section>
     </div>
   );
 }

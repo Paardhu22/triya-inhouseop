@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Layers, Receipt, TrendingDown } from "lucide-react";
 
 import { ExpenseChart } from "@/components/expenses/expense-chart";
 import { ExpenseFormDialog } from "@/components/expenses/expense-form-dialog";
@@ -28,38 +27,35 @@ export default async function ExpensesPage() {
   const topCategory = stats.byCategory[0];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-10">
       <PageHeader
         title="Expense Tracker"
         description="Log expenses and monitor monthly spending."
         actions={<ExpenseFormDialog />}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-12 gap-y-10 sm:grid-cols-3">
         <StatCard
           label="This month"
           value={formatINR(stats.thisMonthTotal)}
           hint={`${stats.thisMonthCount} ${stats.thisMonthCount === 1 ? "entry" : "entries"}`}
-          icon={TrendingDown}
         />
         <StatCard
           label="Top category"
           value={topCategory ? EXPENSE_CATEGORY_LABEL[topCategory.category] : "—"}
           hint={topCategory ? formatINR(topCategory.total) : "No spend yet"}
-          icon={Layers}
         />
-        <StatCard
-          label="Total entries"
-          value={expenses.length}
-          hint="all time"
-          icon={Receipt}
-        />
+        <StatCard label="Total entries" value={expenses.length} hint="all time" />
       </div>
 
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-medium">Monthly expenses</h3>
-        <ExpenseChart series={stats.series} />
-      </div>
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+          Monthly expenses
+        </h2>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <ExpenseChart series={stats.series} />
+        </div>
+      </section>
 
       <ExpensesClient expenses={expenses} />
     </div>

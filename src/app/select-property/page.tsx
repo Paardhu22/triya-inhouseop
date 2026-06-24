@@ -18,16 +18,21 @@ export default async function SelectPropertyPage() {
   const properties = await listProperties();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-[#2c3040] px-4 py-12">
       <div className="w-full max-w-2xl">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Select a property</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="mb-8">
+          <span className="text-xs font-semibold tracking-[0.18em] text-secondary-surface uppercase">
+            Triya Manager
+          </span>
+          <h1 className="mt-3 text-[2rem] font-bold tracking-tight text-white">
+            Select a property
+          </h1>
+          <p className="mt-2 text-sm text-white/60">
             Choose which PG you want to manage. You can switch anytime from the top bar.
           </p>
         </div>
         {properties.length === 0 ? (
-          <p className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-center text-sm text-white/60">
             No properties have been configured yet.
           </p>
         ) : (

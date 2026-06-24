@@ -24,7 +24,7 @@ export default async function AppLayout({
   const properties = await listProperties();
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <DesktopSidebar role={session.user.role} />
       <div className="flex min-h-screen flex-col md:pl-64">
         <Topbar
@@ -40,10 +40,8 @@ export default async function AppLayout({
             role: session.user.role,
           }}
         />
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-5 md:px-8 md:py-8">
-          <div className="min-h-[calc(100vh-7.5rem)] rounded-3xl bg-neutral-100 p-5 md:p-8">
-            {children}
-          </div>
+        <main className="mx-auto w-full max-w-[1180px] flex-1 px-6 py-10 sm:px-8 lg:px-12 lg:py-14">
+          {children}
         </main>
       </div>
       <PropertyStoreHydrator

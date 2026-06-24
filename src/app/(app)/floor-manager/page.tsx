@@ -13,14 +13,14 @@ export const metadata: Metadata = {
 
 function Legend() {
   return (
-    <div className="flex items-center gap-5 text-sm text-muted-foreground">
+    <div className="flex items-center gap-5 text-xs text-muted-foreground">
       <span className="flex items-center gap-2">
-        <span className="size-3 rounded-full bg-green-500" />
-        Beds available
+        <span className="size-2.5 rounded-full bg-available" />
+        Available
       </span>
       <span className="flex items-center gap-2">
-        <span className="size-3 rounded-full bg-red-500" />
-        Fully occupied
+        <span className="size-2.5 rounded-full bg-occupied" />
+        Occupied
       </span>
     </div>
   );
@@ -53,9 +53,9 @@ export default async function FloorManagerPage({
   const rooms = selectedFloorId ? await getFloorLayout(selectedFloorId, propertyId) : [];
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader title="Floor Manager" />
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <FloorSelectors
           nav={nav}
           selectedBlockId={selectedBlockId}

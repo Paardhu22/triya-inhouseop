@@ -26,7 +26,6 @@ import {
 import { formatINR, paiseToRupees } from "@/lib/money";
 import type { TenantListItem } from "@/lib/queries/tenants";
 import { PAYMENT_STATUS_META } from "@/lib/status";
-import { cn } from "@/lib/utils";
 
 function csvCell(value: string) {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
@@ -97,8 +96,8 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
   }, [tenants, q, statusFilter, sort]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -135,7 +134,7 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -184,16 +183,14 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
-                          active
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400"
-                            : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400",
-                        )}
-                      >
-                        {active ? "Current" : "Past"}
-                      </span>
+                      {active ? (
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-foreground">
+                          <span className="size-1.5 rounded-full bg-available" />
+                          Current
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Past</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

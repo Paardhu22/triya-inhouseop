@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ADMIN_NAV, MAIN_NAV, type NavItem } from "./nav-config";
@@ -17,17 +16,19 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         active
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
-          : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+          : "text-sidebar-foreground/55 hover:bg-sidebar-accent/55 hover:text-sidebar-foreground",
       )}
     >
-      <Icon className="size-4 shrink-0" />
+      <Icon className="size-[18px] shrink-0" strokeWidth={active ? 2 : 1.75} />
       {item.label}
     </Link>
   );
 }
+
+import Image from "next/image";
 
 export function SidebarContent({
   role,
@@ -38,12 +39,15 @@ export function SidebarContent({
 }) {
   const secondaryNav = ADMIN_NAV.filter((item) => item.href !== "/admin" || role === "ADMIN");
   return (
-    <div className="flex h-full flex-col px-3 py-4">
-      <div className="mb-5 flex items-center gap-2.5 px-2">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Building2 className="size-4" />
-        </div>
-        <span className="text-sm font-semibold tracking-tight">Triya Manager</span>
+    <div className="flex h-full flex-col px-3 py-6">
+      <div className="mb-8 flex h-12 items-center px-3">
+        <Image 
+          src="/logo.png" 
+          alt="Triya Logo" 
+          width={160} 
+          height={48} 
+          className="object-contain"
+        />
       </div>
 
       <nav className="flex flex-col gap-0.5">
@@ -52,7 +56,7 @@ export function SidebarContent({
         ))}
       </nav>
 
-      <div className="my-3 h-px bg-sidebar-border" />
+      <div className="my-4 h-px bg-sidebar-border" />
 
       <nav className="flex flex-col gap-0.5">
         {secondaryNav.map((item) => (
@@ -65,7 +69,7 @@ export function SidebarContent({
 
 export function DesktopSidebar({ role }: { role: string }) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-sidebar text-sidebar-foreground md:block">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-sidebar text-sidebar-foreground md:block">
       <SidebarContent role={role} />
     </aside>
   );

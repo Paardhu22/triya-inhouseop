@@ -102,11 +102,11 @@ export function RoomCapacityDialog({ room }: { room: Room }) {
               <p className="text-xs text-muted-foreground">Current</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-red-600 dark:text-red-400">{occupied.length}</p>
+              <p className="text-lg font-semibold text-occupied">{occupied.length}</p>
               <p className="text-xs text-muted-foreground">Occupied</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{available.length}</p>
+              <p className="text-lg font-semibold text-available">{available.length}</p>
               <p className="text-xs text-muted-foreground">Available</p>
             </div>
           </div>

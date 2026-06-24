@@ -14,15 +14,17 @@ function RoomCard({ room, onOpen }: { room: FloorRoom; onOpen: () => void }) {
   return (
     <button
       onClick={onOpen}
-      className="flex flex-col items-center gap-3 rounded-2xl bg-white p-6 shadow-sm transition hover:shadow-md"
+      className="flex aspect-square flex-col items-center justify-center gap-3 rounded-xl bg-card transition-[transform,background-color] duration-150 hover:bg-hover active:scale-[0.97]"
     >
       <span
         className={cn(
-          "size-5 rounded-full",
-          hasAvailable ? "bg-green-500" : "bg-red-500",
+          "size-3.5 rounded-full",
+          hasAvailable ? "bg-available" : "bg-occupied",
         )}
       />
-      <span className="text-xl font-semibold tabular-nums">{room.number}</span>
+      <span className="text-xl font-semibold tabular-nums tracking-tight text-foreground">
+        {room.number}
+      </span>
     </button>
   );
 }
@@ -36,7 +38,7 @@ export function FloorBoard({ rooms }: { rooms: FloorRoom[] }) {
 
   if (rooms.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-16 text-center text-sm text-muted-foreground shadow-sm">
+      <div className="rounded-3xl bg-secondary-surface px-6 py-24 text-center text-sm text-primary/55">
         No rooms on this floor yet.
       </div>
     );
@@ -44,10 +46,16 @@ export function FloorBoard({ rooms }: { rooms: FloorRoom[] }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {rooms.map((room) => (
-          <RoomCard key={room.id} room={room} onOpen={() => setOpenRoomId(room.id)} />
-        ))}
+      <div className="rounded-3xl bg-secondary-surface p-5 sm:p-8 lg:p-12">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {rooms.map((room) => (
+            <RoomCard
+              key={room.id}
+              room={room}
+              onOpen={() => setOpenRoomId(room.id)}
+            />
+          ))}
+        </div>
       </div>
 
       <RoomView

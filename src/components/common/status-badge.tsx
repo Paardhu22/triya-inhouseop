@@ -1,25 +1,24 @@
 import { cn } from "@/lib/utils";
 
-type Meta = { label: string; badge: string; dot: string };
+type Meta = { label: string; dot: string };
 
 export function StatusBadge({
   meta,
-  dot = false,
   className,
 }: {
   meta: Meta;
+  /** Retained for call-site compatibility; the dot is always shown now. */
   dot?: boolean;
   className?: string;
 }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-        meta.badge,
+        "inline-flex items-center gap-2 text-xs font-medium whitespace-nowrap text-foreground",
         className,
       )}
     >
-      {dot ? <span className={cn("size-1.5 rounded-full", meta.dot)} /> : null}
+      <span className={cn("size-1.5 shrink-0 rounded-full", meta.dot)} />
       {meta.label}
     </span>
   );

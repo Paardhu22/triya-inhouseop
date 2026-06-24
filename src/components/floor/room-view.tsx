@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 function bedState(bed: FloorRoom["beds"][number]) {
   const tenancy = bed.tenancies[0];
   if (!tenancy || bed.status !== "OCCUPIED") {
-    return { label: "Empty", cardClass: "bg-green-100" };
+    return { label: "Empty", cardClass: "bg-available-soft" };
   }
   if (tenancy.paymentStatus === "PAID") {
-    return { label: "Paid", cardClass: "bg-pink-100" };
+    return { label: "Paid", cardClass: "bg-occupied-soft" };
   }
-  return { label: "Not Paid", cardClass: "bg-pink-100" };
+  return { label: "Not Paid", cardClass: "bg-occupied-soft" };
 }
 
 export function RoomView({
@@ -40,7 +40,7 @@ export function RoomView({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-5 py-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 py-2 sm:grid-cols-3">
           {room?.beds.map((bed) => {
             const state = bedState(bed);
             return (
@@ -48,14 +48,16 @@ export function RoomView({
                 key={bed.id}
                 onClick={() => onSelectBed(bed.id)}
                 className={cn(
-                  "flex min-h-[200px] flex-col items-center justify-between rounded-3xl p-5 transition hover:brightness-95",
+                  "flex min-h-[168px] flex-col items-center justify-between rounded-2xl p-6 transition duration-150 hover:brightness-[0.98] active:scale-[0.98]",
                   state.cardClass,
                 )}
               >
-                <span className="rounded-xl bg-white px-4 py-2 text-sm font-medium shadow-sm">
+                <span className="text-xs font-semibold tracking-[0.08em] text-foreground/65 uppercase">
                   {state.label}
                 </span>
-                <span className="text-lg font-semibold">Bed {bed.label}</span>
+                <span className="text-base font-semibold tracking-tight text-foreground">
+                  Bed {bed.label}
+                </span>
               </button>
             );
           })}

@@ -38,7 +38,7 @@ export function PropertyPicker({ properties }: { properties: Item[] }) {
             onClick={() => choose(p.id)}
             disabled={pending}
             className={cn(
-              "group flex items-center gap-4 rounded-xl border bg-card p-5 text-left shadow-sm transition hover:border-primary/40 hover:shadow disabled:opacity-60",
+              "group flex items-center gap-4 rounded-xl border border-border bg-card p-6 text-left transition-colors duration-150 hover:bg-hover/50 disabled:opacity-60",
               selectedId === p.id && "border-primary",
             )}
           >
