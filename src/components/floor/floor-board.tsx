@@ -49,33 +49,36 @@ export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; proper
   }
 
   const N = rooms.length;
-  const firstRowSize = N === 1 ? 1 : Math.floor(N / 2);
-  const secondRowSize = N === 1 ? 0 : Math.ceil(N / 2);
-  const cols = Math.max(firstRowSize, secondRowSize);
+  let firstRowSize = 0;
+  let secondRowSize = 0;
 
-  const gridItems: (FloorRoom | null)[] = [];
-  for (let i = 0; i < firstRowSize; i++) {
-    gridItems.push(rooms[i]);
+  if (N === 1) {
+    firstRowSize = 1;
+    secondRowSize = 0;
+  } else if (N % 2 === 0) {
+    firstRowSize = N / 2;
+    secondRowSize = N / 2;
+  } else {
+    firstRowSize = Math.ceil(N / 2);
+    secondRowSize = Math.floor(N / 2);
   }
-  for (let i = firstRowSize; i < cols; i++) {
-    gridItems.push(null);
-  }
-  for (let i = 0; i < secondRowSize; i++) {
-    gridItems.push(rooms[firstRowSize + i]);
-  }
+
+  const cols = Math.max(firstRowSize, secondRowSize);
+  const firstRowRooms = rooms.slice(0, firstRowSize);
+  const secondRowRooms = rooms.slice(firstRowSize);
 
   return (
     <>
       <div className="rounded-3xl bg-[#E4E4E4] p-5 sm:p-8 lg:p-12">
-        <div 
-          className="grid gap-3 sm:gap-4"
-          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-        >
-          {gridItems.map((room, idx) => {
-            if (room === null) {
-              return <div key={`empty-${idx}`} className="aspect-square" />;
-            }
-            return (
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div 
+            className="grid gap-3 sm:gap-4 mx-auto"
+            style={{ 
+              gridTemplateColumns: `repeat(${firstRowSize}, minmax(0, 1fr))`,
+              width: `${(firstRowSize / cols) * 100}%`
+            }}
+          >
+            {firstRowRooms.map((room) => (
               <RoomCard
                 key={room.id}
                 room={room}
@@ -87,8 +90,32 @@ export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; proper
                   }
                 }}
               />
-            );
-          })}
+            ))}
+          </div>
+
+          {secondRowSize > 0 && (
+            <div 
+              className="grid gap-3 sm:gap-4 mx-auto"
+              style={{ 
+                gridTemplateColumns: `repeat(${secondRowSize}, minmax(0, 1fr))`,
+                width: `${(secondRowSize / cols) * 100}%`
+              }}
+            >
+              {secondRowRooms.map((room) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  propertySlug={propertySlug}
+                  onOpen={() => {
+                    setOpenRoomId(room.id);
+                    if (propertySlug === "cozy-gowlidoddy" && room.beds.length > 0) {
+                      setOpenBedId(room.beds[0].id);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
