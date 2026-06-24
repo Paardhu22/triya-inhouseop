@@ -84,13 +84,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-col gap-2">
-        <PageHeader title="Dashboard" />
-        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-          <Sparkles className="size-4 text-amber-500 animate-pulse" />
-          Real-time overview of <span className="font-semibold text-foreground">{property.name}</span>
-        </p>
-      </div>
+      <PageHeader title="Dashboard" />
 
       {/* Capacity & Summary Stats */}
       <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
