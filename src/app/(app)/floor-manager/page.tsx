@@ -74,6 +74,8 @@ export default async function FloorManagerPage({
         <Legend />
       </div>
       <FloorBoard rooms={rooms} />
+      {/* Spacer to prevent fixed footer from covering content when scrolling */}
+      <div className="h-56 sm:h-[260px] md:h-[300px] lg:h-[350px]" />
       <FloorBanner 
         floorNumber={activeFloorNumber} 
         totalFloors={totalFloors} 
