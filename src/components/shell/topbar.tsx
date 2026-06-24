@@ -67,17 +67,21 @@ export function Topbar({ property, properties, user }: Props) {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="flex min-w-0 items-center gap-2 px-2.5 hover:bg-hover" disabled={isPending}>
+          <Button 
+            variant="outline" 
+            className="flex min-w-[160px] sm:min-w-[200px] h-10 items-center justify-between gap-2 px-3 py-1.5 rounded-lg border border-border bg-card shadow-2xs hover:bg-muted/50" 
+            disabled={isPending}
+          >
             <div className="flex flex-col items-start min-w-0 text-left">
-              <span className="truncate text-sm font-semibold leading-none">{property.name}</span>
+              <span className="truncate text-xs font-semibold leading-none text-foreground">{property.name}</span>
               {property.city ? (
-                <span className="truncate text-xs text-muted-foreground mt-1">{property.city}</span>
+                <span className="truncate text-[10px] text-muted-foreground mt-0.5">{property.city}</span>
               ) : null}
             </div>
             {isPending ? (
-              <Loader2 className="size-4 animate-spin text-muted-foreground shrink-0 ml-1" />
+              <Loader2 className="size-3.5 animate-spin text-muted-foreground shrink-0 ml-1" />
             ) : (
-              <ChevronDown className="size-4 text-muted-foreground shrink-0 ml-1" />
+              <ChevronDown className="size-3.5 text-muted-foreground shrink-0 ml-1" />
             )}
           </Button>
         </DropdownMenuTrigger>
