@@ -54,15 +54,6 @@ const roseGridStyle = {
   backgroundColor: "rgba(244, 63, 94, 0.015)",
 };
 
-const dashboardBackgroundStyle = {
-  backgroundSize: "20px 20px",
-  backgroundImage: `
-    linear-gradient(to right, rgba(234, 179, 8, 0.045) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(234, 179, 8, 0.045) 1px, transparent 1px)
-  `,
-  backgroundColor: "#fefdf6",
-};
-
 const paymentStatusColors: Record<PaymentStatus, string> = {
   PAID: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono",
   PENDING: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono",
@@ -92,10 +83,7 @@ export default async function DashboardPage() {
   const occupancyRate = totalUnits > 0 ? Math.round((data.occupiedBeds / totalUnits) * 100) : 0;
 
   return (
-    <div 
-      className="space-y-10 p-6 sm:p-8 lg:p-12 rounded-3xl border border-border/80 shadow-2xs" 
-      style={dashboardBackgroundStyle}
-    >
+    <div className="space-y-10">
       <PageHeader title="Dashboard" />
 
       {/* Capacity & Summary Stats */}
