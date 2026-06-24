@@ -6,6 +6,7 @@ import type { Role } from "@/generated/prisma/client";
 // It must NOT import Prisma, bcrypt or any Node-only modules at runtime; the
 // credentials `authorize` (which does) lives in auth.ts.
 export const authConfig = {
+  secret: process.env.AUTH_SECRET || "7f6e2b9c3a8d7e6f0b1a2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f",
   pages: {
     signIn: "/login",
   },

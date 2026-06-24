@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { PropertyStoreHydrator } from "@/components/shell/property-store-hydrator";
 import { DesktopSidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
-import { getActiveProperty } from "@/lib/property";
+import { getActiveProperty, listProperties } from "@/lib/property";
 
 export default async function AppLayout({
   children,
@@ -20,13 +20,20 @@ export default async function AppLayout({
   if (!property) {
     redirect("/select-property");
   }
+  
+  const properties = await listProperties();
 
   return (
     <div className="min-h-screen bg-white">
       <DesktopSidebar role={session.user.role} />
       <div className="flex min-h-screen flex-col md:pl-64">
         <Topbar
-          property={{ name: property.name, city: property.city }}
+          property={{ id: property.id, name: property.name, city: property.city }}
+          properties={properties.map((p) => ({
+            id: p.id,
+            name: p.name,
+            city: p.city,
+          }))}
           user={{
             name: session.user.name,
             email: session.user.email,
