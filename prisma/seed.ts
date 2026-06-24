@@ -66,7 +66,7 @@ const PROPERTIES: PropertyConfig[] = [
           description: "Block A: 10 rooms per floor.",
           rooms: [2, 2, 2, 3, 2, 2, 3, 2, 3, 3],
         },
-        floors: [1, 2].map((number) => ({ number, name: `Floor ${number}` })),
+        floors: [1, 2, 3, 4, 5, 6].map((number) => ({ number, name: `Floor ${number}` })),
       },
       {
         name: "B",
@@ -75,7 +75,7 @@ const PROPERTIES: PropertyConfig[] = [
           description: "Block B: 10 rooms per floor.",
           rooms: [2, 2, 2, 3, 3, 3, 3, 2, 3, 2],
         },
-        floors: [1, 2].map((number) => ({ number, name: `Floor ${number}` })),
+        floors: [1, 2, 3, 4, 5, 6].map((number) => ({ number, name: `Floor ${number}` })),
       },
     ],
   },
