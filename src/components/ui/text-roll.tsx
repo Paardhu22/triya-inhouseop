@@ -21,7 +21,7 @@ export default function TextRoll({
       initial="initial"
       whileHover="hovered"
       className={cn(
-        "relative block overflow-hidden text-black dark:text-white/90",
+        "relative block overflow-hidden",
         className
       )}
       style={{
