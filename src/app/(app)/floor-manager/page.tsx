@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { FloorBoard } from "@/components/floor/floor-board";
 import { FloorSelectors } from "@/components/floor/floor-selectors";
+import { FloorBanner } from "@/components/floor/floor-banner";
 import { PageHeader } from "@/components/shell/page-header";
 import { getFloorLayout, getFloorNavigation } from "@/lib/queries/floor";
 import { getSelectedPropertyId } from "@/lib/property";
@@ -13,14 +14,14 @@ export const metadata: Metadata = {
 
 function Legend() {
   return (
-    <div className="flex items-center gap-5 text-xs text-muted-foreground">
+    <div className="flex items-center gap-5 text-sm text-muted-foreground">
       <span className="flex items-center gap-2">
-        <span className="size-2.5 rounded-full bg-available" />
-        Available
+        <span className="size-3 rounded-full bg-green-500" />
+        Beds available
       </span>
       <span className="flex items-center gap-2">
-        <span className="size-2.5 rounded-full bg-occupied" />
-        Occupied
+        <span className="size-3 rounded-full bg-red-500" />
+        Fully occupied
       </span>
     </div>
   );
@@ -50,12 +51,21 @@ export default async function FloorManagerPage({
     selectedFloorId = (nav.floors.find((f) => f.id === floor) ?? nav.floors[0])?.id ?? null;
   }
 
+  const floors = nav.hasBlocks
+    ? (nav.blocks.find((b) => b.id === selectedBlockId)?.floors ?? [])
+    : nav.floors;
+
+  const activeFloor = floors.find((f) => f.id === selectedFloorId) ?? floors[0];
+  const activeFloorNumber = activeFloor ? activeFloor.number : 1;
+  const currentFloorIndex = activeFloor ? floors.indexOf(activeFloor) : 0;
+  const totalFloors = floors.length;
+
   const rooms = selectedFloorId ? await getFloorLayout(selectedFloorId, propertyId) : [];
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader title="Floor Manager" />
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <FloorSelectors
           nav={nav}
           selectedBlockId={selectedBlockId}
@@ -64,6 +74,11 @@ export default async function FloorManagerPage({
         <Legend />
       </div>
       <FloorBoard rooms={rooms} />
+      <FloorBanner 
+        floorNumber={activeFloorNumber} 
+        totalFloors={totalFloors} 
+        currentFloorIndex={currentFloorIndex} 
+      />
     </div>
   );
 }
