@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Summary counts, collections, and recent activity for the dashboard.
+ * Summary counts, collections, recent activity, and breakdown stats for the dashboard.
  */
 export async function getDashboardData(propertyId: string) {
   const scope = { propertyId };
@@ -28,6 +28,7 @@ export async function getDashboardData(propertyId: string) {
     expensesSum,
     recentPayments,
     recentComplaints,
+    roomsWithBeds,
   ] = await Promise.all([
     prisma.room.count({ where: scope }),
     prisma.bed.count({ where: scope }),
@@ -76,7 +77,59 @@ export async function getDashboardData(propertyId: string) {
         tenant: { select: { fullName: true } },
       },
     }),
+    prisma.room.findMany({
+      where: { propertyId },
+      select: {
+        sharingType: true,
+        floor: {
+          select: {
+            block: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+        beds: {
+          select: { status: true },
+        },
+      },
+    }),
   ]);
+
+  // Group rooms in memory to calculate sharing and block breakdowns
+  const sharingMap: Record<number, { rooms: number; beds: number; occupied: number; available: number }> = {};
+  const blockMap: Record<string, { name: string; rooms: number; beds: number; occupied: number; available: number }> = {};
+
+  for (const room of roomsWithBeds) {
+    const type = room.sharingType;
+    if (!sharingMap[type]) {
+      sharingMap[type] = { rooms: 0, beds: 0, occupied: 0, available: 0 };
+    }
+    sharingMap[type].rooms += 1;
+    sharingMap[type].beds += room.beds.length;
+    sharingMap[type].occupied += room.beds.filter((b) => b.status === "OCCUPIED").length;
+    sharingMap[type].available += room.beds.filter((b) => b.status === "AVAILABLE").length;
+
+    const block = room.floor.block;
+    if (block) {
+      if (!blockMap[block.id]) {
+        blockMap[block.id] = { name: block.name, rooms: 0, beds: 0, occupied: 0, available: 0 };
+      }
+      blockMap[block.id].rooms += 1;
+      blockMap[block.id].beds += room.beds.length;
+      blockMap[block.id].occupied += room.beds.filter((b) => b.status === "OCCUPIED").length;
+      blockMap[block.id].available += room.beds.filter((b) => b.status === "AVAILABLE").length;
+    }
+  }
+
+  const sharingBreakdown = Object.entries(sharingMap)
+    .map(([sharingType, stats]) => ({
+      sharingType: Number(sharingType),
+      ...stats,
+    }))
+    .sort((a, b) => a.sharingType - b.sharingType);
+
+  const blockBreakdown = Object.values(blockMap)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return {
     totalRooms,
@@ -89,6 +142,8 @@ export async function getDashboardData(propertyId: string) {
     monthlyExpenses: expensesSum._sum.amount ?? 0,
     recentPayments,
     recentComplaints,
+    sharingBreakdown,
+    blockBreakdown,
   };
 }
 

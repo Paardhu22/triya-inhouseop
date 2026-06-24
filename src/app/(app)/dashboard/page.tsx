@@ -4,15 +4,14 @@ import { format } from "date-fns";
 import {
   Home,
   BedDouble,
-  TrendingUp,
-  TrendingDown,
-  ClipboardList,
-  Wallet,
-  CheckCircle2,
-  AlertCircle,
   Percent,
   Coins,
+  TrendingDown,
+  Wallet,
+  ClipboardList,
   ArrowUpRight,
+  CheckCircle2,
+  AlertCircle,
   Sparkles,
 } from "lucide-react";
 
@@ -53,7 +52,6 @@ export default async function DashboardPage() {
 
   const totalUnits = isFlat ? data.totalRooms : data.totalBeds;
   const occupancyRate = totalUnits > 0 ? Math.round((data.occupiedBeds / totalUnits) * 100) : 0;
-  const netBalance = data.monthlyCollections - data.monthlyExpenses;
 
   return (
     <div className="space-y-10">
@@ -153,34 +151,77 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      {/* Financial Health Summary Banner */}
-      <section className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
-              Financial Health (This Month)
-            </h3>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-foreground">
-                Net Cashflow:
-              </span>
-              <span className={`text-2xl font-black ${netBalance >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                {netBalance >= 0 ? "+" : ""}{formatINR(netBalance)}
-              </span>
-            </div>
-          </div>
-          <div className="flex-1 max-w-md space-y-2">
-            <div className="flex justify-between text-xs font-medium text-muted-foreground">
-              <span className="flex items-center gap-1"><Coins className="size-3.5 text-emerald-500" /> Collections</span>
-              <span className="flex items-center gap-1"><TrendingDown className="size-3.5 text-rose-500" /> Expenses</span>
-            </div>
-            <div className="relative h-2.5 w-full rounded-full bg-rose-500/20 overflow-hidden">
-              <div 
-                className="h-full bg-emerald-500 transition-all duration-500"
-                style={{ width: `${data.monthlyCollections + data.monthlyExpenses > 0 ? (data.monthlyCollections / (data.monthlyCollections + data.monthlyExpenses)) * 100 : 100}%` }}
-              />
-            </div>
-          </div>
+      {/* Detailed Capacity Breakdown */}
+      <section className="space-y-4">
+        <h2 className="text-xs font-bold tracking-[0.16em] text-muted-foreground uppercase">
+          {isFlat ? "Flat Type Breakdown" : "Room Capacity Breakdown"}
+        </h2>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {isFlat
+            ? data.blockBreakdown.map((b) => {
+                const name =
+                  b.name === "A"
+                    ? "Block A (STUDIO)"
+                    : b.name === "B"
+                      ? "Block B (Premium)"
+                      : b.name === "C"
+                        ? "Block C (Hotel)"
+                        : `Block ${b.name}`;
+                const blockOccupancy = b.rooms > 0 ? Math.round((b.occupied / b.rooms) * 100) : 0;
+                return (
+                  <div
+                    key={b.name}
+                    className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:shadow-md flex flex-col justify-between border-t-4 border-t-blue-500"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{name}</p>
+                      <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                        {b.rooms} <span className="text-xs font-medium text-muted-foreground">Flats</span>
+                      </p>
+                    </div>
+                    <div className="mt-4 space-y-1.5">
+                      <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                        <span>{b.occupied} Occupied</span>
+                        <span>{b.available} Available</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-blue-500/10 overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500 transition-all duration-500"
+                          style={{ width: `${blockOccupancy}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            : data.sharingBreakdown.map((s) => {
+                const sharingOccupancy = s.beds > 0 ? Math.round((s.occupied / s.beds) * 100) : 0;
+                return (
+                  <div
+                    key={s.sharingType}
+                    className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:shadow-md flex flex-col justify-between border-t-4 border-t-purple-500"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{s.sharingType} Sharing</p>
+                      <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                        {s.rooms} <span className="text-xs font-medium text-muted-foreground font-medium">Rooms</span>
+                      </p>
+                    </div>
+                    <div className="mt-4 space-y-1.5">
+                      <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                        <span>{s.occupied}/{s.beds} Beds Occupied</span>
+                        <span>{s.available} Available</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-purple-500/10 overflow-hidden">
+                        <div
+                          className="h-full bg-purple-500 transition-all duration-500"
+                          style={{ width: `${sharingOccupancy}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
         </div>
       </section>
 
