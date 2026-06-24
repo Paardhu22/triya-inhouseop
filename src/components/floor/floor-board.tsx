@@ -14,11 +14,11 @@ function RoomCard({ room, onOpen }: { room: FloorRoom; onOpen: () => void }) {
   return (
     <button
       onClick={onOpen}
-      className="flex aspect-square flex-col items-center justify-center gap-3 rounded-xl bg-card transition-[transform,background-color] duration-150 hover:bg-hover active:scale-[0.97]"
+      className="flex aspect-square flex-col items-center justify-center gap-3 rounded-xl bg-transparent transition-[transform,background-color] duration-150 hover:bg-black/5 active:scale-[0.97]"
     >
       <span
         className={cn(
-          "size-3.5 rounded-full",
+          "size-6 rounded-full",
           hasAvailable ? "bg-available" : "bg-occupied",
         )}
       />
@@ -38,23 +38,47 @@ export function FloorBoard({ rooms }: { rooms: FloorRoom[] }) {
 
   if (rooms.length === 0) {
     return (
-      <div className="rounded-3xl bg-secondary-surface px-6 py-24 text-center text-sm text-primary/55">
+      <div className="rounded-3xl bg-[#E4E4E4] px-6 py-24 text-center text-sm text-primary/55">
         No rooms on this floor yet.
       </div>
     );
   }
 
+  const N = rooms.length;
+  const firstRowSize = N === 1 ? 1 : Math.floor(N / 2);
+  const secondRowSize = N === 1 ? 0 : Math.ceil(N / 2);
+  const cols = Math.max(firstRowSize, secondRowSize);
+
+  const gridItems: (FloorRoom | null)[] = [];
+  for (let i = 0; i < firstRowSize; i++) {
+    gridItems.push(rooms[i]);
+  }
+  for (let i = firstRowSize; i < cols; i++) {
+    gridItems.push(null);
+  }
+  for (let i = 0; i < secondRowSize; i++) {
+    gridItems.push(rooms[firstRowSize + i]);
+  }
+
   return (
     <>
-      <div className="rounded-3xl bg-secondary-surface p-5 sm:p-8 lg:p-12">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {rooms.map((room) => (
-            <RoomCard
-              key={room.id}
-              room={room}
-              onOpen={() => setOpenRoomId(room.id)}
-            />
-          ))}
+      <div className="rounded-3xl bg-[#E4E4E4] p-5 sm:p-8 lg:p-12">
+        <div 
+          className="grid gap-3 sm:gap-4"
+          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+        >
+          {gridItems.map((room, idx) => {
+            if (room === null) {
+              return <div key={`empty-${idx}`} className="aspect-square" />;
+            }
+            return (
+              <RoomCard
+                key={room.id}
+                room={room}
+                onOpen={() => setOpenRoomId(room.id)}
+              />
+            );
+          })}
         </div>
       </div>
 
