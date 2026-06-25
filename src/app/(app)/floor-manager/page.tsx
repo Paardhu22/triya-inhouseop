@@ -16,11 +16,15 @@ function Legend() {
   return (
     <div className="flex items-center gap-5 text-sm text-muted-foreground">
       <span className="flex items-center gap-2">
-        <span className="size-3 rounded-full bg-green-500" />
+        <span className="size-3 rounded-full bg-available" />
         Beds available
       </span>
       <span className="flex items-center gap-2">
-        <span className="size-3 rounded-full bg-red-500" />
+        <span className="size-3 rounded-full bg-[#f59e0b]" />
+        Partially occupied
+      </span>
+      <span className="flex items-center gap-2">
+        <span className="size-3 rounded-full bg-occupied" />
         Fully occupied
       </span>
     </div>

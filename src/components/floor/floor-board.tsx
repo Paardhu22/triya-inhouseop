@@ -9,7 +9,8 @@ import { RoomView } from "./room-view";
 
 function RoomCard({ room, propertySlug, onOpen }: { room: FloorRoom; propertySlug?: string; onOpen: () => void }) {
   const occupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
-  const hasAvailable = room.beds.length === 0 || occupied < room.beds.length;
+  const isPartiallyOccupied = occupied > 0 && occupied < room.beds.length;
+  const isFullyOccupied = room.beds.length > 0 && occupied === room.beds.length;
   const isFlat = propertySlug === "cozy-gowlidoddy";
 
   return (
@@ -20,7 +21,7 @@ function RoomCard({ room, propertySlug, onOpen }: { room: FloorRoom; propertySlu
       <span
         className={cn(
           "size-5 sm:size-6 rounded-full",
-          hasAvailable ? "bg-available" : "bg-occupied",
+          isFullyOccupied ? "bg-occupied" : isPartiallyOccupied ? "bg-[#f59e0b]" : "bg-available",
         )}
       />
       <span className="text-base sm:text-xl font-semibold tabular-nums tracking-tight text-foreground">

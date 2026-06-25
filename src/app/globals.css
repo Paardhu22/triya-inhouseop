@@ -44,6 +44,8 @@
   --color-grid-accent: var(--grid-accent);
   --color-available: var(--available);
   --color-available-soft: var(--available-soft);
+  --color-partial: var(--partial);
+  --color-partial-soft: var(--partial-soft);
   --color-occupied: var(--occupied);
   --color-occupied-soft: var(--occupied-soft);
 
@@ -101,6 +103,8 @@
   --grid-accent: #e8c9bf;
   --available: #4d8a4c;
   --available-soft: #e6efe5;
+  --partial: #f59e0b;
+  --partial-soft: #fef3c7;
   --occupied: #c84b4b;
   --occupied-soft: #f6e4e1;
 
