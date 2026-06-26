@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft, FileText, Phone, User } from "lucide-react";
+import { ArrowLeft, FileText, Mail, Phone, User } from "lucide-react";
 
 import { StatusBadge } from "@/components/common/status-badge";
 import { formatINR } from "@/lib/money";
 import { getActiveProperty } from "@/lib/property";
 import { getTenantProfile, type TenantProfile } from "@/lib/queries/tenants";
 import { COMPLAINT_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
+import { DeleteTenantButton } from "@/components/tenants/delete-tenant-button";
 
 export const metadata: Metadata = {
   title: "Tenant profile",
@@ -87,43 +88,54 @@ export default async function TenantProfilePage({
         Back to tenants
       </Link>
 
-      <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-6">
-        {tenant.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/api/files/${tenant.photoUrl}`}
-            alt={tenant.fullName}
-            className="size-16 rounded-xl border border-border object-cover"
-          />
-        ) : (
-          <div className="flex size-16 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-            <User className="size-7" />
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="truncate text-xl font-bold tracking-tight">{tenant.fullName}</h1>
-            {active ? (
-              <span className="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-foreground">
-                <span className="size-1.5 rounded-full bg-available" />
-                Current
-              </span>
-            ) : (
-              <span className="shrink-0 text-xs text-muted-foreground">Past</span>
-            )}
-          </div>
-          <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
-            <Phone className="size-3.5" />
-            {tenant.phone}
-          </p>
-          {active ? (
-            <p className="text-sm text-muted-foreground">
-              {isFlat
-                ? `Flat ${active.bed.room.number}`
-                : `Room ${active.bed.room.number} · Bed ${active.bed.label}`}{" "}
-              · {formatINR(active.monthlyRent)}/mo
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border bg-card p-6">
+        <div className="flex items-center gap-4 min-w-0">
+          {tenant.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/files/${tenant.photoUrl}`}
+              alt={tenant.fullName}
+              className="size-16 rounded-xl border border-border object-cover shrink-0"
+            />
+          ) : (
+            <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <User className="size-7" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5">
+              <h1 className="truncate text-xl font-bold tracking-tight">{tenant.fullName}</h1>
+              {active ? (
+                <span className="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-foreground">
+                  <span className="size-1.5 rounded-full bg-available" />
+                  Current
+                </span>
+              ) : (
+                <span className="shrink-0 text-xs text-muted-foreground">Past</span>
+              )}
+            </div>
+            <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
+              <Phone className="size-3.5" />
+              {tenant.phone}
             </p>
-          ) : null}
+            {tenant.email ? (
+              <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
+                <Mail className="size-3.5" />
+                {tenant.email}
+              </p>
+            ) : null}
+            {active ? (
+              <p className="text-sm text-muted-foreground">
+                {isFlat
+                  ? `Flat ${active.bed.room.number}`
+                  : `Room ${active.bed.room.number} · Bed ${active.bed.label}`}{" "}
+                · {formatINR(active.monthlyRent)}/mo
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center sm:self-center">
+          <DeleteTenantButton id={tenant.id} />
         </div>
       </div>
 

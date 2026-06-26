@@ -8,7 +8,11 @@ export const saveBedSchema = z.object({
   occupancyStatus: z.enum(["AVAILABLE", "OCCUPIED"]),
   fullName: z.string().trim().min(2, "Tenant name is required").max(120).optional(),
   phone: z.string().trim().min(7, "Enter a valid phone number").max(20).optional(),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
   rentAmount: z.coerce.number().int("Enter a valid amount").min(0).max(10_000_000).optional(),
+  // Rupees at the form boundary; converted to paise in the action.
+  maintenanceCharge: z.coerce.number().int().min(0).max(10_000_000).optional().default(0),
+  securityDeposit: z.coerce.number().min(0).max(10_000_000).optional(),
   checkInDate: z.coerce.date().optional(),
   paymentStatus: z.enum(["PAID", "PENDING"]).optional(),
 });
@@ -20,11 +24,17 @@ export const bedFormSchema = z
     occupancyStatus: z.enum(["AVAILABLE", "OCCUPIED"]),
     fullName: z.string().trim().max(120),
     phone: z.string().trim().max(20),
+    email: z.string().trim().max(254),
     rentAmount: z.string(),
+    maintenanceCharge: z.string(),
+    securityDeposit: z.string(),
     checkInDate: z.string(),
     paymentStatus: z.enum(["PAID", "PENDING"]),
   })
   .superRefine((val, ctx) => {
+    if (val.email && !z.string().email().safeParse(val.email).success) {
+      ctx.addIssue({ code: "custom", path: ["email"], message: "Invalid email address" });
+    }
     if (val.occupancyStatus !== "OCCUPIED") return;
     if (val.fullName.trim().length < 2) {
       ctx.addIssue({ code: "custom", path: ["fullName"], message: "Tenant name is required" });
@@ -34,6 +44,26 @@ export const bedFormSchema = z
     }
     if (!val.rentAmount || Number.isNaN(Number(val.rentAmount)) || Number(val.rentAmount) < 0) {
       ctx.addIssue({ code: "custom", path: ["rentAmount"], message: "Enter the rent amount" });
+    }
+    if (
+      val.maintenanceCharge &&
+      (Number.isNaN(Number(val.maintenanceCharge)) || Number(val.maintenanceCharge) < 0)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["maintenanceCharge"],
+        message: "Enter a valid amount",
+      });
+    }
+    if (
+      val.securityDeposit &&
+      (Number.isNaN(Number(val.securityDeposit)) || Number(val.securityDeposit) < 0)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["securityDeposit"],
+        message: "Enter a valid amount",
+      });
     }
     if (!val.checkInDate) {
       ctx.addIssue({ code: "custom", path: ["checkInDate"], message: "Select a check-in date" });
