@@ -61,6 +61,13 @@ enum ComplaintPriority {
   HIGH
 }
 
+enum DepositStatus {
+  PENDING
+  REFUNDABLE
+  FORFEITED
+  ADJUSTED
+}
+
 enum ExpenseCategory {
   ELECTRICITY
   WATER
@@ -293,6 +300,7 @@ model Tenant {
   propertyId       String
   fullName         String
   phone            String
+  email            String?
   emergencyContact String?
   fatherName       String?
   motherName       String?
@@ -327,10 +335,13 @@ model Tenancy {
   roomId              String // denormalized for queries
   status              TenancyStatus @default(ACTIVE)
   monthlyRent         Int // paise
-  securityDeposit     Int? // paise
+  maintenanceCharge   Int           @default(0) // paise; extra monthly charge on top of rent
+  securityDeposit     Int? // paise; net of the maintenance reserve deducted at move-in
+  depositStatus       DepositStatus @default(PENDING)
   paymentStatus       PaymentStatus @default(PENDING) // current-cycle snapshot shown on the bed
   paymentDueDay       Int? // day of month rent is due (1-31)
   checkInDate         DateTime
+  noticeGivenDate     DateTime? // when the tenant gave notice; vacate-by is +15 days
   expectedLeavingDate DateTime?
   checkOutDate        DateTime?
   createdAt           DateTime      @default(now())
