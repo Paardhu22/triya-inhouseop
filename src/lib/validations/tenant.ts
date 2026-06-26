@@ -7,7 +7,15 @@ export const saveBedSchema = z.object({
   bedId: z.string().min(1),
   occupancyStatus: z.enum(["AVAILABLE", "OCCUPIED"]),
   fullName: z.string().trim().min(2, "Tenant name is required").max(120).optional(),
-  phone: z.string().trim().min(7, "Enter a valid phone number").max(20).optional(),
+  phone: z
+    .string()
+    .trim()
+    .transform((val) => val.replace(/[\s-]/g, ""))
+    .refine(
+      (val) => !val || /^(?:\+91|91|0)?[6-9]\d{9}$/.test(val),
+      "Enter a valid 10-digit phone number"
+    )
+    .optional(),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   rentAmount: z.coerce.number().int("Enter a valid amount").min(0).max(10_000_000).optional(),
   // Rupees at the form boundary; converted to paise in the action.
@@ -39,8 +47,9 @@ export const bedFormSchema = z
     if (val.fullName.trim().length < 2) {
       ctx.addIssue({ code: "custom", path: ["fullName"], message: "Tenant name is required" });
     }
-    if (val.phone.trim().length < 7) {
-      ctx.addIssue({ code: "custom", path: ["phone"], message: "Enter a valid phone number" });
+    const sanitizedPhone = val.phone.replace(/[\s-]/g, "");
+    if (!/^(?:\+91|91|0)?[6-9]\d{9}$/.test(sanitizedPhone)) {
+      ctx.addIssue({ code: "custom", path: ["phone"], message: "Enter a valid 10-digit phone number" });
     }
     if (!val.rentAmount || Number.isNaN(Number(val.rentAmount)) || Number(val.rentAmount) < 0) {
       ctx.addIssue({ code: "custom", path: ["rentAmount"], message: "Enter the rent amount" });
