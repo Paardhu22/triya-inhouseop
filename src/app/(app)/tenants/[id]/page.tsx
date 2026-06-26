@@ -90,18 +90,9 @@ export default async function TenantProfilePage({
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border bg-card p-6">
         <div className="flex items-center gap-4 min-w-0">
-          {tenant.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/files/${tenant.photoUrl}`}
-              alt={tenant.fullName}
-              className="size-16 rounded-xl border border-border object-cover shrink-0"
-            />
-          ) : (
-            <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-              <User className="size-7" />
-            </div>
-          )}
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <User className="size-6" />
+          </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2.5">
               <h1 className="truncate text-xl font-bold tracking-tight">{tenant.fullName}</h1>
@@ -232,29 +223,28 @@ export default async function TenantProfilePage({
           )}
         </SectionCard>
 
-        <SectionCard title="Documents">
-          {tenant.documents.length === 0 ? (
-            <Empty label="No documents uploaded." />
-          ) : (
-            <div className="space-y-2">
-              {tenant.documents.map((d) => (
-                <a
-                  key={d.id}
-                  href={`/api/files/${d.storageKey}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 rounded-lg border p-3 transition hover:bg-muted/50"
-                >
-                  <FileText className="size-4 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{d.filename}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {d.type.replace(/_/g, " ").toLowerCase()}
-                    </p>
-                  </div>
-                </a>
-              ))}
+        <SectionCard title="KYC Document">
+          {tenant.photoUrl ? (
+            <div className="space-y-3">
+              <a
+                href={`/api/files/${tenant.photoUrl}`}
+                target="_blank"
+                rel="noreferrer"
+                className="group relative block aspect-[16/10] w-full overflow-hidden rounded-lg border bg-muted/20"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/files/${tenant.photoUrl}`}
+                  alt="KYC Document"
+                  className="h-full w-full object-contain transition duration-200 group-hover:scale-[1.01]"
+                />
+              </a>
+              <p className="text-[11px] text-muted-foreground text-center">
+                Click on the document to open in full resolution
+              </p>
             </div>
+          ) : (
+            <Empty label="No KYC document uploaded yet." />
           )}
         </SectionCard>
 

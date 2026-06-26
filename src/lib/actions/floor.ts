@@ -120,6 +120,9 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
     }
   }
 
+  let oldPhotoUrl: string | null = null;
+  let oldDocKeys: string[] = [];
+
   try {
     await prisma.$transaction(async (tx) => {
       let tenantId: string;
@@ -128,6 +131,15 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
       if (active) {
         tenantId = active.tenantId;
         tenancyId = active.id;
+
+        const existingTenant = await tx.tenant.findUnique({
+          where: { id: tenantId },
+          select: { photoUrl: true },
+        });
+        if (existingTenant?.photoUrl && saved) {
+          oldPhotoUrl = existingTenant.photoUrl;
+        }
+
         await tx.tenant.update({
           where: { id: tenantId },
           data: { fullName, phone, email, ...(saved ? { photoUrl: saved.key } : {}) },
@@ -178,6 +190,19 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
       }
 
       if (saved) {
+        // Fetch old documents of type PHOTO to delete later
+        const existingDocs = await tx.document.findMany({
+          where: { tenantId, type: "PHOTO" },
+          select: { storageKey: true },
+        });
+        oldDocKeys = existingDocs.map((d) => d.storageKey);
+
+        // Delete old document entries in db
+        await tx.document.deleteMany({
+          where: { tenantId, type: "PHOTO" },
+        });
+
+        // Create new document entry
         await tx.document.create({
           data: {
             tenantId,
@@ -220,6 +245,24 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
   } catch {
     if (saved) await storage.remove(saved.key);
     return actionError("Could not save. Please try again.");
+  }
+
+  // Clean up old files from storage after successful transaction
+  if (oldPhotoUrl) {
+    try {
+      await storage.remove(oldPhotoUrl);
+    } catch (e) {
+      console.error("Failed to remove old photo Url:", e);
+    }
+  }
+  for (const key of oldDocKeys) {
+    try {
+      if (key !== oldPhotoUrl) {
+        await storage.remove(key);
+      }
+    } catch (e) {
+      console.error("Failed to remove old document photo key:", e);
+    }
   }
 
   revalidateFloorViews();
