@@ -247,29 +247,6 @@ export default async function TenantProfilePage({
             <Empty label="No KYC document uploaded yet." />
           )}
         </SectionCard>
-
-        <SectionCard title="Complaints">
-          {tenant.complaints.length === 0 ? (
-            <Empty label="No complaints linked to this tenant." />
-          ) : (
-            <div className="space-y-2">
-              {tenant.complaints.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{c.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(c.createdAt, "dd MMM yyyy")}
-                    </p>
-                  </div>
-                  <StatusBadge meta={COMPLAINT_STATUS_META[c.status]} dot />
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
       </div>
     </div>
   );
