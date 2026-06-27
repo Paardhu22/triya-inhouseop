@@ -20,9 +20,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatINR } from "@/lib/money";
 import type { CollectionRow } from "@/lib/queries/collections";
+import type { InvoiceHistoryRow } from "@/lib/queries/invoices";
 import { PAYMENT_STATUS_META } from "@/lib/status";
+import { InvoiceHistory } from "./invoice-history";
+import { SendInvoiceButton } from "./send-invoice-button";
 
 const STATUS_FILTERS = [
   { value: "ALL", label: "All" },
@@ -31,7 +35,30 @@ const STATUS_FILTERS = [
   { value: "PAID", label: "Paid" },
 ] as const;
 
-export function CollectionsClient({ rows }: { rows: CollectionRow[] }) {
+export function CollectionsClient({
+  rows,
+  invoices,
+}: {
+  rows: CollectionRow[];
+  invoices: InvoiceHistoryRow[];
+}) {
+  return (
+    <Tabs defaultValue="dues" className="space-y-5">
+      <TabsList>
+        <TabsTrigger value="dues">Dues</TabsTrigger>
+        <TabsTrigger value="history">Invoice History</TabsTrigger>
+      </TabsList>
+      <TabsContent value="dues">
+        <DuesTab rows={rows} />
+      </TabsContent>
+      <TabsContent value="history">
+        <InvoiceHistory invoices={invoices} />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function DuesTab({ rows }: { rows: CollectionRow[] }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("ALL");
 
@@ -95,12 +122,13 @@ export function CollectionsClient({ rows }: { rows: CollectionRow[] }) {
               <TableHead className="w-32 text-right">Maintenance (₹)</TableHead>
               <TableHead className="w-32 text-right">Total Due (₹)</TableHead>
               <TableHead className="w-28">Status</TableHead>
+              <TableHead className="w-36 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
                   No tenants match your filters.
                 </TableCell>
               </TableRow>
@@ -129,6 +157,9 @@ export function CollectionsClient({ rows }: { rows: CollectionRow[] }) {
                     </TableCell>
                     <TableCell>
                       <StatusBadge meta={PAYMENT_STATUS_META[r.paymentStatus]} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <SendInvoiceButton tenancyId={r.id} />
                     </TableCell>
                   </TableRow>
                 );
