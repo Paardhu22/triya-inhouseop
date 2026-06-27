@@ -87,6 +87,11 @@ enum DocumentType {
   OTHER
 }
 
+enum InvoiceStatus {
+  SENT
+  FAILED
+}
+
 // ============================================================================
 // Auth (Auth.js v5). Credentials + JWT today; Account/Session/VerificationToken
 // included to future-proof OAuth and the owner dashboard.
@@ -161,6 +166,7 @@ model Property {
   slug      String   @unique
   address   String?
   city      String?
+  phone     String? // contact number shown on invoices
   // When true the property is organised into blocks (e.g. Frieden A / B) and the
   // Floor Manager shows a Block selector before the Floor selector.
   hasBlocks Boolean  @default(false)
@@ -178,6 +184,7 @@ model Property {
   complaints     Complaint[]
   expenses       Expense[]
   floorTemplates FloorTemplate[]
+  invoices       Invoice[]
 
   @@index([isActive])
 }
@@ -320,6 +327,7 @@ model Tenant {
   documents  Document[]
   payments   Payment[]
   complaints Complaint[]
+  invoices   Invoice[]
 
   @@index([propertyId])
   @@index([phone])
@@ -351,6 +359,7 @@ model Tenancy {
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bed      Bed       @relation(fields: [bedId], references: [id], onDelete: Cascade)
   payments Payment[]
+  invoices Invoice[]
 
   @@index([propertyId])
   @@index([bedId, status])
@@ -395,6 +404,45 @@ model Document {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+}
+
+// A generated rent invoice. The charge breakdown is snapshotted in paise at send
+// time so historical invoices stay accurate even if the tenancy's rent later
+// changes. The PDF lives in the storage driver (storageKey), never a public URL.
+model Invoice {
+  id                String        @id @default(cuid())
+  propertyId        String
+  tenancyId         String
+  tenantId          String // denormalized so history survives tenancy/tenant edits
+  number            String // human-facing, e.g. "INV-202606-0001"; unique per property
+  billingMonth      DateTime // first day of the billed month
+  issueDate         DateTime      @default(now())
+  dueDate           DateTime?
+  rentPaise         Int
+  maintenancePaise  Int           @default(0)
+  previousDuePaise  Int           @default(0)
+  extraChargesPaise Int           @default(0)
+  extraChargesLabel String?
+  discountPaise     Int           @default(0)
+  subtotalPaise     Int
+  totalPaise        Int
+  notes             String?
+  storageKey        String // PDF path within the storage driver
+  status            InvoiceStatus @default(SENT)
+  messageSid        String? // Twilio WhatsApp message SID
+  sentAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenancy  Tenancy  @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, number])
+  @@index([propertyId])
+  @@index([tenancyId])
+  @@index([tenantId])
+  @@index([billingMonth])
 }
 
 // ============================================================================
