@@ -9,5 +9,6 @@ export const propertySettingsSchema = z.object({
   name: z.string().trim().min(2).max(120),
   address: z.string().trim().max(240),
   city: z.string().trim().max(100),
+  phone: z.string().trim().max(20),
 });
 
