@@ -126,6 +126,8 @@ async function clearAll() {
   await prisma.document.deleteMany();
   await prisma.complaint.deleteMany();
   await prisma.expense.deleteMany();
+  await prisma.expenseSubcategory.deleteMany();
+  await prisma.expenseCategory.deleteMany();
   await prisma.tenancy.deleteMany();
   await prisma.tenant.deleteMany();
   await prisma.bed.deleteMany();
@@ -139,6 +141,33 @@ async function clearAll() {
   await prisma.account.deleteMany();
   await prisma.verificationToken.deleteMany();
   await prisma.user.deleteMany();
+}
+
+// A sensible, fully-editable starter set so the Expense Tracker isn't empty on
+// first run. These are DB rows (managed via the in-app Category Manager), not
+// hardcoded application constants.
+const STARTER_CATEGORIES: { name: string; subs: string[] }[] = [
+  { name: "Utilities", subs: ["Electricity", "Water", "Internet"] },
+  { name: "Maintenance", subs: ["Plumbing", "Electrical", "Carpentry", "Painting"] },
+  { name: "Food & Groceries", subs: ["Rice", "Vegetables", "Milk", "Groceries"] },
+  { name: "Staff Salary", subs: [] },
+  { name: "Cleaning", subs: [] },
+  { name: "Miscellaneous", subs: [] },
+];
+
+async function seedExpenseCategories() {
+  const properties = await prisma.property.findMany({ select: { id: true } });
+  for (const property of properties) {
+    for (const cat of STARTER_CATEGORIES) {
+      await prisma.expenseCategory.create({
+        data: {
+          propertyId: property.id,
+          name: cat.name,
+          subcategories: { create: cat.subs.map((name) => ({ propertyId: property.id, name })) },
+        },
+      });
+    }
+  }
 }
 
 async function seedUsers() {
@@ -274,6 +303,9 @@ async function main() {
 
   console.log("Seeding properties, floors, rooms and beds (all available)...");
   await seedProperties();
+
+  console.log("Seeding starter expense categories...");
+  await seedExpenseCategories();
 
   const [propertyCount, roomCount, bedCount] = await Promise.all([
     prisma.property.count(),

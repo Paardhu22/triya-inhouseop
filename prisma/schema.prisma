@@ -68,16 +68,6 @@ enum DepositStatus {
   ADJUSTED
 }
 
-enum ExpenseCategory {
-  ELECTRICITY
-  WATER
-  MAINTENANCE
-  SALARY
-  INTERNET
-  CLEANING
-  MISCELLANEOUS
-}
-
 enum DocumentType {
   AADHAAR_FRONT
   AADHAAR_BACK
@@ -185,6 +175,9 @@ model Property {
   expenses       Expense[]
   floorTemplates FloorTemplate[]
   invoices       Invoice[]
+
+  expenseCategories    ExpenseCategory[]
+  expenseSubcategories ExpenseSubcategory[]
 
   @@index([isActive])
 }
@@ -475,22 +468,61 @@ model Complaint {
 }
 
 model Expense {
-  id          String          @id @default(cuid())
-  propertyId  String
-  category    ExpenseCategory
-  amount      Int // paise
-  date        DateTime
-  vendor      String?
-  notes       String?
-  receiptKey  String? // storage key for the receipt file
-  createdById String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id            String   @id @default(cuid())
+  propertyId    String
+  categoryId    String
+  subcategoryId String?
+  amount        Int // paise
+  date          DateTime
+  vendor        String?
+  notes         String?
+  receiptKey    String? // storage key for the receipt file
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  property    Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  category    ExpenseCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategory ExpenseSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: Restrict)
+  createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([propertyId])
-  @@index([category])
+  @@index([categoryId])
+  @@index([subcategoryId])
   @@index([date])
+}
+
+// Property-scoped expense category (replaces the old hardcoded ExpenseCategory
+// enum). Deleting a category is blocked by the DB while any expense references it
+// (onDelete: Restrict on Expense.category) and cascades to its subcategories.
+model ExpenseCategory {
+  id         String   @id @default(cuid())
+  propertyId String
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  property      Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  subcategories ExpenseSubcategory[]
+  expenses      Expense[]
+
+  @@unique([propertyId, name])
+  @@index([propertyId])
+}
+
+model ExpenseSubcategory {
+  id         String   @id @default(cuid())
+  propertyId String // denormalized for property-scoped queries
+  categoryId String
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  property Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  category ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId])
+  @@index([propertyId])
 }
