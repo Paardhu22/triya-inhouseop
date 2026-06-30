@@ -44,13 +44,3 @@ export const COMPLAINT_PRIORITY_META: Record<ComplaintPriority, Meta> = {
   MEDIUM: { label: "Medium", ...TONE.amber },
   HIGH: { label: "High", ...TONE.red },
 };
-
-export const EXPENSE_CATEGORY_LABEL: Record<string, string> = {
-  ELECTRICITY: "Electricity",
-  WATER: "Water",
-  MAINTENANCE: "Maintenance",
-  SALARY: "Salary",
-  INTERNET: "Internet",
-  CLEANING: "Cleaning",
-  MISCELLANEOUS: "Miscellaneous",
-};

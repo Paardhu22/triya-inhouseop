@@ -1,18 +1,15 @@
 import { z } from "zod";
 
-export const EXPENSE_CATEGORY_VALUES = [
-  "ELECTRICITY",
-  "WATER",
-  "MAINTENANCE",
-  "SALARY",
-  "INTERNET",
-  "CLEANING",
-  "MISCELLANEOUS",
-] as const;
-
-// Server schema (coerce strings from FormData).
+// Server schema (coerce strings from FormData). Categories/subcategories are now
+// dynamic, property-scoped rows, so we validate ids here and check ownership +
+// the "subcategory required when the category has any" rule in the action.
 export const expenseServerSchema = z.object({
-  category: z.enum(EXPENSE_CATEGORY_VALUES),
+  categoryId: z.string().min(1, "Select a category"),
+  subcategoryId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v : null)),
   amount: z.coerce.number().positive("Enter a valid amount").max(100_000_000),
   date: z.coerce.date(),
   vendor: z.string().trim().max(160),
@@ -21,7 +18,8 @@ export const expenseServerSchema = z.object({
 
 // Client form schema (plain strings for React Hook Form).
 export const expenseFormSchema = z.object({
-  category: z.enum(EXPENSE_CATEGORY_VALUES),
+  categoryId: z.string().min(1, "Select a category"),
+  subcategoryId: z.string(),
   amount: z
     .string()
     .min(1, "Enter an amount")
