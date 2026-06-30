@@ -1,0 +1,149 @@
+import "server-only";
+
+import { format } from "date-fns";
+import { PDFDocument, type PDFFont, StandardFonts, rgb } from "pdf-lib";
+
+// A filter-aware, multi-page A4 expense report. Mirrors src/lib/invoice.ts: same
+// restrained palette and the ASCII "Rs." prefix (pdf-lib's WinAnsi standard fonts
+// cannot render the ₹ glyph). pdf-lib has no auto-pagination, so the table breaks
+// to new pages manually and page numbers are stamped at the end.
+
+export type ExpenseReportRow = {
+  date: Date;
+  category: string;
+  subcategory: string | null;
+  vendor: string | null;
+  amount: number; // paise
+};
+
+export type ExpenseReportData = {
+  propertyName: string;
+  propertyAddress?: string | null;
+  generatedAt: Date;
+  appliedFilters: string[];
+  rows: ExpenseReportRow[];
+  total: number; // paise
+  categoryBreakdown: { name: string; total: number }[];
+};
+
+const PAGE_W = 595.28;
+const PAGE_H = 841.89;
+const LEFT = 50;
+const RIGHT = 545;
+const TOP = 800;
+const BOTTOM = 70;
+
+const INK = rgb(0.11, 0.12, 0.15);
+const MUTED = rgb(0.46, 0.48, 0.53);
+const LINE = rgb(0.85, 0.86, 0.89);
+
+// Columns.
+const C_DATE = LEFT;
+const C_CAT = 120;
+const C_SUB = 220;
+const C_VENDOR = 330;
+
+const inr = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
+function rs(paise: number): string {
+  const rupees = paise / 100;
+  return `Rs. ${paise % 100 === 0 ? inr.format(Math.round(rupees)) : inr.format(rupees)}`;
+}
+
+function clip(s: string, font: PDFFont, size: number, maxWidth: number): string {
+  if (font.widthOfTextAtSize(s, size) <= maxWidth) return s;
+  let str = s;
+  while (str.length > 1 && font.widthOfTextAtSize(`${str}…`, size) > maxWidth) str = str.slice(0, -1);
+  return `${str}…`;
+}
+
+export async function generateExpenseReportPdf(data: ExpenseReportData): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  let page = pdf.addPage([PAGE_W, PAGE_H]);
+
+  const text = (s: string, x: number, y: number, size: number, f = font, color = INK) =>
+    page.drawText(s, { x, y, size, font: f, color });
+  const textRight = (s: string, xRight: number, y: number, size: number, f = font, color = INK) =>
+    page.drawText(s, { x: xRight - f.widthOfTextAtSize(s, size), y, size, font: f, color });
+  const rule = (y: number) =>
+    page.drawLine({ start: { x: LEFT, y }, end: { x: RIGHT, y }, thickness: 0.75, color: LINE });
+
+  function drawDocHeader(): number {
+    text(data.propertyName, LEFT, TOP, 16, bold);
+    if (data.propertyAddress) text(data.propertyAddress, LEFT, TOP - 14, 9, font, MUTED);
+    textRight("EXPENSE REPORT", RIGHT, TOP, 16, bold);
+    textRight(`Generated ${format(data.generatedAt, "dd MMM yyyy, HH:mm")}`, RIGHT, TOP - 14, 9, font, MUTED);
+    rule(TOP - 24);
+
+    let fy = TOP - 38;
+    text("APPLIED FILTERS", LEFT, fy, 8, bold, MUTED);
+    fy -= 13;
+    const lines = data.appliedFilters.length ? data.appliedFilters : ["None — all expenses"];
+    for (const line of lines) {
+      text(clip(line, font, 9, RIGHT - LEFT), LEFT, fy, 9);
+      fy -= 12;
+    }
+    return fy - 10;
+  }
+
+  function drawTableHeader(y: number): number {
+    text("DATE", C_DATE, y, 8, bold, MUTED);
+    text("CATEGORY", C_CAT, y, 8, bold, MUTED);
+    text("SUBCATEGORY", C_SUB, y, 8, bold, MUTED);
+    text("VENDOR", C_VENDOR, y, 8, bold, MUTED);
+    textRight("AMOUNT", RIGHT, y, 8, bold, MUTED);
+    rule(y - 6);
+    return y - 22;
+  }
+
+  function newPage(): number {
+    page = pdf.addPage([PAGE_W, PAGE_H]);
+    return drawTableHeader(TOP);
+  }
+
+  let y = drawDocHeader();
+  y = drawTableHeader(y);
+
+  for (const row of data.rows) {
+    if (y < BOTTOM) y = newPage();
+    text(format(row.date, "dd MMM yy"), C_DATE, y, 9);
+    text(clip(row.category, font, 9, C_SUB - C_CAT - 6), C_CAT, y, 9);
+    text(clip(row.subcategory ?? "—", font, 9, C_VENDOR - C_SUB - 6), C_SUB, y, 9);
+    text(clip(row.vendor ?? "—", font, 9, RIGHT - C_VENDOR - 75), C_VENDOR, y, 9);
+    textRight(rs(row.amount), RIGHT, y, 9);
+    y -= 18;
+  }
+
+  // Totals.
+  if (y < BOTTOM + 24) y = newPage();
+  rule(y + 8);
+  y -= 8;
+  text(`${data.rows.length} expense${data.rows.length === 1 ? "" : "s"}`, LEFT, y, 10, font, MUTED);
+  textRight(`Total  ${rs(data.total)}`, RIGHT, y, 13, bold);
+  y -= 30;
+
+  // Category breakdown.
+  if (data.categoryBreakdown.length) {
+    if (y < BOTTOM + 30) y = newPage();
+    text("CATEGORY BREAKDOWN", LEFT, y, 8, bold, MUTED);
+    y -= 16;
+    for (const c of data.categoryBreakdown) {
+      if (y < BOTTOM) y = newPage();
+      text(clip(c.name, font, 10, 300), LEFT, y, 10);
+      textRight(rs(c.total), RIGHT, y, 10);
+      y -= 16;
+    }
+  }
+
+  // Stamp footer + page numbers across every page.
+  const pages = pdf.getPages();
+  pages.forEach((p, i) => {
+    p.drawText("Generated by Triya Manager", { x: LEFT, y: 40, size: 8, font, color: MUTED });
+    const label = `Page ${i + 1} of ${pages.length}`;
+    p.drawText(label, { x: RIGHT - font.widthOfTextAtSize(label, 8), y: 40, size: 8, font, color: MUTED });
+  });
+
+  return pdf.save();
+}
