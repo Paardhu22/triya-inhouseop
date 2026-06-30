@@ -36,7 +36,6 @@ export default async function ExpensesPage() {
     <div className="space-y-10">
       <PageHeader
         title="Expense Tracker"
-        description="Track operational spending, organise categories, and export reports."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canManage ? <CategoryManager categories={categories} /> : null}
