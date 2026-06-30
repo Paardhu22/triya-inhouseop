@@ -1,67 +1,119 @@
 import "server-only";
 
-import { format, startOfMonth, subMonths } from "date-fns";
+import { format, startOfMonth, startOfYear, subMonths } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
 
+// Flat row shape: category/subcategory names are flattened so the same item type
+// powers the table, the client-side filters (src/lib/expense-filters.ts) and the
+// PDF export without re-shaping.
 export async function getExpenses(propertyId: string) {
-  return prisma.expense.findMany({
+  const rows = await prisma.expense.findMany({
     where: { propertyId },
     orderBy: { date: "desc" },
     select: {
       id: true,
-      category: true,
       amount: true,
       date: true,
       vendor: true,
       notes: true,
       receiptKey: true,
+      categoryId: true,
+      subcategoryId: true,
+      category: { select: { name: true } },
+      subcategory: { select: { name: true } },
     },
   });
+
+  return rows.map((r) => ({
+    id: r.id,
+    amount: r.amount,
+    date: r.date,
+    vendor: r.vendor,
+    notes: r.notes,
+    receiptKey: r.receiptKey,
+    categoryId: r.categoryId,
+    categoryName: r.category.name,
+    subcategoryId: r.subcategoryId,
+    subcategoryName: r.subcategory?.name ?? null,
+  }));
 }
 
-export async function getExpenseStats(propertyId: string) {
+// Everything the analytics section needs, computed over a single trailing-12-month
+// read (which also covers "this year", since the year start is at most 11 months
+// behind the current month).
+export async function getExpenseAnalytics(propertyId: string) {
   const now = new Date();
-  const since = startOfMonth(subMonths(now, 5));
+  const windowStart = startOfMonth(subMonths(now, 11));
+  const yearStart = startOfYear(now);
+  const thisMonthKey = format(now, "yyyy-MM");
 
   const rows = await prisma.expense.findMany({
-    where: { propertyId, date: { gte: since } },
-    select: { amount: true, date: true, category: true },
+    where: { propertyId, date: { gte: windowStart } },
+    select: {
+      amount: true,
+      date: true,
+      vendor: true,
+      category: { select: { name: true } },
+      subcategory: { select: { name: true } },
+    },
   });
 
-  const series = Array.from({ length: 6 }, (_, i) => {
-    const m = subMonths(now, 5 - i);
+  const series = Array.from({ length: 12 }, (_, i) => {
+    const m = subMonths(now, 11 - i);
     return { key: format(m, "yyyy-MM"), label: format(m, "MMM"), total: 0 };
   });
   const byKey = new Map(series.map((s) => [s.key, s]));
 
-  const thisKey = format(now, "yyyy-MM");
+  const catTotals = new Map<string, number>();
+  const subTotals = new Map<string, number>();
+  const vendorTotals = new Map<string, number>();
+
   let thisMonthTotal = 0;
   let thisMonthCount = 0;
-  const categoryTotals = new Map<string, number>();
+  let thisYearTotal = 0;
 
-  for (const row of rows) {
-    const key = format(row.date, "yyyy-MM");
+  for (const r of rows) {
+    const key = format(r.date, "yyyy-MM");
     const bucket = byKey.get(key);
-    if (bucket) bucket.total += row.amount;
-    if (key === thisKey) {
-      thisMonthTotal += row.amount;
+    if (bucket) bucket.total += r.amount;
+
+    if (key === thisMonthKey) {
+      thisMonthTotal += r.amount;
       thisMonthCount += 1;
-      categoryTotals.set(row.category, (categoryTotals.get(row.category) ?? 0) + row.amount);
+    }
+
+    if (r.date >= yearStart) {
+      thisYearTotal += r.amount;
+      catTotals.set(r.category.name, (catTotals.get(r.category.name) ?? 0) + r.amount);
+      if (r.subcategory) {
+        const label = `${r.category.name} · ${r.subcategory.name}`;
+        subTotals.set(label, (subTotals.get(label) ?? 0) + r.amount);
+      }
+      if (r.vendor) vendorTotals.set(r.vendor, (vendorTotals.get(r.vendor) ?? 0) + r.amount);
     }
   }
 
-  const byCategory = [...categoryTotals.entries()]
-    .map(([category, total]) => ({ category, total }))
-    .sort((a, b) => b.total - a.total);
+  const rank = (m: Map<string, number>) =>
+    [...m.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total);
+
+  const categoryDistribution = rank(catTotals);
+  const subcategoryDistribution = rank(subTotals);
+  const vendorRanking = rank(vendorTotals);
+  const windowTotal = series.reduce((sum, m) => sum + m.total, 0);
 
   return {
     series: series.map(({ label, total }) => ({ label, total })),
     thisMonthTotal,
     thisMonthCount,
-    byCategory,
+    thisYearTotal,
+    avgMonthly: Math.round(windowTotal / 12),
+    categoryDistribution,
+    subcategoryDistribution,
+    topCategory: categoryDistribution[0] ?? null,
+    topVendor: vendorRanking[0] ?? null,
   };
 }
 
 export type ExpenseListItem = Awaited<ReturnType<typeof getExpenses>>[number];
-export type ExpenseStats = Awaited<ReturnType<typeof getExpenseStats>>;
+export type ExpenseAnalytics = Awaited<ReturnType<typeof getExpenseAnalytics>>;
