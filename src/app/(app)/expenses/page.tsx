@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { auth } from "@/auth";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { CategoryManager } from "@/components/expenses/category-manager";
 import { ExpenseChart } from "@/components/expenses/expense-chart";
+import { ExpenseDistribution } from "@/components/expenses/expense-distribution";
 import { ExpenseFormDialog } from "@/components/expenses/expense-form-dialog";
 import { ExpensesClient } from "@/components/expenses/expenses-client";
-import { StatCard } from "@/components/dashboard/stat-card";
 import { PageHeader } from "@/components/shell/page-header";
-import { formatINR } from "@/lib/money";
-import { getExpenses, getExpenseStats } from "@/lib/queries/expenses";
+import { formatINR, formatINRCompact } from "@/lib/money";
+import { getCategoriesWithStats } from "@/lib/queries/expense-categories";
+import { getExpenseAnalytics, getExpenses } from "@/lib/queries/expenses";
 import { getSelectedPropertyId } from "@/lib/property";
-import { EXPENSE_CATEGORY_LABEL } from "@/lib/status";
 
 export const metadata: Metadata = {
   title: "Expense Tracker",
@@ -19,45 +22,71 @@ export default async function ExpensesPage() {
   const propertyId = await getSelectedPropertyId();
   if (!propertyId) redirect("/select-property");
 
-  const [expenses, stats] = await Promise.all([
+  const [session, expenses, analytics, categories] = await Promise.all([
+    auth(),
     getExpenses(propertyId),
-    getExpenseStats(propertyId),
+    getExpenseAnalytics(propertyId),
+    getCategoriesWithStats(propertyId),
   ]);
 
-  const topCategory = stats.byCategory[0];
+  const role = session?.user?.role;
+  const canManage = role === "ADMIN" || role === "MANAGER";
 
   return (
     <div className="space-y-10">
       <PageHeader
         title="Expense Tracker"
-        description="Log expenses and monitor monthly spending."
-        actions={<ExpenseFormDialog />}
+        description="Track operational spending, organise categories, and export reports."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canManage ? <CategoryManager categories={categories} /> : null}
+            <ExpenseFormDialog categories={categories} />
+          </div>
+        }
       />
 
-      <div className="grid grid-cols-1 gap-x-12 gap-y-10 sm:grid-cols-3">
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard
           label="This month"
-          value={formatINR(stats.thisMonthTotal)}
-          hint={`${stats.thisMonthCount} ${stats.thisMonthCount === 1 ? "entry" : "entries"}`}
+          value={formatINRCompact(analytics.thisMonthTotal)}
+          hint={`${analytics.thisMonthCount} ${analytics.thisMonthCount === 1 ? "entry" : "entries"}`}
+        />
+        <StatCard label="This year" value={formatINRCompact(analytics.thisYearTotal)} hint="Jan to date" />
+        <StatCard
+          label="Avg / month"
+          value={formatINRCompact(analytics.avgMonthly)}
+          hint="trailing 12 months"
         />
         <StatCard
           label="Top category"
-          value={topCategory ? EXPENSE_CATEGORY_LABEL[topCategory.category] : "—"}
-          hint={topCategory ? formatINR(topCategory.total) : "No spend yet"}
+          value={analytics.topCategory?.name ?? "—"}
+          hint={analytics.topCategory ? formatINR(analytics.topCategory.total) : "No spend yet"}
         />
-        <StatCard label="Total entries" value={expenses.length} hint="all time" />
+        <StatCard
+          label="Top vendor"
+          value={analytics.topVendor?.name ?? "—"}
+          hint={analytics.topVendor ? formatINR(analytics.topVendor.total) : "No spend yet"}
+        />
       </div>
 
-      <section className="space-y-4">
-        <h2 className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-          Monthly expenses
-        </h2>
-        <div className="rounded-xl border border-border bg-card p-6">
-          <ExpenseChart series={stats.series} />
-        </div>
-      </section>
+      {/* Trend + distribution */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="space-y-4 rounded-xl border border-border bg-card p-6">
+          <h2 className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+            Monthly trend
+          </h2>
+          <ExpenseChart series={analytics.series} />
+        </section>
+        <section className="rounded-xl border border-border bg-card p-6">
+          <ExpenseDistribution
+            categories={analytics.categoryDistribution}
+            subcategories={analytics.subcategoryDistribution}
+          />
+        </section>
+      </div>
 
-      <ExpensesClient expenses={expenses} />
+      <ExpensesClient expenses={expenses} categories={categories} />
     </div>
   );
 }
