@@ -119,7 +119,6 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
               <TableHead className="w-36">Phone</TableHead>
               <TableHead className="w-28">Room</TableHead>
               <TableHead className="w-28 text-right">Rent (₹)</TableHead>
-              <TableHead className="w-32 text-right">Maintenance (₹)</TableHead>
               <TableHead className="w-32 text-right">Total Due (₹)</TableHead>
               <TableHead className="w-28">Status</TableHead>
               <TableHead className="w-36 text-right">Actions</TableHead>
@@ -128,7 +127,7 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
                   No tenants match your filters.
                 </TableCell>
               </TableRow>
@@ -144,13 +143,6 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatINR(r.monthlyRent)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {r.maintenanceCharge > 0 ? (
-                        formatINR(r.maintenanceCharge)
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       {formatINR(totalDue)}
