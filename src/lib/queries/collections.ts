@@ -38,6 +38,11 @@ export async function getCollectionsData(propertyId: string) {
           },
         },
       },
+      invoices: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { sentAt: true, createdAt: true },
+      },
     },
   });
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { format } from "date-fns";
 import { Inbox, Search } from "lucide-react";
 
 import { StatusBadge } from "@/components/common/status-badge";
@@ -120,6 +121,7 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
               <TableHead className="w-28">Room</TableHead>
               <TableHead className="w-28 text-right">Rent (₹)</TableHead>
               <TableHead className="w-32 text-right">Total Due (₹)</TableHead>
+              <TableHead className="w-36">Last Invoice</TableHead>
               <TableHead className="w-28">Status</TableHead>
               <TableHead className="w-36 text-right">Actions</TableHead>
             </TableRow>
@@ -127,7 +129,7 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
                   No tenants match your filters.
                 </TableCell>
               </TableRow>
@@ -146,6 +148,9 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       {formatINR(totalDue)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {r.invoices[0] ? format(new Date(r.invoices[0].createdAt), "MMM d, yyyy") : "Never"}
                     </TableCell>
                     <TableCell>
                       <StatusBadge meta={PAYMENT_STATUS_META[r.paymentStatus]} />
