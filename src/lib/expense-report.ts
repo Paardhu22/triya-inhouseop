@@ -1,7 +1,9 @@
 import "server-only";
 
 import { format } from "date-fns";
-import { PDFDocument, type PDFFont, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, type PDFFont, rgb } from "pdf-lib";
+
+import { embedUnicodeFonts } from "@/lib/pdf-font";
 
 // A filter-aware, multi-page A4 expense report. Mirrors src/lib/invoice.ts: same
 // restrained palette and the ASCII "Rs." prefix (pdf-lib's WinAnsi standard fonts
@@ -58,8 +60,7 @@ function clip(s: string, font: PDFFont, size: number, maxWidth: number): string 
 
 export async function generateExpenseReportPdf(data: ExpenseReportData): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const { regular: font, bold } = await embedUnicodeFonts(pdf);
 
   let page = pdf.addPage([PAGE_W, PAGE_H]);
 

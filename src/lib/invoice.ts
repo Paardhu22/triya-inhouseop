@@ -4,9 +4,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { format, parseISO } from "date-fns";
-import { PDFDocument, type PDFFont, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, type PDFFont, rgb } from "pdf-lib";
 
 import type { InvoiceView } from "@/lib/invoice-compute";
+import { embedUnicodeFonts } from "@/lib/pdf-font";
 
 // pdf-lib's standard fonts use WinAnsi encoding, which cannot render the ₹ glyph,
 // so amounts in the PDF use the ASCII-safe "Rs." prefix. (The WhatsApp body and the
@@ -48,8 +49,7 @@ const PANEL = rgb(0.965, 0.97, 0.98);
 export async function generateInvoicePdf(data: InvoiceView): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([PAGE_W, PAGE_H]);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const { regular: font, bold } = await embedUnicodeFonts(pdf);
 
   const text = (s: string, x: number, y: number, size: number, f = font, color = INK) =>
     page.drawText(s, { x, y, size, font: f, color });

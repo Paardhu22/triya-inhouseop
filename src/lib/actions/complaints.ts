@@ -6,11 +6,10 @@ import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
 import { getSelectedPropertyId } from "@/lib/property";
-import { complaintCreateSchema } from "@/lib/validations/complaint";
-import type {
-  ComplaintPriority,
-  ComplaintStatus,
-} from "@/generated/prisma/client";
+import {
+  complaintCreateSchema,
+  complaintUpdateSchema,
+} from "@/lib/validations/complaint";
 
 async function requireContext() {
   const session = await auth();
@@ -18,6 +17,11 @@ async function requireContext() {
   const propertyId = await getSelectedPropertyId();
   if (!propertyId) return null;
   return { propertyId };
+}
+
+async function assigneeExists(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  return Boolean(user);
 }
 
 export async function createComplaint(input: unknown): Promise<ActionResult> {
@@ -29,6 +33,10 @@ export async function createComplaint(input: unknown): Promise<ActionResult> {
     return actionError(parsed.error.issues[0]?.message ?? "Invalid details");
   }
   const { title, description, priority, assignedToId } = parsed.data;
+
+  if (assignedToId && !(await assigneeExists(assignedToId))) {
+    return actionError("Assigned user not found");
+  }
 
   await prisma.complaint.create({
     data: {
@@ -45,16 +53,15 @@ export async function createComplaint(input: unknown): Promise<ActionResult> {
   return actionOk();
 }
 
-export async function updateComplaint(
-  id: string,
-  patch: {
-    status?: ComplaintStatus;
-    priority?: ComplaintPriority;
-    assignedToId?: string | null;
-  },
-): Promise<ActionResult> {
+export async function updateComplaint(id: string, patch: unknown): Promise<ActionResult> {
   const ctx = await requireContext();
   if (!ctx) return actionError("Not authenticated");
+
+  const parsed = complaintUpdateSchema.safeParse(patch);
+  if (!parsed.success) {
+    return actionError(parsed.error.issues[0]?.message ?? "Invalid update");
+  }
+  const data = parsed.data;
 
   const complaint = await prisma.complaint.findFirst({
     where: { id, propertyId: ctx.propertyId },
@@ -62,17 +69,19 @@ export async function updateComplaint(
   });
   if (!complaint) return actionError("Complaint not found");
 
+  if (data.assignedToId && !(await assigneeExists(data.assignedToId))) {
+    return actionError("Assigned user not found");
+  }
+
   await prisma.complaint.update({
     where: { id },
     data: {
-      ...(patch.status ? { status: patch.status } : {}),
-      ...(patch.priority ? { priority: patch.priority } : {}),
-      ...(patch.assignedToId !== undefined
-        ? { assignedToId: patch.assignedToId }
+      ...(data.status ? { status: data.status } : {}),
+      ...(data.priority ? { priority: data.priority } : {}),
+      ...(data.assignedToId !== undefined
+        ? { assignedToId: data.assignedToId ? data.assignedToId : null }
         : {}),
-      ...(patch.status
-        ? { resolvedAt: patch.status === "RESOLVED" ? new Date() : null }
-        : {}),
+      ...(data.status ? { resolvedAt: data.status === "RESOLVED" ? new Date() : null } : {}),
     },
   });
 

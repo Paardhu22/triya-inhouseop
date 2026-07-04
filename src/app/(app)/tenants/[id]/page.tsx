@@ -58,7 +58,7 @@ export default async function TenantProfilePage({
   const property = await getActiveProperty();
   if (!property) redirect("/select-property");
   const propertyId = property.id;
-  const isFlat = property.slug === "cozy-gowlidoddy";
+  const isFlat = property.isFlat;
 
   const { id } = await params;
   const tenant = await getTenantProfile(id, propertyId);

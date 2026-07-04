@@ -73,21 +73,30 @@ export async function GET(req: Request) {
   const catName = new Map(cats.map((c) => [c.id, c.name]));
   const subName = new Map(subs.map((s) => [s.id, s.name]));
 
-  const pdf = await generateExpenseReportPdf({
-    propertyName: property.name,
-    propertyAddress: property.address,
-    generatedAt: new Date(),
-    appliedFilters: describeFilters(filters, catName, subName),
-    rows: rows.map((r) => ({
-      date: r.date,
-      category: r.categoryName,
-      subcategory: r.subcategoryName,
-      vendor: r.vendor,
-      amount: r.amount,
-    })),
-    total: rows.reduce((sum, r) => sum + r.amount, 0),
-    categoryBreakdown,
-  });
+  let pdf: Uint8Array;
+  try {
+    pdf = await generateExpenseReportPdf({
+      propertyName: property.name,
+      propertyAddress: property.address,
+      generatedAt: new Date(),
+      appliedFilters: describeFilters(filters, catName, subName),
+      rows: rows.map((r) => ({
+        date: r.date,
+        category: r.categoryName,
+        subcategory: r.subcategoryName,
+        vendor: r.vendor,
+        amount: r.amount,
+      })),
+      total: rows.reduce((sum, r) => sum + r.amount, 0),
+      categoryBreakdown,
+    });
+  } catch (error) {
+    console.error("Expense report generation failed:", error);
+    return Response.json(
+      { error: "Could not generate the expense report. Please try again." },
+      { status: 500 },
+    );
+  }
 
   const bytes = new Uint8Array(pdf.byteLength);
   bytes.set(pdf);

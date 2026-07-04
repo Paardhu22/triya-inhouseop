@@ -1,45 +1,40 @@
 import { NextResponse } from "next/server";
 import { subMonths } from "date-fns";
+
 import { prisma } from "@/lib/prisma";
 
-export async function GET(request: Request) {
-  try {
-    // Optional: Add authorization check if needed for cron service (e.g., matching a CRON_SECRET)
-    // const authHeader = request.headers.get("authorization");
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    //   return new NextResponse("Unauthorized", { status: 401 });
-    // }
+// Resets the current-cycle payment snapshot to PENDING for active tenancies whose last
+// payment is at least a month old (or who have no payment on record yet), so the new
+// rent cycle shows as due. Called by an external scheduler — the /api path is excluded
+// from the proxy, so this handler is NOT behind the app's session auth; it authenticates
+// with a shared CRON_SECRET bearer token and fails closed when that secret is unset.
+export async function POST(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
 
-    // Define exactly one month ago
+  try {
     const oneMonthAgo = subMonths(new Date(), 1);
 
-    // Find all ACTIVE tenancies currently marked as PAID
-    const tenancies = await prisma.tenancy.findMany({
+    // ACTIVE + PAID tenancies with no payment newer than a month. `none` also matches
+    // tenancies marked PAID that have no payment row at all (previously skipped).
+    const targets = await prisma.tenancy.findMany({
       where: {
         status: "ACTIVE",
         paymentStatus: "PAID",
+        payments: { none: { paidAt: { gt: oneMonthAgo } } },
       },
-      include: {
-        payments: {
-          orderBy: { paidAt: "desc" },
-          take: 1,
-        },
-      },
+      select: { id: true },
     });
 
     let updatedCount = 0;
-
-    for (const tenancy of tenancies) {
-      const lastPayment = tenancy.payments[0];
-
-      // If there's a payment and its paidAt date is exactly one month ago or older
-      if (lastPayment && lastPayment.paidAt && lastPayment.paidAt <= oneMonthAgo) {
-        await prisma.tenancy.update({
-          where: { id: tenancy.id },
-          data: { paymentStatus: "PENDING" },
-        });
-        updatedCount++;
-      }
+    if (targets.length > 0) {
+      const { count } = await prisma.tenancy.updateMany({
+        where: { id: { in: targets.map((t) => t.id) } },
+        data: { paymentStatus: "PENDING" },
+      });
+      updatedCount = count;
     }
 
     return NextResponse.json({
@@ -50,7 +45,7 @@ export async function GET(request: Request) {
     console.error("Cron error resetting payments:", error);
     return NextResponse.json(
       { error: "Internal server error during payment reset job" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

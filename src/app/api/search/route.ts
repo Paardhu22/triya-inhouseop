@@ -11,9 +11,9 @@ export async function GET(request: Request) {
 
   const property = await prisma.property.findUnique({
     where: { id: propertyId },
-    select: { slug: true },
+    select: { isFlat: true },
   });
-  const isFlat = property?.slug === "cozy-gowlidoddy";
+  const isFlat = property?.isFlat ?? false;
 
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 80) ?? "";
   if (query.length < 2) return Response.json({ results: [] });

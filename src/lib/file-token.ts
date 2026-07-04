@@ -2,10 +2,12 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { env } from "@/lib/env";
+
 // Short-lived, HMAC-signed access tokens for the otherwise session-protected file
 // API. Lets a specific stored file be fetched by an external service (e.g. Twilio
 // pulling an invoice media URL) without ever exposing a long-lived public link.
-const SECRET = process.env.AUTH_SECRET ?? "";
+const SECRET = env.AUTH_SECRET;
 
 function sign(payload: string): string {
   return createHmac("sha256", SECRET).update(payload).digest("hex");

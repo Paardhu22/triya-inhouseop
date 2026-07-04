@@ -18,15 +18,26 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
     return actionError("Choose a new password that is different from the current password");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { passwordHash: true },
-  });
-  if (!user || !(await bcrypt.compare(parsed.data.currentPassword, user.passwordHash))) {
+  // Resolve a real user row. JWT sessions can outlive a db reseed, so fall back to the
+  // session email (the self-healing lookup used in src/lib/actions/expenses.ts).
+  const { id, email } = session.user;
+  let user = id
+    ? await prisma.user.findUnique({ where: { id }, select: { id: true, passwordHash: true } })
+    : null;
+  if (!user && email) {
+    user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, passwordHash: true },
+    });
+  }
+  if (!user) {
+    return actionError("Your session is out of date. Please sign out and sign in again.");
+  }
+  if (!(await bcrypt.compare(parsed.data.currentPassword, user.passwordHash))) {
     return actionError("Current password is incorrect");
   }
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
-  await prisma.user.update({ where: { id: session.user.id }, data: { passwordHash } });
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
   return actionOk();
 }
 

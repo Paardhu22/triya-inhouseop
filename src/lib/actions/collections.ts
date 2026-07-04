@@ -331,7 +331,7 @@ export async function sendInvoice(
   // 3. Deliver over WhatsApp. Keep the row (FAILED) on failure so it can be resent.
   try {
     const mediaUrl = buildMediaUrl(baseUrl.base, storageKey);
-    console.info("[invoice] media URL", mediaUrl);
+    console.info("[invoice] media prepared", storageKey);
     const messageSid = await sendWhatsAppMedia({
       to: tenancy.tenant.phone,
       body: buildWhatsAppBody({
@@ -387,7 +387,7 @@ export async function resendInvoice(
 
   try {
     const mediaUrl = buildMediaUrl(baseUrl.base, invoice.storageKey);
-    console.info("[invoice] media URL (resend)", mediaUrl);
+    console.info("[invoice] media prepared (resend)", invoice.storageKey);
     const messageSid = await sendWhatsAppMedia({
       to: invoice.tenant.phone,
       body: buildWhatsAppBody({

@@ -160,6 +160,9 @@ model Property {
   // When true the property is organised into blocks (e.g. Frieden A / B) and the
   // Floor Manager shows a Block selector before the Floor selector.
   hasBlocks Boolean  @default(false)
+  // When true the property rents self-contained flats/studios (no per-bed sharing),
+  // so the UI shows "Flat <number>" instead of "Room <number> · Bed <label>".
+  isFlat    Boolean  @default(false)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

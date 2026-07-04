@@ -31,6 +31,7 @@ type PropertyConfig = {
   slug: string;
   address: string;
   city: string;
+  isFlat?: boolean;
 } & (
   | { hasBlocks: false; template: TemplateDef; floors: FloorDef[] }
   | { hasBlocks: true; blocks: BlockDef[] }
@@ -84,6 +85,7 @@ const PROPERTIES: PropertyConfig[] = [
     slug: "cozy-gowlidoddy",
     address: "Survey 88, Gowlidoddy",
     city: "Hyderabad",
+    isFlat: true,
     hasBlocks: true,
     blocks: [
       {
@@ -223,6 +225,7 @@ async function seedProperties() {
         slug: config.slug,
         address: config.address,
         city: config.city,
+        isFlat: config.isFlat ?? false,
         hasBlocks: config.hasBlocks,
       },
     });
