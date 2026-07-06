@@ -50,6 +50,7 @@ export type InvoiceView = {
   propertyName: string;
   propertyAddress: string | null;
   propertyPhone: string | null;
+  propertyLogoKey: string | null; // storage key for the property logo, or null → brand logo
   // Invoice meta
   number: string;
   issueDate: string;

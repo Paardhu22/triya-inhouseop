@@ -8,6 +8,7 @@ import { PDFDocument, type PDFFont, rgb } from "pdf-lib";
 
 import type { InvoiceView } from "@/lib/invoice-compute";
 import { embedUnicodeFonts } from "@/lib/pdf-font";
+import { storage } from "@/lib/storage";
 
 // pdf-lib's standard fonts use WinAnsi encoding, which cannot render the ₹ glyph,
 // so amounts in the PDF use the ASCII-safe "Rs." prefix. (The WhatsApp body and the
@@ -29,6 +30,34 @@ function loadLogoBytes(): Promise<Uint8Array | null> {
       .catch(() => null);
   }
   return logoBytesPromise;
+}
+
+/**
+ * The image to print in the header: the property's own uploaded logo (PNG/JPEG) when it
+ * has one, otherwise the bundled Triya brand logo. Returns null so the caller can fall
+ * back to a text wordmark, and never hard-fails on a missing/corrupt asset.
+ */
+async function embedHeaderLogo(pdf: PDFDocument, propertyLogoKey: string | null) {
+  if (propertyLogoKey) {
+    const file = await storage.read(propertyLogoKey);
+    if (file) {
+      try {
+        if (file.mimeType === "image/png") return await pdf.embedPng(file.data);
+        if (file.mimeType === "image/jpeg") return await pdf.embedJpg(file.data);
+      } catch {
+        // corrupt image — fall through to the brand logo
+      }
+    }
+  }
+  const brand = await loadLogoBytes();
+  if (brand) {
+    try {
+      return await pdf.embedPng(brand);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 const fmtDate = (iso: string) => format(parseISO(iso), "dd MMM yyyy");
@@ -60,13 +89,18 @@ export async function generateInvoicePdf(data: InvoiceView): Promise<Uint8Array>
   const rule = (y: number, x1 = LEFT, x2 = RIGHT, color = LINE) =>
     page.drawLine({ start: { x: x1, y }, end: { x: x2, y }, thickness: 0.75, color });
 
-  // -- Header: logo + property (left), invoice title + number (right) --------
-  const logo = await loadLogoBytes();
-  if (logo) {
-    const img = await pdf.embedPng(logo);
-    const h = 34;
-    const w = (img.width / img.height) * h;
-    page.drawImage(img, { x: LEFT, y: 806 - h, width: w, height: h });
+  // -- Header: logo (property's own, else brand) + property, invoice title ---
+  const img = await embedHeaderLogo(pdf, data.propertyLogoKey);
+  if (img) {
+    const maxH = 40;
+    const maxW = 160;
+    let h = maxH;
+    let w = (img.width / img.height) * h;
+    if (w > maxW) {
+      w = maxW;
+      h = (img.height / img.width) * w;
+    }
+    page.drawImage(img, { x: LEFT, y: 812 - h, width: w, height: h });
   } else {
     text("Triya Manager", LEFT, 782, 20, bold);
   }

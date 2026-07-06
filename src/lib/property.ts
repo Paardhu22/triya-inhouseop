@@ -52,6 +52,6 @@ export async function listProperties() {
   return prisma.property.findMany({
     where: { isActive: true, ...scope },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true, city: true, hasBlocks: true },
+    select: { id: true, name: true, slug: true, city: true, hasBlocks: true, logoKey: true },
   });
 }

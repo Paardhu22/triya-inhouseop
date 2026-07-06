@@ -18,6 +18,7 @@ export async function listPropertiesForAdmin() {
       isActive: true,
       hasBlocks: true,
       isFlat: true,
+      logoKey: true,
       _count: { select: { floors: true, tenants: true, beds: true } },
       users: {
         where: { role: { not: "ADMIN" } },

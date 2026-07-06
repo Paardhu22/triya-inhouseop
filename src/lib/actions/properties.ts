@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
+import { storage } from "@/lib/storage";
 import {
   createPropertySchema,
   setAccountPasswordSchema,
@@ -180,6 +181,72 @@ export async function setPropertyActive(input: unknown): Promise<ActionResult> {
     data: { isActive: parsed.data.active },
   });
   if (updated.count !== 1) return actionError("Property not found");
+
+  revalidatePath("/admin");
+  revalidatePath("/", "layout");
+  return actionOk();
+}
+
+// PNG/JPEG only: both the on-screen preview and pdf-lib (which can only embed PNG/JPEG)
+// must be able to render the logo. Other image types would break the invoice PDF.
+const LOGO_TYPES = new Set(["image/png", "image/jpeg"]);
+
+/** Upload/replace a property's logo (admin only). Stored via the file driver, old one removed. */
+export async function setPropertyLogo(formData: FormData): Promise<ActionResult> {
+  if (!(await requireAdmin())) return actionError("Administrator access required");
+
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const file = formData.get("file");
+  if (!propertyId) return actionError("Missing property");
+  if (!(file instanceof File) || file.size === 0) return actionError("Choose an image file");
+  if (!LOGO_TYPES.has(file.type)) return actionError("Logo must be a PNG or JPG image");
+
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: { id: true, logoKey: true },
+  });
+  if (!property) return actionError("Property not found");
+
+  let key: string;
+  try {
+    const saved = await storage.save(file, "logos");
+    key = saved.key;
+  } catch (error) {
+    return actionError(error instanceof Error ? error.message : "Could not store the logo");
+  }
+
+  await prisma.property.update({ where: { id: property.id }, data: { logoKey: key } });
+
+  if (property.logoKey && property.logoKey !== key) {
+    try {
+      await storage.remove(property.logoKey);
+    } catch (error) {
+      console.error(`Failed to delete old logo ${property.logoKey}:`, error);
+    }
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/", "layout");
+  return actionOk();
+}
+
+/** Remove a property's logo (admin only), reverting invoices/chrome to the brand logo. */
+export async function removePropertyLogo(input: { propertyId: string }): Promise<ActionResult> {
+  if (!(await requireAdmin())) return actionError("Administrator access required");
+
+  const property = await prisma.property.findUnique({
+    where: { id: input.propertyId },
+    select: { id: true, logoKey: true },
+  });
+  if (!property) return actionError("Property not found");
+  if (!property.logoKey) return actionOk();
+
+  await prisma.property.update({ where: { id: property.id }, data: { logoKey: null } });
+  try {
+    await storage.remove(property.logoKey);
+  } catch (error) {
+    console.error(`Failed to delete logo ${property.logoKey}:`, error);
+  }
 
   revalidatePath("/admin");
   revalidatePath("/", "layout");

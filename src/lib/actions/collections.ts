@@ -64,6 +64,7 @@ type ViewParts = {
   propertyName: string;
   propertyAddress: string | null;
   propertyPhone: string | null;
+  propertyLogoKey: string | null;
   number: string;
   issueDate: Date;
   billingMonth: Date;
@@ -90,6 +91,7 @@ function buildInvoiceView(p: ViewParts): InvoiceView {
     propertyName: p.propertyName,
     propertyAddress: p.propertyAddress,
     propertyPhone: p.propertyPhone,
+    propertyLogoKey: p.propertyLogoKey,
     number: p.number,
     issueDate: isoDate(p.issueDate),
     billingMonth: isoDate(p.billingMonth),
@@ -147,6 +149,7 @@ export async function prepareInvoice(tenancyId: string): Promise<ActionResult<In
       propertyName: property.name,
       propertyAddress: property.address,
       propertyPhone: property.phone,
+      propertyLogoKey: property.logoKey,
       number: formatInvoiceNumber(billingMonth, seq),
       issueDate: new Date(),
       billingMonth,
@@ -298,6 +301,7 @@ export async function sendInvoice(
     propertyName: property.name,
     propertyAddress: property.address,
     propertyPhone: property.phone,
+    propertyLogoKey: property.logoKey,
     number: invoice.number,
     issueDate: invoice.issueDate,
     billingMonth,
