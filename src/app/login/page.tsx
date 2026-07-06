@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { LoginForm } from "@/components/auth/login-form";
+import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -19,6 +20,14 @@ export default async function LoginPage({
   }
 
   const { callbackUrl } = await searchParams;
+
+  // Accounts offered in the login dropdown: the admin plus every property whose
+  // account is still active (deactivated properties disappear from here too).
+  const users = await prisma.user.findMany({
+    where: { isActive: true, OR: [{ role: "ADMIN" }, { property: { isActive: true } }] },
+    select: { name: true, email: true, role: true },
+    orderBy: [{ role: "asc" }, { name: "asc" }],
+  });
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#2c3040] px-4 py-10">
@@ -55,9 +64,9 @@ export default async function LoginPage({
               Welcome back. Enter your credentials to continue.
             </p>
           </div>
-          <LoginForm callbackUrl={callbackUrl ?? "/dashboard"} />
+          <LoginForm callbackUrl={callbackUrl ?? "/dashboard"} users={users} />
           <p className="mt-8 text-xs text-muted-foreground">
-            Demo: admin@triya.local · Admin@12345
+            Select your account, then enter its password to continue.
           </p>
         </div>
       </div>
