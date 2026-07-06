@@ -10,6 +10,7 @@ import { getActiveProperty } from "@/lib/property";
 import { getTenantProfile, type TenantProfile } from "@/lib/queries/tenants";
 import { COMPLAINT_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
 import { DeleteTenantButton } from "@/components/tenants/delete-tenant-button";
+import { TogglePaymentStatusButton } from "@/components/tenants/toggle-payment-status";
 
 export const metadata: Metadata = {
   title: "Tenant profile",
@@ -125,7 +126,10 @@ export default async function TenantProfilePage({
             ) : null}
           </div>
         </div>
-        <div className="flex shrink-0 items-center sm:self-center">
+        <div className="flex shrink-0 items-center gap-2 sm:self-center">
+          {active ? (
+            <TogglePaymentStatusButton tenancyId={active.id} currentStatus={active.paymentStatus} />
+          ) : null}
           <DeleteTenantButton id={tenant.id} />
         </div>
       </div>

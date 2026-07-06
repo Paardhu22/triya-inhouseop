@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { startOfMonth } from "date-fns";
 
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
@@ -73,6 +74,68 @@ export async function deleteTenant(id: string): Promise<ActionResult> {
   revalidatePath("/dashboard");
   revalidatePath("/complaints");
   revalidatePath("/expenses");
+
+  return actionOk();
+}
+
+export async function togglePaymentStatus(
+  tenancyId: string,
+  newStatus: "PAID" | "PENDING" | "OVERDUE",
+): Promise<ActionResult> {
+  const ctx = await requireContext();
+  if (!ctx) return actionError("Not authenticated");
+
+  const tenancy = await prisma.tenancy.findFirst({
+    where: { id: tenancyId, propertyId: ctx.propertyId, status: "ACTIVE" },
+    select: { id: true, tenantId: true, monthlyRent: true },
+  });
+
+  if (!tenancy) return actionError("Active tenancy not found");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenancy.update({
+      where: { id: tenancy.id },
+      data: { paymentStatus: newStatus },
+    });
+
+    const monthStart = startOfMonth(new Date());
+    const existing = await tx.payment.findFirst({
+      where: { tenancyId: tenancy.id, forMonth: monthStart },
+      select: { id: true },
+    });
+
+    if (newStatus === "PAID") {
+      if (existing) {
+        await tx.payment.update({
+          where: { id: existing.id },
+          data: { status: "PAID", amount: tenancy.monthlyRent, paidAt: new Date() },
+        });
+      } else {
+        await tx.payment.create({
+          data: {
+            propertyId: ctx.propertyId,
+            tenancyId: tenancy.id,
+            tenantId: tenancy.tenantId,
+            amount: tenancy.monthlyRent,
+            forMonth: monthStart,
+            status: "PAID",
+            paidAt: new Date(),
+          },
+        });
+      }
+    } else {
+      if (existing) {
+        await tx.payment.update({
+          where: { id: existing.id },
+          data: { status: newStatus, paidAt: null },
+        });
+      }
+    }
+  });
+
+  revalidatePath("/tenants");
+  revalidatePath("/collections");
+  revalidatePath(`/tenants/${tenancy.tenantId}`);
 
   return actionOk();
 }
