@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { format } from "date-fns";
+import { format, differenceInDays, startOfMonth, addMonths, setDate, startOfDay } from "date-fns";
 import { ArrowLeft, FileText, Mail, Phone, User } from "lucide-react";
 
 import { StatusBadge } from "@/components/common/status-badge";
@@ -45,6 +45,23 @@ function tenancyPeriod(t: TenantProfile["tenancies"][number]) {
   const start = format(t.checkInDate, "dd MMM yyyy");
   const end = t.checkOutDate ? format(t.checkOutDate, "dd MMM yyyy") : "Present";
   return `${start} – ${end}`;
+}
+
+function getRentDueText(tenancy: TenantProfile["tenancies"][number]) {
+  const today = startOfDay(new Date());
+  const dueDay = tenancy.paymentDueDay || 5;
+  
+  let dueMonth = startOfMonth(today);
+  if (tenancy.paymentStatus === "PAID") {
+    dueMonth = addMonths(dueMonth, 1);
+  }
+  
+  const dueDate = setDate(dueMonth, dueDay);
+  const daysLeft = differenceInDays(dueDate, today);
+  
+  if (daysLeft === 0) return "Due today";
+  if (daysLeft < 0) return `Overdue by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'}`;
+  return `Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
 }
 
 function paymentMethodLabel(p: TenantProfile["payments"][number]) {
@@ -201,7 +218,7 @@ export default async function TenantProfilePage({
                   <span>
                     Deposit: {active.securityDeposit ? formatINR(active.securityDeposit) : "Not set"}
                   </span>
-                  <span>Rent due: {active.paymentDueDay ? `Day ${active.paymentDueDay}` : "Not set"}</span>
+                  <span>Rent due: Day {active.paymentDueDay || 5} · {getRentDueText(active)}</span>
                   <span>
                     Leaving: {active.expectedLeavingDate ? format(active.expectedLeavingDate, "dd MMM yyyy") : "Not set"}
                   </span>
