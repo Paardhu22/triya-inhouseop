@@ -18,15 +18,30 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 
-export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
+type LoginUser = { name: string | null; email: string; role: string };
+
+export function LoginForm({
+  callbackUrl,
+  users,
+}: {
+  callbackUrl: string;
+  users: LoginUser[];
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { email: users[0]?.email ?? "", password: "" },
   });
 
   async function onSubmit(values: LoginInput) {
@@ -54,16 +69,21 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@company.com"
-                  disabled={loading}
-                  {...field}
-                />
-              </FormControl>
+              <FormLabel>User</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a user" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.email} value={user.email}>
+                      {user.name ?? user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
