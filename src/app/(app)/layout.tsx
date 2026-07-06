@@ -28,11 +28,12 @@ export default async function AppLayout({
       <DesktopSidebar role={session.user.role} />
       <div className="flex min-h-screen flex-col md:pl-64">
         <Topbar
-          property={{ id: property.id, name: property.name, city: property.city }}
+          property={{ id: property.id, name: property.name, city: property.city, logoKey: property.logoKey }}
           properties={properties.map((p) => ({
             id: p.id,
             name: p.name,
             city: p.city,
+            logoKey: p.logoKey,
           }))}
           user={{
             name: session.user.name,

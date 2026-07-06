@@ -1,17 +1,18 @@
 "use client";
 
-import { FormEvent, useMemo, useState, useTransition } from "react";
+import { FormEvent, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
-  Building2,
+  ImagePlus,
   KeyRound,
   Loader2,
   Plus,
   Power,
   PowerOff,
   Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,7 +47,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { createProperty, setAccountPassword, setPropertyActive } from "@/lib/actions/properties";
+import { PropertyLogo } from "@/components/property/property-logo";
+import {
+  createProperty,
+  removePropertyLogo,
+  setAccountPassword,
+  setPropertyActive,
+  setPropertyLogo,
+} from "@/lib/actions/properties";
 import type { AdminPropertyRow } from "@/lib/queries/properties";
 import { slugify } from "@/lib/slug";
 
@@ -78,9 +86,7 @@ function PropertyRow({ property }: { property: AdminPropertyRow }) {
 
   return (
     <div className="flex flex-wrap items-center gap-3 py-3 first:pt-4 last:pb-4">
-      <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Building2 className="size-4" />
-      </div>
+      <PropertyLogoControl propertyId={property.id} name={property.name} logoKey={property.logoKey} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate font-medium">{property.name}</p>
@@ -94,6 +100,80 @@ function PropertyRow({ property }: { property: AdminPropertyRow }) {
         {account ? <ChangePasswordDialog account={account} /> : null}
         <ToggleActive property={property} />
       </div>
+    </div>
+  );
+}
+
+function PropertyLogoControl({
+  propertyId,
+  name,
+  logoKey,
+}: {
+  propertyId: string;
+  name: string;
+  logoKey: string | null;
+}) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [pending, startTransition] = useTransition();
+
+  function upload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (inputRef.current) inputRef.current.value = "";
+    if (!file) return;
+    const formData = new FormData();
+    formData.set("propertyId", propertyId);
+    formData.set("file", file);
+    startTransition(async () => {
+      const res = await setPropertyLogo(formData);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Logo updated");
+      router.refresh();
+    });
+  }
+
+  function remove() {
+    startTransition(async () => {
+      const res = await removePropertyLogo({ propertyId });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Logo removed");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={pending}
+        title={logoKey ? "Change logo" : "Upload logo"}
+        className="flex size-10 items-center justify-center overflow-hidden rounded-lg border bg-muted text-muted-foreground transition-colors hover:bg-muted/60 disabled:opacity-60"
+      >
+        {pending ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <PropertyLogo logoKey={logoKey} name={name} className="size-full object-contain p-1" iconClassName="size-4" />
+        )}
+      </button>
+      <input ref={inputRef} type="file" accept="image/png,image/jpeg" hidden onChange={upload} />
+      {logoKey ? (
+        <button
+          type="button"
+          onClick={remove}
+          disabled={pending}
+          title="Remove logo"
+          className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm hover:text-destructive disabled:opacity-60"
+        >
+          <X className="size-2.5" />
+        </button>
+      ) : null}
     </div>
   );
 }

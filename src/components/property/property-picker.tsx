@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building2, Loader2, MapPin } from "lucide-react";
+import { ArrowRight, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
+import { PropertyLogo } from "@/components/property/property-logo";
 import { cn } from "@/lib/utils";
 import { selectProperty } from "@/lib/actions/property";
 
-type Item = { id: string; name: string; city: string | null; slug: string };
+type Item = { id: string; name: string; city: string | null; slug: string; logoKey?: string | null };
 
 export function PropertyPicker({ properties }: { properties: Item[] }) {
   const router = useRouter();
@@ -42,8 +43,13 @@ export function PropertyPicker({ properties }: { properties: Item[] }) {
               selectedId === p.id && "border-primary",
             )}
           >
-            <div className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Building2 className="size-5" />
+            <div className="flex size-11 items-center justify-center overflow-hidden rounded-lg bg-primary/10 text-primary">
+              <PropertyLogo
+                logoKey={p.logoKey}
+                name={p.name}
+                className="size-full object-contain p-1.5"
+                iconClassName="size-5 text-primary"
+              />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{p.name}</p>

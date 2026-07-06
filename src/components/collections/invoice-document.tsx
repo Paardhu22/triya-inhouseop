@@ -42,7 +42,19 @@ export function InvoiceDocument({
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <Image src="/logo.png" alt="Triya" width={120} height={40} className="h-8 w-auto" priority />
+          {data.propertyLogoKey ? (
+            // Property's own logo (served via the authenticated /api/files route). A plain
+            // <img> is used so the browser sends the session cookie; next/image's optimizer
+            // would fetch it server-side without the cookie and 401. Falls back to the brand.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/files/${data.propertyLogoKey}`}
+              alt={`${data.propertyName} logo`}
+              className="h-8 w-auto max-w-[160px] object-contain"
+            />
+          ) : (
+            <Image src="/logo.png" alt="Triya" width={120} height={40} className="h-8 w-auto" priority />
+          )}
           <p className="pt-1 text-sm font-semibold">{data.propertyName}</p>
           {data.propertyAddress ? (
             <p className="text-xs text-muted-foreground">{data.propertyAddress}</p>

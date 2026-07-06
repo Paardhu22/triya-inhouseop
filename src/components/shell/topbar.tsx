@@ -14,7 +14,7 @@ import { SidebarContent } from "./sidebar";
 import { UserMenu } from "./user-menu";
 
 import { useTransition } from "react";
-import { ChevronDown, Building2, Loader2, Check } from "lucide-react";
+import { ChevronDown, Loader2, Check } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -22,10 +22,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PropertyLogo } from "@/components/property/property-logo";
 import { selectProperty } from "@/lib/actions/property";
 import { toast } from "sonner";
 
-type PropertyItem = { id: string; name: string; city: string | null };
+type PropertyItem = { id: string; name: string; city: string | null; logoKey?: string | null };
 
 type Props = {
   property: PropertyItem;
@@ -75,6 +76,12 @@ export function Topbar({ property, properties, user }: Props) {
               className="flex min-w-[160px] sm:min-w-[200px] h-10 items-center justify-between gap-2 px-3 py-1.5 rounded-lg border border-border bg-card shadow-2xs hover:bg-muted/50"
               disabled={isPending}
             >
+              <PropertyLogo
+                logoKey={property.logoKey}
+                name={property.name}
+                className="h-6 w-6 shrink-0 rounded object-contain"
+                iconClassName="size-4 shrink-0"
+              />
               <div className="flex flex-col items-start min-w-0 text-left">
                 <span className="truncate text-xs font-semibold leading-none text-foreground">{property.name}</span>
                 {property.city ? (
@@ -96,7 +103,12 @@ export function Topbar({ property, properties, user }: Props) {
                 onClick={() => handleSelectProperty(p.id)}
                 className="flex items-center gap-2 cursor-pointer"
               >
-                <Building2 className="size-4 text-muted-foreground shrink-0" />
+                <PropertyLogo
+                  logoKey={p.logoKey}
+                  name={p.name}
+                  className="size-5 shrink-0 rounded object-contain"
+                  iconClassName="size-4 shrink-0"
+                />
                 <div className="flex flex-col min-w-0">
                   <span className="truncate text-sm font-medium">{p.name}</span>
                   {p.city && <span className="truncate text-xs text-muted-foreground">{p.city}</span>}
@@ -110,7 +122,12 @@ export function Topbar({ property, properties, user }: Props) {
         </DropdownMenu>
       ) : (
         <div className="flex min-w-[160px] sm:min-w-[200px] h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 shadow-2xs">
-          <Building2 className="size-4 text-muted-foreground shrink-0" />
+          <PropertyLogo
+            logoKey={property.logoKey}
+            name={property.name}
+            className="h-6 w-6 shrink-0 rounded object-contain"
+            iconClassName="size-4 shrink-0"
+          />
           <div className="flex flex-col items-start min-w-0 text-left">
             <span className="truncate text-xs font-semibold leading-none text-foreground">{property.name}</span>
             {property.city ? (
