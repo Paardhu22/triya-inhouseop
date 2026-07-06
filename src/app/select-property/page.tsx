@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { AutoSelectProperty } from "@/components/property/auto-select-property";
 import { PropertyPicker } from "@/components/property/property-picker";
 import { listProperties } from "@/lib/property";
 
@@ -25,16 +26,20 @@ export default async function SelectPropertyPage() {
             Triya Manager
           </span>
           <h1 className="mt-3 text-[2rem] font-bold tracking-tight text-white">
-            Select a property
+            {properties.length === 1 ? "Opening your property" : "Select a property"}
           </h1>
           <p className="mt-2 text-sm text-white/60">
-            Choose which PG you want to manage. You can switch anytime from the top bar.
+            {properties.length === 1
+              ? "Taking you to your dashboard."
+              : "Choose which PG you want to manage. You can switch anytime from the top bar."}
           </p>
         </div>
         {properties.length === 0 ? (
           <p className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-center text-sm text-white/60">
-            No properties have been configured yet.
+            No properties are available for your account. Contact an administrator.
           </p>
+        ) : properties.length === 1 ? (
+          <AutoSelectProperty propertyId={properties[0].id} />
         ) : (
           <PropertyPicker properties={properties} />
         )}
