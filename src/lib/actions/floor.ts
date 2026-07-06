@@ -14,10 +14,10 @@ import { saveBedSchema } from "@/lib/validations/tenant";
 
 async function requireContext() {
   const session = await auth();
-  if (!session?.user) return null;
+  if (!session?.user?.id) return null;
   const propertyId = await getSelectedPropertyId();
   if (!propertyId) return null;
-  return { propertyId };
+  return { propertyId, userId: session.user.id };
 }
 
 function revalidateFloorViews() {
@@ -105,10 +105,12 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
   const checkInDate = data.checkInDate;
   const rentPaise = rupeesToPaise(data.rentAmount);
   const maintenancePaise = rupeesToPaise(data.maintenanceCharge ?? 0);
-  // Gross deposit collected from the manager, in paise (null if none entered).
   const grossDepositPaise =
     data.securityDeposit !== undefined ? rupeesToPaise(data.securityDeposit) : null;
   const paymentStatus = data.paymentStatus ?? "PENDING";
+  const paymentMethod = data.paymentMethod ?? "CASH";
+  const cashAmountPaise = data.cashAmount !== undefined ? rupeesToPaise(data.cashAmount) : null;
+  const onlineAmountPaise = data.onlineAmount !== undefined ? rupeesToPaise(data.onlineAmount) : null;
 
   const photo = formData.get("photo");
   let saved: Awaited<ReturnType<typeof storage.save>> | null = null;
@@ -225,7 +227,15 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
         if (existing) {
           await tx.payment.update({
             where: { id: existing.id },
-            data: { status: "PAID", amount: rentPaise, paidAt: new Date() },
+            data: {
+              status: "PAID",
+              amount: rentPaise,
+              method: paymentMethod,
+              cashAmount: cashAmountPaise,
+              onlineAmount: onlineAmountPaise,
+              paidAt: new Date(),
+              recordedById: ctx.userId,
+            },
           });
         } else {
           await tx.payment.create({
@@ -236,7 +246,11 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
               amount: rentPaise,
               forMonth: monthStart,
               status: "PAID",
+              method: paymentMethod,
+              cashAmount: cashAmountPaise,
+              onlineAmount: onlineAmountPaise,
               paidAt: new Date(),
+              recordedById: ctx.userId,
             },
           });
         }

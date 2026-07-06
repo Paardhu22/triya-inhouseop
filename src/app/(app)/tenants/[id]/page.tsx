@@ -47,8 +47,13 @@ function tenancyPeriod(t: TenantProfile["tenancies"][number]) {
   return `${start} – ${end}`;
 }
 
-function paymentMethodLabel(method: TenantProfile["payments"][number]["method"]) {
-  return method.replace(/_/g, " ").toLowerCase();
+function paymentMethodLabel(p: TenantProfile["payments"][number]) {
+  if (p.method === "SPLIT") {
+    const cashStr = p.cashAmount ? formatINR(p.cashAmount) : "₹0";
+    const onlineStr = p.onlineAmount ? formatINR(p.onlineAmount) : "₹0";
+    return `Split (Cash: ${cashStr}, Online: ${onlineStr})`;
+  }
+  return p.method.replace(/_/g, " ").toLowerCase();
 }
 
 export default async function TenantProfilePage({
@@ -128,7 +133,11 @@ export default async function TenantProfilePage({
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:self-center">
           {active ? (
-            <TogglePaymentStatusButton tenancyId={active.id} currentStatus={active.paymentStatus} />
+            <TogglePaymentStatusButton 
+              tenancyId={active.id} 
+              currentStatus={active.paymentStatus} 
+              monthlyRent={active.monthlyRent}
+            />
           ) : null}
           <DeleteTenantButton id={tenant.id} />
         </div>
@@ -213,9 +222,14 @@ export default async function TenantProfilePage({
                     <p className="text-sm font-medium">{format(p.forMonth, "MMMM yyyy")}</p>
                     <p className="text-xs text-muted-foreground">
                       {p.paidAt
-                        ? `Paid ${format(p.paidAt, "dd MMM")} by ${paymentMethodLabel(p.method)}`
+                        ? `Paid ${format(p.paidAt, "dd MMM")} by ${paymentMethodLabel(p)}`
                         : "Not paid"}
                     </p>
+                    {p.recordedBy ? (
+                      <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                        Recorded by {p.recordedBy.name}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium tabular-nums">{formatINR(p.amount)}</span>

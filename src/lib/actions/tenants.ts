@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { startOfMonth } from "date-fns";
 
+import { type PaymentMethod } from "@/generated/prisma/client";
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
@@ -11,10 +12,10 @@ import { storage } from "@/lib/storage";
 
 async function requireContext() {
   const session = await auth();
-  if (!session?.user) return null;
+  if (!session?.user?.id) return null;
   const propertyId = await getSelectedPropertyId();
   if (!propertyId) return null;
-  return { propertyId };
+  return { propertyId, userId: session.user.id };
 }
 
 export async function deleteTenant(id: string): Promise<ActionResult> {
@@ -81,6 +82,9 @@ export async function deleteTenant(id: string): Promise<ActionResult> {
 export async function togglePaymentStatus(
   tenancyId: string,
   newStatus: "PAID" | "PENDING" | "OVERDUE",
+  paymentMethod?: PaymentMethod,
+  cashAmount?: number,
+  onlineAmount?: number,
 ): Promise<ActionResult> {
   const ctx = await requireContext();
   if (!ctx) return actionError("Not authenticated");
@@ -108,7 +112,15 @@ export async function togglePaymentStatus(
       if (existing) {
         await tx.payment.update({
           where: { id: existing.id },
-          data: { status: "PAID", amount: tenancy.monthlyRent, paidAt: new Date() },
+          data: {
+            status: "PAID",
+            amount: tenancy.monthlyRent,
+            method: paymentMethod ?? "CASH",
+            cashAmount: cashAmount ?? null,
+            onlineAmount: onlineAmount ?? null,
+            paidAt: new Date(),
+            recordedById: ctx.userId,
+          },
         });
       } else {
         await tx.payment.create({
@@ -119,7 +131,11 @@ export async function togglePaymentStatus(
             amount: tenancy.monthlyRent,
             forMonth: monthStart,
             status: "PAID",
+            method: paymentMethod ?? "CASH",
+            cashAmount: cashAmount ?? null,
+            onlineAmount: onlineAmount ?? null,
             paidAt: new Date(),
+            recordedById: ctx.userId,
           },
         });
       }

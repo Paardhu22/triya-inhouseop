@@ -23,6 +23,9 @@ export const saveBedSchema = z.object({
   securityDeposit: z.coerce.number().min(0).max(10_000_000).optional(),
   checkInDate: z.coerce.date().optional(),
   paymentStatus: z.enum(["PAID", "PENDING"]).optional(),
+  paymentMethod: z.enum(["CASH", "ONLINE", "SPLIT"]).optional(),
+  cashAmount: z.coerce.number().int().min(0).optional(),
+  onlineAmount: z.coerce.number().int().min(0).optional(),
 });
 
 // Client-side form schema (plain strings, friendly for React Hook Form).
@@ -38,6 +41,9 @@ export const bedFormSchema = z
     securityDeposit: z.string(),
     checkInDate: z.string(),
     paymentStatus: z.enum(["PAID", "PENDING"]),
+    paymentMethod: z.enum(["CASH", "ONLINE", "SPLIT"]).optional(),
+    cashAmount: z.string().optional(),
+    onlineAmount: z.string().optional(),
   })
   .superRefine((val, ctx) => {
     if (val.email && !z.string().email().safeParse(val.email).success) {
@@ -76,6 +82,22 @@ export const bedFormSchema = z
     }
     if (!val.checkInDate) {
       ctx.addIssue({ code: "custom", path: ["checkInDate"], message: "Select a check-in date" });
+    }
+    if (val.paymentStatus === "PAID" && val.paymentMethod === "SPLIT") {
+      const rent = Number(val.rentAmount) || 0;
+      const maint = Number(val.maintenanceCharge) || 0;
+      const deposit = Number(val.securityDeposit) || 0;
+      // Assuming initial payment covers all three.
+      const totalExpected = rent + maint + deposit;
+      const cash = Number(val.cashAmount) || 0;
+      const online = Number(val.onlineAmount) || 0;
+      if (cash + online !== totalExpected) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["paymentMethod"],
+          message: `Split amounts must equal the total of ₹${totalExpected}`,
+        });
+      }
     }
   });
 

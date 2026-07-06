@@ -43,10 +43,8 @@ enum PaymentStatus {
 
 enum PaymentMethod {
   CASH
-  UPI
-  BANK_TRANSFER
-  CARD
-  OTHER
+  ONLINE
+  SPLIT
 }
 
 enum ComplaintStatus {
@@ -101,8 +99,9 @@ model User {
 
   accounts           Account[]
   sessions           Session[]
-  assignedComplaints Complaint[] @relation("ComplaintAssignee")
-  createdExpenses    Expense[]
+  assignedComplaints    Complaint[] @relation("ComplaintAssignee")
+  createdExpenses       Expense[]
+  recordedPayments      Payment[]   @relation("PaymentRecorder")
 
   @@index([role])
 }
@@ -372,14 +371,18 @@ model Payment {
   forMonth   DateTime // first day of the month this payment covers
   status     PaymentStatus @default(PAID)
   method     PaymentMethod @default(CASH)
+  cashAmount Int?          // paise
+  onlineAmount Int?        // paise
   paidAt     DateTime?
   notes      String?
+  recordedById String?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   tenancy  Tenancy  @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
   tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recordedBy User?  @relation("PaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   @@index([propertyId])
   @@index([tenancyId])

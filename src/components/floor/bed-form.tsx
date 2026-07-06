@@ -63,6 +63,10 @@ export function BedForm({
     defaultValues: defaults,
   });
 
+  const paymentStatus = form.watch("paymentStatus");
+  const paymentMethod = form.watch("paymentMethod");
+  const occupancyStatus = form.watch("occupancyStatus");
+
   function onPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
     setPhoto(file);
@@ -88,6 +92,9 @@ export function BedForm({
       fd.append("securityDeposit", values.securityDeposit);
       fd.append("checkInDate", values.checkInDate);
       fd.append("paymentStatus", values.paymentStatus);
+      if (values.paymentMethod) fd.append("paymentMethod", values.paymentMethod);
+      if (values.cashAmount) fd.append("cashAmount", values.cashAmount);
+      if (values.onlineAmount) fd.append("onlineAmount", values.onlineAmount);
       if (photo) fd.append("photo", photo);
     }
 
@@ -284,6 +291,63 @@ export function BedForm({
             )}
           />
         </div>
+
+        {paymentStatus === "PAID" && occupancyStatus === "OCCUPIED" && (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment Method</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={pending}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select method" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="CASH">Cash</SelectItem>
+                      <SelectItem value="ONLINE">Online</SelectItem>
+                      <SelectItem value="SPLIT">Split (Cash + Online)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {paymentMethod === "SPLIT" && (
+              <div className="grid grid-cols-2 gap-2">
+                <FormField
+                  control={form.control}
+                  name="cashAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cash (₹)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} placeholder="0" disabled={pending} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="onlineAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Online (₹)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} placeholder="0" disabled={pending} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {tenancyId ? (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3.5 py-3">

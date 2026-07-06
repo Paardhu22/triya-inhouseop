@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const contains = { contains: query, mode: "insensitive" as const };
   const upper = query.toUpperCase().replace(/\s+/g, "_");
   const paymentStatuses = ["PAID", "PENDING", "OVERDUE"] as const;
-  const paymentMethods = ["CASH", "UPI", "BANK_TRANSFER", "CARD", "OTHER"] as const;
+  const paymentMethods = ["CASH", "ONLINE", "SPLIT"] as const;
 
   const [tenants, rooms, complaints, payments] = await Promise.all([
     prisma.tenant.findMany({
