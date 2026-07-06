@@ -414,7 +414,7 @@ function AddPropertyWizard() {
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{step === 1 ? "New property" : "Structure"}</DialogTitle>
+          <DialogTitle>{step === 1 ? "Guided property wizard" : "Structure"}</DialogTitle>
           <DialogDescription>
             {step === 1
               ? "Property details and the login account that manages it."
