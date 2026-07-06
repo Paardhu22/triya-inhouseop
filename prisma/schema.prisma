@@ -94,9 +94,14 @@ model User {
   passwordHash  String
   role          Role      @default(STAFF)
   isActive      Boolean   @default(true)
+  // Non-admin accounts are scoped to a single property (their PG). ADMIN accounts
+  // leave this null and can access every property. onDelete: SetNull so hard-deleting
+  // a property never deletes the human; deactivation is the reversible path.
+  propertyId    String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  property           Property?   @relation("PropertyStaff", fields: [propertyId], references: [id], onDelete: SetNull)
   accounts           Account[]
   sessions           Session[]
   assignedComplaints    Complaint[] @relation("ComplaintAssignee")
@@ -104,6 +109,7 @@ model User {
   recordedPayments      Payment[]   @relation("PaymentRecorder")
 
   @@index([role])
+  @@index([propertyId])
 }
 
 model Account {
@@ -166,6 +172,7 @@ model Property {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  users          User[]          @relation("PropertyStaff")
   blocks         Block[]
   floors         Floor[]
   rooms          Room[]
