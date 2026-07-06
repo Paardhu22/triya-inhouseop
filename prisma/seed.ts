@@ -26,12 +26,16 @@ function bedLabels(n: number): string[] {
 type TemplateDef = { name: string; description: string; rooms: number[] };
 type FloorDef = { number: number; name?: string };
 type BlockDef = { name: string; template: TemplateDef; floors: FloorDef[] };
+// Each property ships with one non-admin MANAGER account, scoped to that property
+// (User.propertyId). These sign in from the login-page user dropdown.
+type AccountDef = { email: string; password: string };
 type PropertyConfig = {
   name: string;
   slug: string;
   address: string;
   city: string;
   isFlat?: boolean;
+  account: AccountDef;
 } & (
   | { hasBlocks: false; template: TemplateDef; floors: FloorDef[] }
   | { hasBlocks: true; blocks: BlockDef[] }
@@ -49,6 +53,7 @@ const PROPERTIES: PropertyConfig[] = [
     slug: "joystayz",
     address: "Plot 42, Gachibowli",
     city: "Hyderabad",
+    account: { email: "joystayz@triya.local", password: "joystayz@12345" },
     hasBlocks: false,
     template: JOYSTAYZ_FLOOR,
     floors: [3, 4, 5, 6, 7].map((number) => ({ number, name: `Floor ${number}` })),
@@ -58,6 +63,7 @@ const PROPERTIES: PropertyConfig[] = [
     slug: "frieden",
     address: "Road No. 12, Banjara Hills",
     city: "Hyderabad",
+    account: { email: "frieden@triya.local", password: "frieden@12345" },
     hasBlocks: true,
     blocks: [
       {
@@ -85,6 +91,7 @@ const PROPERTIES: PropertyConfig[] = [
     slug: "cozy-gowlidoddy",
     address: "Survey 88, Gowlidoddy",
     city: "Hyderabad",
+    account: { email: "cozy@triya.local", password: "cozy@12345" },
     isFlat: true,
     hasBlocks: true,
     blocks: [
@@ -172,18 +179,12 @@ async function seedExpenseCategories() {
   }
 }
 
+// The global ADMIN account (propertyId null → access to every property). Each
+// property's own MANAGER account is created alongside the property in seedProperties.
 async function seedUsers() {
   const passwordHash = bcrypt.hashSync("Admin@12345", 10);
-  const staffHash = bcrypt.hashSync("Staff@12345", 10);
-
   await prisma.user.create({
     data: { name: "Triya Admin", email: "admin@triya.local", passwordHash, role: "ADMIN" },
-  });
-  await prisma.user.create({
-    data: { name: "Ravi Teja", email: "ravi@triya.local", passwordHash: staffHash, role: "MANAGER" },
-  });
-  await prisma.user.create({
-    data: { name: "Priya Menon", email: "priya@triya.local", passwordHash: staffHash, role: "STAFF" },
   });
 }
 
@@ -227,6 +228,17 @@ async function seedProperties() {
         city: config.city,
         isFlat: config.isFlat ?? false,
         hasBlocks: config.hasBlocks,
+      },
+    });
+
+    // The property's scoped MANAGER account.
+    await prisma.user.create({
+      data: {
+        name: config.name,
+        email: config.account.email,
+        passwordHash: bcrypt.hashSync(config.account.password, 10),
+        role: "MANAGER",
+        propertyId: property.id,
       },
     });
 
@@ -320,7 +332,11 @@ async function main() {
   console.log(`  Properties: ${propertyCount}`);
   console.log(`  Rooms:      ${roomCount}`);
   console.log(`  Beds:       ${bedCount}`);
-  console.log("\nLogin: admin@triya.local / Admin@12345 (staff users use Staff@12345)");
+  console.log("\nAccounts:");
+  console.log("  admin@triya.local / Admin@12345      (ADMIN — all properties)");
+  for (const config of PROPERTIES) {
+    console.log(`  ${config.account.email} / ${config.account.password}   (MANAGER — ${config.name})`);
+  }
 }
 
 main()
