@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { ADMIN_NAV, MAIN_NAV, type NavItem } from "./nav-config";
+import { APP_OWNER_NAV, MAIN_NAV, OWNER_NAV, SETTINGS_NAV, type NavItem } from "./nav-config";
 
 import { motion } from "motion/react";
 import TextRoll from "@/components/ui/text-roll";
@@ -51,32 +51,37 @@ export function SidebarContent({
   role: string;
   onNavigate?: () => void;
 }) {
-  const secondaryNav = ADMIN_NAV.filter((item) => item.href !== "/admin" || role === "ADMIN");
+  const primaryNav = role === "PROPERTY_OWNER" ? OWNER_NAV : role === "APP_OWNER" ? APP_OWNER_NAV : MAIN_NAV;
+  // OWNER_NAV and APP_OWNER_NAV already include their own Settings entry.
+  const secondaryNav = role === "PROPERTY_OWNER" || role === "APP_OWNER" ? [] : SETTINGS_NAV;
   return (
     <div className="flex h-full flex-col px-3 py-6">
       <div className="mb-8 flex h-12 items-center px-3">
-        <Image 
-          src="/logo.png" 
+        <Image
+          src="/logo.png"
           alt="DAZZ Logo"
-          width={160} 
-          height={48} 
+          width={160}
+          height={48}
           className="object-contain"
         />
       </div>
 
       <nav className="flex flex-col gap-0.5">
-        {MAIN_NAV.map((item) => (
+        {primaryNav.map((item) => (
           <NavLink key={item.href} item={item} onNavigate={onNavigate} />
         ))}
       </nav>
 
-      <div className="my-4 h-px bg-sidebar-border" />
-
-      <nav className="flex flex-col gap-0.5">
-        {secondaryNav.map((item) => (
-          <NavLink key={item.href} item={item} onNavigate={onNavigate} />
-        ))}
-      </nav>
+      {secondaryNav.length > 0 ? (
+        <>
+          <div className="my-4 h-px bg-sidebar-border" />
+          <nav className="flex flex-col gap-0.5">
+            {secondaryNav.map((item) => (
+              <NavLink key={item.href} item={item} onNavigate={onNavigate} />
+            ))}
+          </nav>
+        </>
+      ) : null}
     </div>
   );
 }

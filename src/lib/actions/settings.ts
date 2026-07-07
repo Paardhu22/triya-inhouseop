@@ -43,8 +43,8 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
 
 export async function updatePropertySettings(input: unknown): Promise<ActionResult> {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return actionError("Administrator access required");
+  if (!session?.user || session.user.role !== "PROPERTY_OWNER") {
+    return actionError("Property Owner access required");
   }
   const propertyId = await getSelectedPropertyId();
   if (!propertyId) return actionError("No property selected");

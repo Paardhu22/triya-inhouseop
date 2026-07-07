@@ -15,6 +15,9 @@ export default async function SelectPropertyPage() {
   if (!session?.user) {
     redirect("/login");
   }
+  if (session.user.role === "TENANT") {
+    redirect("/portal");
+  }
 
   const properties = await listProperties();
 

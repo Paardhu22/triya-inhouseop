@@ -21,7 +21,7 @@ export async function listPropertiesForAdmin() {
       logoKey: true,
       _count: { select: { floors: true, tenants: true, beds: true } },
       users: {
-        where: { role: { not: "ADMIN" } },
+        where: { role: "MANAGER" },
         orderBy: { createdAt: "asc" },
         take: 1,
         select: { id: true, email: true, name: true },

@@ -1,40 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  ArrowRight,
-  ImagePlus,
-  KeyRound,
-  Loader2,
-  Plus,
-  Power,
-  PowerOff,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -47,252 +18,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { PropertyLogo } from "@/components/property/property-logo";
-import {
-  createProperty,
-  removePropertyLogo,
-  setAccountPassword,
-  setPropertyActive,
-  setPropertyLogo,
-} from "@/lib/actions/properties";
-import type { AdminPropertyRow } from "@/lib/queries/properties";
+import { createOwnedProperty } from "@/lib/actions/owned-properties";
 import { slugify } from "@/lib/slug";
 
-export function PropertiesManager({ properties }: { properties: AdminPropertyRow[] }) {
-  return (
-    <Card>
-      <CardHeader className="border-b sm:grid-cols-[1fr_auto]">
-        <div>
-          <CardTitle>Properties &amp; accounts</CardTitle>
-          <CardDescription>
-            Add a property with its login, reset a property&apos;s password, or deactivate one.
-          </CardDescription>
-        </div>
-        <AddPropertyWizard />
-      </CardHeader>
-      <CardContent className="divide-y py-0">
-        {properties.map((property) => (
-          <PropertyRow key={property.id} property={property} />
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function PropertyRow({ property }: { property: AdminPropertyRow }) {
-  const account = property.users[0];
-  // A flat is a room with a single bed, so bed-count == flat-count for flat properties.
-  const unit = property.isFlat ? "flats" : "beds";
-
-  return (
-    <div className="flex flex-wrap items-center gap-3 py-3 first:pt-4 last:pb-4">
-      <PropertyLogoControl propertyId={property.id} name={property.name} logoKey={property.logoKey} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate font-medium">{property.name}</p>
-          {!property.isActive ? <Badge variant="secondary">Inactive</Badge> : null}
-        </div>
-        <p className="truncate text-xs text-muted-foreground">
-          {account?.email ?? "No account"} · {property._count.floors} floors · {property._count.beds} {unit}
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        {account ? <ChangePasswordDialog account={account} /> : null}
-        <ToggleActive property={property} />
-      </div>
-    </div>
-  );
-}
-
-function PropertyLogoControl({
-  propertyId,
-  name,
-  logoKey,
-}: {
-  propertyId: string;
-  name: string;
-  logoKey: string | null;
-}) {
-  const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [pending, startTransition] = useTransition();
-
-  function upload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (inputRef.current) inputRef.current.value = "";
-    if (!file) return;
-    const formData = new FormData();
-    formData.set("propertyId", propertyId);
-    formData.set("file", file);
-    startTransition(async () => {
-      const res = await setPropertyLogo(formData);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Logo updated");
-      router.refresh();
-    });
-  }
-
-  function remove() {
-    startTransition(async () => {
-      const res = await removePropertyLogo({ propertyId });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Logo removed");
-      router.refresh();
-    });
-  }
-
-  return (
-    <div className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={pending}
-        title={logoKey ? "Change logo" : "Upload logo"}
-        className="flex size-10 items-center justify-center overflow-hidden rounded-lg border bg-muted text-muted-foreground transition-colors hover:bg-muted/60 disabled:opacity-60"
-      >
-        {pending ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <PropertyLogo logoKey={logoKey} name={name} className="size-full object-contain p-1" iconClassName="size-4" />
-        )}
-      </button>
-      <input ref={inputRef} type="file" accept="image/png,image/jpeg" hidden onChange={upload} />
-      {logoKey ? (
-        <button
-          type="button"
-          onClick={remove}
-          disabled={pending}
-          title="Remove logo"
-          className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm hover:text-destructive disabled:opacity-60"
-        >
-          <X className="size-2.5" />
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function ChangePasswordDialog({ account }: { account: { id: string; email: string } }) {
-  const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const newPassword = String(new FormData(event.currentTarget).get("newPassword") ?? "");
-    startTransition(async () => {
-      const res = await setAccountPassword({ userId: account.id, newPassword });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Password updated");
-      setOpen(false);
-    });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <KeyRound className="size-4" />
-          Password
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reset account password</DialogTitle>
-          <DialogDescription>Set a new password for {account.email}.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor={`pw-${account.id}`}>New password</Label>
-            <Input
-              id={`pw-${account.id}`}
-              name="newPassword"
-              type="text"
-              minLength={8}
-              required
-              autoComplete="new-password"
-              placeholder="At least 8 characters"
-            />
-          </div>
-          <DialogFooter showCloseButton>
-            <Button type="submit" disabled={pending}>
-              {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-              Update password
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ToggleActive({ property }: { property: AdminPropertyRow }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  function run(active: boolean) {
-    startTransition(async () => {
-      const res = await setPropertyActive({ propertyId: property.id, active });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(active ? "Property reactivated" : "Property deactivated");
-      setOpen(false);
-      router.refresh();
-    });
-  }
-
-  if (!property.isActive) {
-    return (
-      <Button variant="outline" size="sm" disabled={pending} onClick={() => run(true)}>
-        {pending ? <Loader2 className="size-4 animate-spin" /> : <Power className="size-4" />}
-        Reactivate
-      </Button>
-    );
-  }
-
-  return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-          <PowerOff className="size-4" />
-          Deactivate
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Deactivate {property.name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            It disappears from every property switcher and its account can no longer sign in.
-            All {property._count.tenants} tenants, payments and history are kept — you can
-            reactivate it anytime.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <Button variant="destructive" disabled={pending} onClick={() => run(false)}>
-            {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-            Deactivate
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Add-property wizard
-// ---------------------------------------------------------------------------
 type SectionInput = { name: string; rooms: string; floors: string };
 
 const emptySection = (): SectionInput => ({ name: "", rooms: "", floors: "" });
@@ -305,7 +33,9 @@ function parseNumbers(value: string): number[] {
     .filter((n) => Number.isFinite(n));
 }
 
-function AddPropertyWizard() {
+/** Self-serve "add a property" wizard for Property Owners — same shape as the
+ * legacy App Owner wizard, but auto-owned by the creating Property Owner. */
+export function AddOwnedPropertyWizard() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -384,7 +114,7 @@ function AddPropertyWizard() {
       floors: parseNumbers(section.floors),
     }));
     startTransition(async () => {
-      const res = await createProperty({
+      const res = await createOwnedProperty({
         name,
         city,
         address,
@@ -414,10 +144,10 @@ function AddPropertyWizard() {
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{step === 1 ? "Guided property wizard" : "Structure"}</DialogTitle>
+          <DialogTitle>{step === 1 ? "Add a property" : "Structure"}</DialogTitle>
           <DialogDescription>
             {step === 1
-              ? "Property details and the login account that manages it."
+              ? "Property details and the manager login who'll run it day to day."
               : hasBlocks
                 ? "Define each block's floors and rooms."
                 : "Define the floors and rooms for this property."}
@@ -427,9 +157,9 @@ function AddPropertyWizard() {
         {step === 1 ? (
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="prop-name">Property name</Label>
+              <Label htmlFor="op-name">Property name</Label>
               <Input
-                id="prop-name"
+                id="op-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 maxLength={120}
@@ -438,17 +168,17 @@ function AddPropertyWizard() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="prop-city">City</Label>
-                <Input id="prop-city" value={city} onChange={(event) => setCity(event.target.value)} maxLength={100} placeholder="Hyderabad" />
+                <Label htmlFor="op-city">City</Label>
+                <Input id="op-city" value={city} onChange={(event) => setCity(event.target.value)} maxLength={100} placeholder="Hyderabad" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="prop-phone">Phone</Label>
-                <Input id="prop-phone" value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={20} placeholder="Optional" />
+                <Label htmlFor="op-phone">Phone</Label>
+                <Input id="op-phone" value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={20} placeholder="Optional" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="prop-address">Address</Label>
-              <Input id="prop-address" value={address} onChange={(event) => setAddress(event.target.value)} maxLength={240} placeholder="Optional" />
+              <Label htmlFor="op-address">Address</Label>
+              <Input id="op-address" value={address} onChange={(event) => setAddress(event.target.value)} maxLength={240} placeholder="Optional" />
             </div>
 
             <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
@@ -467,11 +197,11 @@ function AddPropertyWizard() {
             </div>
 
             <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-              <p className="text-sm font-medium">Login account</p>
+              <p className="text-sm font-medium">Manager login</p>
               <div className="space-y-1.5">
-                <Label htmlFor="prop-email">User (email)</Label>
+                <Label htmlFor="op-email">User (email)</Label>
                 <Input
-                  id="prop-email"
+                  id="op-email"
                   type="email"
                   value={effectiveEmail}
                   onChange={(event) => {
@@ -482,9 +212,9 @@ function AddPropertyWizard() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="prop-password">Password</Label>
+                <Label htmlFor="op-password">Password</Label>
                 <Input
-                  id="prop-password"
+                  id="op-password"
                   type="text"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}

@@ -21,6 +21,14 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_WHATSAPP_NUMBER: z.string().optional(),
+
+  // AiSensy: template-based WhatsApp campaigns (rent reminders, complaint-resolved
+  // notices, credential delivery) — separate from Twilio, which only handles the
+  // invoice PDF media message.
+  AISENSY_API_KEY: z.string().optional(),
+  AISENSY_CAMPAIGN_RENT_REMINDER: z.string().optional(),
+  AISENSY_CAMPAIGN_COMPLAINT_RESOLVED: z.string().optional(),
+  AISENSY_CAMPAIGN_CREDENTIALS: z.string().optional(),
 });
 
 function loadEnv() {

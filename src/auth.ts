@@ -25,10 +25,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (!user || !user.isActive) return null;
 
-        // A non-admin account is scoped to one property. Block sign-in when that
+        // MANAGER/TENANT accounts are scoped to one property. Block sign-in when that
         // property is missing or deactivated — this is how "delete" (deactivate)
         // locks a property's account out without removing the human record.
-        if (user.role !== "ADMIN" && !user.property?.isActive) return null;
+        // APP_OWNER (global) and PROPERTY_OWNER (multi-property via PropertyOwnership)
+        // have no single propertyId, so they are exempt from this check.
+        const scopedToOneProperty = user.role === "MANAGER" || user.role === "TENANT";
+        if (scopedToOneProperty && !user.property?.isActive) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;

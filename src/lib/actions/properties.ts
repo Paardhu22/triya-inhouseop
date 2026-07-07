@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
-import { slugify } from "@/lib/slug";
+import { provisionPropertyStructure, uniquePropertySlug } from "@/lib/property-provisioning";
 import { storage } from "@/lib/storage";
 import {
   createPropertySchema,
@@ -16,23 +16,8 @@ import {
 
 async function requireAdmin() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") return null;
+  if (!session?.user || session.user.role !== "APP_OWNER") return null;
   return session.user;
-}
-
-function bedLabels(count: number): string[] {
-  return Array.from({ length: count }, (_, index) => String.fromCharCode(65 + index));
-}
-
-async function uniquePropertySlug(name: string): Promise<string> {
-  const root = slugify(name) || "property";
-  let slug = root;
-  let suffix = 2;
-  while (await prisma.property.findUnique({ where: { slug }, select: { id: true } })) {
-    slug = `${root}-${suffix}`;
-    suffix += 1;
-  }
-  return slug;
 }
 
 /**
@@ -41,7 +26,7 @@ async function uniquePropertySlug(name: string): Promise<string> {
  * indistinguishable from a seeded one.
  */
 export async function createProperty(input: unknown): Promise<ActionResult<{ id: string }>> {
-  if (!(await requireAdmin())) return actionError("Administrator access required");
+  if (!(await requireAdmin())) return actionError("App Owner access required");
 
   const parsed = createPropertySchema.safeParse(input);
   if (!parsed.success) return actionError(parsed.error.issues[0]?.message ?? "Invalid property details");
@@ -71,59 +56,7 @@ export async function createProperty(input: unknown): Promise<ActionResult<{ id:
           },
         });
 
-        for (let sectionIndex = 0; sectionIndex < data.sections.length; sectionIndex += 1) {
-          const section = data.sections[sectionIndex];
-          const block = data.hasBlocks
-            ? await tx.block.create({
-                data: { propertyId: property.id, name: section.name.trim(), order: sectionIndex },
-              })
-            : null;
-
-          const template = await tx.floorTemplate.create({
-            data: {
-              propertyId: property.id,
-              name: block ? `Block ${block.name} Floor` : "Standard Floor",
-              roomTemplates: {
-                create: section.roomsPerFloor.map((sharingType, index) => ({
-                  sequence: index + 1,
-                  sharingType,
-                })),
-              },
-            },
-          });
-
-          for (const floorNumber of section.floors) {
-            await tx.floor.create({
-              data: {
-                propertyId: property.id,
-                blockId: block?.id ?? null,
-                templateId: template.id,
-                number: floorNumber,
-                name: `Floor ${floorNumber}`,
-                order: floorNumber,
-                rooms: {
-                  create: section.roomsPerFloor.map((sharing, index) => {
-                    const sequence = index + 1;
-                    const number = `${block?.name ?? ""}${floorNumber}${String(sequence).padStart(2, "0")}`;
-                    return {
-                      propertyId: property.id,
-                      number,
-                      sharingType: sharing,
-                      order: sequence,
-                      beds: {
-                        create: bedLabels(sharing).map((label, bedIndex) => ({
-                          propertyId: property.id,
-                          label,
-                          order: bedIndex,
-                        })),
-                      },
-                    };
-                  }),
-                },
-              },
-            });
-          }
-        }
+        await provisionPropertyStructure(tx, property.id, data);
 
         await tx.user.create({
           data: {
@@ -150,13 +83,13 @@ export async function createProperty(input: unknown): Promise<ActionResult<{ id:
 
 /** Admin sets a property account's password directly (no current-password needed). */
 export async function setAccountPassword(input: unknown): Promise<ActionResult> {
-  if (!(await requireAdmin())) return actionError("Administrator access required");
+  if (!(await requireAdmin())) return actionError("App Owner access required");
 
   const parsed = setAccountPasswordSchema.safeParse(input);
   if (!parsed.success) return actionError(parsed.error.issues[0]?.message ?? "Invalid password");
 
   const account = await prisma.user.findFirst({
-    where: { id: parsed.data.userId, role: { not: "ADMIN" }, propertyId: { not: null } },
+    where: { id: parsed.data.userId, role: "MANAGER", propertyId: { not: null } },
     select: { id: true },
   });
   if (!account) return actionError("Account not found");
@@ -171,7 +104,7 @@ export async function setAccountPassword(input: unknown): Promise<ActionResult> 
  * every switcher/login and blocks its account from signing in, while keeping all data.
  */
 export async function setPropertyActive(input: unknown): Promise<ActionResult> {
-  if (!(await requireAdmin())) return actionError("Administrator access required");
+  if (!(await requireAdmin())) return actionError("App Owner access required");
 
   const parsed = setPropertyActiveSchema.safeParse(input);
   if (!parsed.success) return actionError("Invalid request");
@@ -193,7 +126,7 @@ const LOGO_TYPES = new Set(["image/png", "image/jpeg"]);
 
 /** Upload/replace a property's logo (admin only). Stored via the file driver, old one removed. */
 export async function setPropertyLogo(formData: FormData): Promise<ActionResult> {
-  if (!(await requireAdmin())) return actionError("Administrator access required");
+  if (!(await requireAdmin())) return actionError("App Owner access required");
 
   const propertyId = String(formData.get("propertyId") ?? "");
   const file = formData.get("file");
@@ -232,7 +165,7 @@ export async function setPropertyLogo(formData: FormData): Promise<ActionResult>
 
 /** Remove a property's logo (admin only), reverting invoices/chrome to the brand logo. */
 export async function removePropertyLogo(input: { propertyId: string }): Promise<ActionResult> {
-  if (!(await requireAdmin())) return actionError("Administrator access required");
+  if (!(await requireAdmin())) return actionError("App Owner access required");
 
   const property = await prisma.property.findUnique({
     where: { id: input.propertyId },

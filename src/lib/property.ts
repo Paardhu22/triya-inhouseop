@@ -16,14 +16,18 @@ export async function getSelectedPropertyId(): Promise<string | null> {
 
 /**
  * A Prisma `where` fragment that limits Property rows to the ones the signed-in user
- * may access. ADMIN sees every property; a non-admin (property manager) account is
- * scoped to the single property it is linked to via `User.propertyId`. Returns `null`
- * when there is no session, so callers can short-circuit to "no access".
+ * may access. APP_OWNER sees every property; PROPERTY_OWNER is scoped to the
+ * properties it owns via `PropertyOwnership`; MANAGER/TENANT are scoped to the single
+ * property they are linked to via `User.propertyId`. Returns `null` when there is no
+ * session, so callers can short-circuit to "no access".
  */
 export async function accessiblePropertyWhere(): Promise<Prisma.PropertyWhereInput | null> {
   const session = await auth();
   if (!session?.user) return null;
-  if (session.user.role === "ADMIN") return {};
+  if (session.user.role === "APP_OWNER") return {};
+  if (session.user.role === "PROPERTY_OWNER") {
+    return { owners: { some: { userId: session.user.id } } };
+  }
   return { users: { some: { id: session.user.id } } };
 }
 

@@ -15,6 +15,9 @@ export default async function AppLayout({
   if (!session?.user) {
     redirect("/login");
   }
+  if (session.user.role === "TENANT") {
+    redirect("/portal");
+  }
 
   const property = await getActiveProperty();
   if (!property) {

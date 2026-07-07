@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { startOfMonth } from "date-fns";
+import bcrypt from "bcryptjs";
 
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { sendLoginCredentials } from "@/lib/aisensy";
 import { prisma } from "@/lib/prisma";
 import { getSelectedPropertyId } from "@/lib/property";
 import { rupeesToPaise } from "@/lib/money";
@@ -32,6 +34,11 @@ function field(formData: FormData, key: string): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length ? trimmed : undefined;
+}
+
+/** A short, easy-to-read temporary password for a freshly-provisioned portal login. */
+function generateTempPassword(): string {
+  return `Dazz${Math.floor(1000 + Math.random() * 9000)}!`;
 }
 
 /**
@@ -124,11 +131,13 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
 
   let oldPhotoUrl: string | null = null;
   let oldDocKeys: string[] = [];
+  let createdLogin: { email: string; password: string } | null = null;
 
   try {
-    await prisma.$transaction(async (tx) => {
+    createdLogin = await prisma.$transaction(async (tx) => {
       let tenantId: string;
       let tenancyId: string;
+      let newLogin: { email: string; password: string } | null = null;
 
       if (active) {
         tenantId = active.tenantId;
@@ -189,6 +198,31 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
         });
         tenancyId = tenancy.id;
         await tx.bed.update({ where: { id: bed.id }, data: { status: "OCCUPIED" } });
+
+        // Auto-provision a portal login for the new resident so they can pay dues
+        // and file complaints. Best-effort: silently skipped if the derived email
+        // is already taken by another account (tenant record is still created).
+        // Credentials are sent over WhatsApp after the transaction commits (see below).
+        const loginEmail = email ?? `${phone.replace(/\D/g, "")}@tenant.dazz.local`;
+        const emailTaken = await tx.user.findUnique({
+          where: { email: loginEmail },
+          select: { id: true },
+        });
+        if (!emailTaken) {
+          const password = generateTempPassword();
+          const passwordHash = await bcrypt.hash(password, 12);
+          const tenantUser = await tx.user.create({
+            data: {
+              name: fullName,
+              email: loginEmail,
+              passwordHash,
+              role: "TENANT",
+              propertyId: ctx.propertyId,
+            },
+          });
+          await tx.tenant.update({ where: { id: tenantId }, data: { userId: tenantUser.id } });
+          newLogin = { email: loginEmail, password };
+        }
       }
 
       if (saved) {
@@ -255,10 +289,22 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
           });
         }
       }
+
+      return newLogin;
     });
   } catch {
     if (saved) await storage.remove(saved.key);
     return actionError("Could not save. Please try again.");
+  }
+
+  // Best-effort WhatsApp credential delivery — never blocks or fails the save.
+  if (createdLogin) {
+    void sendLoginCredentials({
+      phone,
+      userName: fullName,
+      email: createdLogin.email,
+      password: createdLogin.password,
+    }).catch(() => {});
   }
 
   // Clean up old files from storage after successful transaction

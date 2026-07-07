@@ -15,15 +15,19 @@ import {
 
 class AdminActionError extends Error {}
 
+// Floor/block/room-template structure editing belongs to whoever runs the property
+// day to day, i.e. the Property Owner (not the App Owner, who only manages the app).
+// getSelectedPropertyId() is trusted here because it can only ever have been set to
+// an accessible property via selectProperty()'s accessiblePropertyWhere() check.
 async function requireAdminContext() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") return null;
+  if (!session?.user || session.user.role !== "PROPERTY_OWNER") return null;
   const propertyId = await getSelectedPropertyId();
   return propertyId ? { propertyId } : null;
 }
 
 function revalidatePropertyStructure() {
-  revalidatePath("/admin");
+  revalidatePath("/owner-dashboard");
   revalidatePath("/floor-manager");
   revalidatePath("/dashboard");
 }
@@ -41,7 +45,7 @@ function nextBedLabels(existing: string[], count: number) {
 
 export async function updateRoomCapacity(input: unknown): Promise<ActionResult> {
   const ctx = await requireAdminContext();
-  if (!ctx) return actionError("Administrator access required");
+  if (!ctx) return actionError("Property Owner access required");
   const parsed = roomCapacitySchema.safeParse(input);
   if (!parsed.success) return actionError(parsed.error.issues[0]?.message ?? "Invalid capacity");
 
@@ -118,7 +122,7 @@ export async function updateRoomCapacity(input: unknown): Promise<ActionResult> 
 
 export async function createFloorTemplate(input: unknown): Promise<ActionResult> {
   const ctx = await requireAdminContext();
-  if (!ctx) return actionError("Administrator access required");
+  if (!ctx) return actionError("Property Owner access required");
   const parsed = floorTemplateSchema.safeParse(input);
   if (!parsed.success) return actionError(parsed.error.issues[0]?.message ?? "Invalid template");
 
@@ -141,7 +145,7 @@ export async function createFloorTemplate(input: unknown): Promise<ActionResult>
 
 export async function createBlock(input: unknown): Promise<ActionResult> {
   const ctx = await requireAdminContext();
-  if (!ctx) return actionError("Administrator access required");
+  if (!ctx) return actionError("Property Owner access required");
   const parsed = blockSchema.safeParse(input);
   if (!parsed.success) return actionError(parsed.error.issues[0]?.message ?? "Invalid block");
 
@@ -164,7 +168,7 @@ export async function createBlock(input: unknown): Promise<ActionResult> {
 
 export async function createFloorFromTemplate(input: unknown): Promise<ActionResult> {
   const ctx = await requireAdminContext();
-  if (!ctx) return actionError("Administrator access required");
+  if (!ctx) return actionError("Property Owner access required");
   const parsed = floorSchema.safeParse(input);
   if (!parsed.success) return actionError(parsed.error.issues[0]?.message ?? "Invalid floor");
 

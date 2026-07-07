@@ -20,9 +20,10 @@ datasource db {
 // ============================================================================
 
 enum Role {
-  ADMIN
+  APP_OWNER
+  PROPERTY_OWNER
   MANAGER
-  STAFF
+  TENANT
 }
 
 enum BedStatus {
@@ -92,16 +93,21 @@ model User {
   emailVerified DateTime?
   image         String?
   passwordHash  String
-  role          Role      @default(STAFF)
+  phone         String? // for WhatsApp credential/invitation delivery (AiSensy)
+  role          Role      @default(TENANT)
   isActive      Boolean   @default(true)
-  // Non-admin accounts are scoped to a single property (their PG). ADMIN accounts
-  // leave this null and can access every property. onDelete: SetNull so hard-deleting
-  // a property never deletes the human; deactivation is the reversible path.
+  // MANAGER and TENANT accounts are scoped to a single property (their PG).
+  // APP_OWNER leaves this null and can access every property. PROPERTY_OWNER also
+  // leaves this null and instead accesses properties via `ownedProperties` below.
+  // onDelete: SetNull so hard-deleting a property never deletes the human;
+  // deactivation is the reversible path.
   propertyId    String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   property           Property?   @relation("PropertyStaff", fields: [propertyId], references: [id], onDelete: SetNull)
+  ownedProperties    PropertyOwnership[]
+  tenant             Tenant?
   accounts           Account[]
   sessions           Session[]
   assignedComplaints    Complaint[] @relation("ComplaintAssignee")
@@ -109,6 +115,22 @@ model User {
   recordedPayments      Payment[]   @relation("PaymentRecorder")
 
   @@index([role])
+  @@index([propertyId])
+}
+
+// Join model: a PROPERTY_OWNER can own multiple properties (unlike MANAGER/TENANT
+// which are pinned to one via User.propertyId).
+model PropertyOwnership {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@index([userId])
   @@index([propertyId])
 }
 
@@ -191,6 +213,7 @@ model Property {
 
   expenseCategories    ExpenseCategory[]
   expenseSubcategories ExpenseSubcategory[]
+  owners               PropertyOwnership[]
 
   @@index([isActive])
 }
@@ -311,6 +334,10 @@ model Bed {
 model Tenant {
   id               String   @id @default(cuid())
   propertyId       String
+  // Optional portal login for this resident. User.role = TENANT, User.propertyId
+  // pinned to the same property. onDelete: SetNull so removing the login account
+  // never deletes tenant history.
+  userId           String?  @unique
   fullName         String
   phone            String
   email            String?
@@ -329,6 +356,7 @@ model Tenant {
   updatedAt        DateTime @updatedAt
 
   property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   tenancies  Tenancy[]
   documents  Document[]
   payments   Payment[]

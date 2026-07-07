@@ -28,9 +28,10 @@ function getInitials(name?: string | null, email?: string | null) {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  ADMIN: "Admin",
+  APP_OWNER: "App Owner",
+  PROPERTY_OWNER: "Property Owner",
   MANAGER: "Manager",
-  STAFF: "Staff",
+  TENANT: "Tenant",
 };
 
 export function UserMenu({ user }: Props) {
@@ -53,13 +54,17 @@ export function UserMenu({ user }: Props) {
             {ROLE_LABEL[user.role] ?? user.role}
           </Badge>
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/settings">
-            <Settings className="size-4" />
-            Settings
-          </Link>
-        </DropdownMenuItem>
+        {user.role !== "TENANT" ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <Settings className="size-4" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => signOut({ redirectTo: "/login" })}

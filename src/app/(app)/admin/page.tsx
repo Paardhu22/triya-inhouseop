@@ -2,34 +2,31 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { AdminClient } from "@/components/admin/admin-client";
-import { PropertiesManager } from "@/components/admin/properties-manager";
 import { PageHeader } from "@/components/shell/page-header";
-import { getSelectedPropertyId } from "@/lib/property";
-import { getAdminPropertyConfig } from "@/lib/queries/admin";
+import { PropertyOwnersManager } from "@/components/admin/property-owners-manager";
 import { listPropertiesForAdmin } from "@/lib/queries/properties";
+import { listPropertyOwners } from "@/lib/queries/property-owners";
 
-export const metadata: Metadata = { title: "Admin" };
+export const metadata: Metadata = { title: "App Owner Console" };
 
+// The App Owner maintains the app, not individual properties: this console is
+// scoped to inviting/managing Property Owners. Property-level operations (floor
+// manager, complaints, expenses, invoices) live entirely under each Property
+// Owner's own dashboard.
 export default async function AdminPage() {
-  const [session, propertyId] = await Promise.all([auth(), getSelectedPropertyId()]);
+  const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/dashboard");
-  if (!propertyId) redirect("/select-property");
+  if (session.user.role !== "APP_OWNER") redirect("/dashboard");
 
-  const [config, properties] = await Promise.all([
-    getAdminPropertyConfig(propertyId),
-    listPropertiesForAdmin(),
-  ]);
+  const [properties, owners] = await Promise.all([listPropertiesForAdmin(), listPropertyOwners()]);
+
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Admin"
-        description={`Manage properties and accounts, and configure ${config.name}'s floors, rooms, and beds.`}
+        title="App Owner Console"
+        description="Invite and manage Property Owners. Each owner creates and runs their own properties."
       />
-      <PropertiesManager properties={properties} />
-      <AdminClient config={config} />
+      <PropertyOwnersManager owners={owners} properties={properties} />
     </div>
   );
 }
-

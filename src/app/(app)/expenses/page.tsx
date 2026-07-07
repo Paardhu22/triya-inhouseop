@@ -30,7 +30,7 @@ export default async function ExpensesPage() {
   ]);
 
   const role = session?.user?.role;
-  const canManage = role === "ADMIN" || role === "MANAGER";
+  const canManage = role === "PROPERTY_OWNER" || role === "MANAGER";
 
   return (
     <div className="space-y-10">
