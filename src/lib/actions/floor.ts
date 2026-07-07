@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import { sendLoginCredentials } from "@/lib/aisensy";
+import { sendLoginCredentials } from "@/lib/whatsapp";
 import { prisma } from "@/lib/prisma";
 import { getSelectedPropertyId } from "@/lib/property";
 import { rupeesToPaise } from "@/lib/money";
@@ -305,7 +305,7 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
       email: createdLogin.email,
       password: createdLogin.password,
     }).then((res) => {
-      if (!res.ok) console.error(`[aisensy] credentials WhatsApp to ${phone} failed: ${res.error}`);
+      if (!res.ok) console.error(`[whatsapp] credentials WhatsApp to ${phone} failed: ${res.error}`);
     });
   }
 

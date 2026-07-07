@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { DEPOSIT_PAYMENT_NOTE_PREFIX } from "@/lib/payments/razorpay";
 
 /** The Tenant record linked to a portal login, with what the portal dashboard needs. */
 export async function getTenantByUserId(userId: string) {
@@ -9,6 +10,9 @@ export async function getTenantByUserId(userId: string) {
     select: {
       id: true,
       fullName: true,
+      phone: true,
+      email: true,
+      photoUrl: true,
       propertyId: true,
       property: { select: { name: true, phone: true } },
       tenancies: {
@@ -18,6 +22,8 @@ export async function getTenantByUserId(userId: string) {
           id: true,
           monthlyRent: true,
           maintenanceCharge: true,
+          securityDeposit: true,
+          depositStatus: true,
           paymentStatus: true,
           paymentDueDay: true,
           bed: { select: { label: true, room: { select: { number: true } } } },
@@ -43,3 +49,12 @@ export async function getTenantByUserId(userId: string) {
 }
 
 export type PortalTenant = Awaited<ReturnType<typeof getTenantByUserId>>;
+
+/** Whether the tenancy's advance/security deposit has already been paid online. */
+export async function hasDepositPayment(tenancyId: string): Promise<boolean> {
+  const payment = await prisma.payment.findFirst({
+    where: { tenancyId, notes: { startsWith: DEPOSIT_PAYMENT_NOTE_PREFIX } },
+    select: { id: true },
+  });
+  return Boolean(payment);
+}

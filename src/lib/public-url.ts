@@ -1,10 +1,10 @@
 import "server-only";
 
 // Resolves the public base URL used to build absolute media URLs for external
-// services (Twilio fetches invoice PDFs by URL). Twilio's servers run in the cloud
+// services (GreenAPI fetches invoice PDFs by URL). GreenAPI's servers run in the cloud
 // and CANNOT reach a developer's localhost, so a localhost/unset value is the most
 // common cause of "Invalid media URL(s)" — we surface that as an actionable error
-// instead of letting Twilio fail cryptically.
+// instead of letting GreenAPI fail cryptically.
 
 type Resolved = { ok: true; base: string } | { ok: false; error: string };
 
@@ -23,7 +23,7 @@ export function resolvePublicBaseUrl(): Resolved {
     return {
       ok: false,
       error:
-        "APP_PUBLIC_URL is not set. Twilio needs a public HTTPS URL to fetch the invoice. " +
+        "APP_PUBLIC_URL is not set. GreenAPI needs a public HTTPS URL to fetch the invoice. " +
         "Set APP_PUBLIC_URL to a public URL (e.g. an ngrok tunnel) and restart.",
     };
   }
@@ -41,22 +41,22 @@ export function resolvePublicBaseUrl(): Resolved {
 
   if (LOCAL_HOSTS.has(url.hostname)) {
     console.warn(
-      `[invoice] APP_PUBLIC_URL points to ${url.hostname} — Twilio cannot reach localhost.`,
+      `[invoice] APP_PUBLIC_URL points to ${url.hostname} — GreenAPI cannot reach localhost.`,
     );
     return {
       ok: false,
       error:
-        "APP_PUBLIC_URL points to localhost, which Twilio cannot reach. " +
+        "APP_PUBLIC_URL points to localhost, which GreenAPI cannot reach. " +
         "Start a tunnel (e.g. `ngrok http 3000`), set APP_PUBLIC_URL to the public " +
         "https URL it prints, and restart the server.",
     };
   }
 
-  // Twilio strongly prefers HTTPS for media; warn once rather than block.
+  // GreenAPI strongly prefers HTTPS for media; warn once rather than block.
   if (url.protocol === "http:" && !warnedHttp) {
     warnedHttp = true;
     console.warn(
-      "[invoice] APP_PUBLIC_URL uses http:// — Twilio prefers https for media URLs.",
+      "[invoice] APP_PUBLIC_URL uses http:// — GreenAPI prefers https for media URLs.",
     );
   }
 

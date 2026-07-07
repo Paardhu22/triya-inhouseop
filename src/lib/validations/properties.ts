@@ -21,6 +21,7 @@ export const createPropertySchema = z
     hasBlocks: z.boolean().default(false),
     account: z.object({
       email: z.email("Enter a valid account email").max(160),
+      phone: z.string().trim().min(10, "Enter a valid WhatsApp number").max(20),
       password: z.string().min(8, "Account password must be at least 8 characters").max(128),
     }),
     sections: z.array(propertySectionSchema).min(1, "Add at least one floor group").max(12),

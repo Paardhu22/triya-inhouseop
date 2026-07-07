@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import { sendComplaintResolvedNotice } from "@/lib/aisensy";
+import { sendComplaintResolvedNotice } from "@/lib/whatsapp";
 import { prisma } from "@/lib/prisma";
 import { getSelectedPropertyId } from "@/lib/property";
 import {
@@ -128,7 +128,7 @@ export async function updateComplaint(id: string, patch: unknown): Promise<Actio
       userName: complaint.tenant.fullName,
       complaintTitle: complaint.title,
     }).then((res) => {
-      if (!res.ok) console.error(`[aisensy] complaint-resolved WhatsApp to ${complaint.tenant!.phone} failed: ${res.error}`);
+      if (!res.ok) console.error(`[whatsapp] complaint-resolved WhatsApp to ${complaint.tenant!.phone} failed: ${res.error}`);
     });
   }
 

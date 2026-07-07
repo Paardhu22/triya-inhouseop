@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import { sendLoginCredentials } from "@/lib/aisensy";
+import { sendLoginCredentials } from "@/lib/whatsapp";
 import { prisma } from "@/lib/prisma";
 import {
   assignPropertySchema,
@@ -62,7 +62,7 @@ export async function createPropertyOwner(input: unknown): Promise<ActionResult<
     email: data.email,
     password: data.password,
   }).then((res) => {
-    if (!res.ok) console.error(`[aisensy] credentials WhatsApp to ${data.phone} failed: ${res.error}`);
+    if (!res.ok) console.error(`[whatsapp] credentials WhatsApp to ${data.phone} failed: ${res.error}`);
   });
 
   revalidatePath("/admin");

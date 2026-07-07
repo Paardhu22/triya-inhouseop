@@ -4,9 +4,11 @@ import { format } from "date-fns";
 
 import { auth } from "@/auth";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { KycUpload } from "@/components/portal/kyc-upload";
 import { PageHeader } from "@/components/shell/page-header";
 import { formatINR } from "@/lib/money";
 import { getTenantByUserId } from "@/lib/queries/portal";
+import { KYC_STATUS_META } from "@/lib/status";
 
 export const metadata: Metadata = { title: "My Dashboard" };
 
@@ -21,12 +23,13 @@ export default async function PortalDashboardPage() {
   const dueAmount = tenancy && tenancy.paymentStatus !== "PAID"
     ? tenancy.monthlyRent + tenancy.maintenanceCharge
     : 0;
+  const kyc = tenant.photoUrl ? KYC_STATUS_META.VERIFIED : KYC_STATUS_META.PENDING;
 
   return (
     <div className="space-y-10">
       <PageHeader title={`Welcome, ${tenant.fullName}`} description={tenant.property.name} />
 
-      <section className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard
           label="Room / bed"
           value={tenancy ? `${tenancy.bed.room.number} · ${tenancy.bed.label}` : "—"}
@@ -40,7 +43,10 @@ export default async function PortalDashboardPage() {
           value={formatINR(dueAmount)}
           hint={tenancy?.paymentStatus === "PAID" ? "All paid up" : tenancy?.paymentStatus}
         />
+        <StatCard label="KYC" value={kyc.label} />
       </section>
+
+      <KycUpload photoUrl={tenant.photoUrl} />
 
       <section className="space-y-4">
         <h2 className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">

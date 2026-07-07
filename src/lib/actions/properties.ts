@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { sendLoginCredentials } from "@/lib/whatsapp";
 import { prisma } from "@/lib/prisma";
 import { provisionPropertyStructure, uniquePropertySlug } from "@/lib/property-provisioning";
 import { storage } from "@/lib/storage";
@@ -62,6 +63,7 @@ export async function createProperty(input: unknown): Promise<ActionResult<{ id:
           data: {
             name: data.name,
             email: data.account.email,
+            phone: data.account.phone,
             passwordHash,
             role: "MANAGER",
             propertyId: property.id,
@@ -72,6 +74,15 @@ export async function createProperty(input: unknown): Promise<ActionResult<{ id:
       },
       { timeout: 30_000, maxWait: 10_000 },
     );
+
+    void sendLoginCredentials({
+      phone: data.account.phone,
+      userName: data.name,
+      email: data.account.email,
+      password: data.account.password,
+    }).then((res) => {
+      if (!res.ok) console.error(`[whatsapp] manager credentials WhatsApp to ${data.account.phone} failed: ${res.error}`);
+    });
 
     revalidatePath("/admin");
     revalidatePath("/", "layout");

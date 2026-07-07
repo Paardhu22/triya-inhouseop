@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { createOwnedProperty } from "@/lib/actions/owned-properties";
-import { slugify } from "@/lib/slug";
 
 type SectionInput = { name: string; rooms: string; floors: string };
 
@@ -31,6 +30,14 @@ function parseNumbers(value: string): number[] {
     .filter(Boolean)
     .map((token) => Math.trunc(Number(token)))
     .filter((n) => Number.isFinite(n));
+}
+
+const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+
+/** A random 12-char password strong enough to require no manual choice from the owner. */
+function generatePassword(): string {
+  const bytes = crypto.getRandomValues(new Uint32Array(12));
+  return Array.from(bytes, (b) => PASSWORD_CHARS[b % PASSWORD_CHARS.length]).join("");
 }
 
 /** Self-serve "add a property" wizard for Property Owners — same shape as the
@@ -48,12 +55,9 @@ export function AddOwnedPropertyWizard() {
   const [isFlat, setIsFlat] = useState(false);
   const [hasBlocks, setHasBlocks] = useState(false);
   const [email, setEmail] = useState("");
-  const [emailEdited, setEmailEdited] = useState(false);
+  const [managerPhone, setManagerPhone] = useState("");
   const [password, setPassword] = useState("");
   const [sections, setSections] = useState<SectionInput[]>([emptySection()]);
-
-  const derivedEmail = name.trim() ? `${slugify(name) || "property"}@dazz.local` : "";
-  const effectiveEmail = emailEdited ? email : derivedEmail;
 
   const roomsPerFloor = (section: SectionInput): number[] =>
     isFlat
@@ -85,7 +89,7 @@ export function AddOwnedPropertyWizard() {
     setIsFlat(false);
     setHasBlocks(false);
     setEmail("");
-    setEmailEdited(false);
+    setManagerPhone("");
     setPassword("");
     setSections([emptySection()]);
   }
@@ -97,7 +101,8 @@ export function AddOwnedPropertyWizard() {
 
   function goToStructure() {
     if (name.trim().length < 2) return toast.error("Enter a property name");
-    if (!effectiveEmail) return toast.error("Enter an account email");
+    if (!email.trim()) return toast.error("Enter the manager's email");
+    if (managerPhone.trim().length < 10) return toast.error("Enter a valid WhatsApp number for the manager");
     if (password.length < 8) return toast.error("Account password must be at least 8 characters");
     setSections((prev) => (hasBlocks ? (prev.length ? prev : [emptySection()]) : [{ ...(prev[0] ?? emptySection()), name: "" }]));
     setStep(2);
@@ -121,7 +126,7 @@ export function AddOwnedPropertyWizard() {
         phone,
         isFlat,
         hasBlocks,
-        account: { email: effectiveEmail, password },
+        account: { email, phone: managerPhone, password },
         sections: payloadSections,
       });
       if (!res.ok) {
@@ -197,30 +202,56 @@ export function AddOwnedPropertyWizard() {
             </div>
 
             <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-              <p className="text-sm font-medium">Manager login</p>
+              <div>
+                <p className="text-sm font-medium">Manager login</p>
+                <p className="text-xs text-muted-foreground">
+                  Credentials are sent to this WhatsApp number automatically.
+                </p>
+              </div>
               <div className="space-y-1.5">
-                <Label htmlFor="op-email">User (email)</Label>
+                <Label htmlFor="op-email">Email</Label>
                 <Input
                   id="op-email"
                   type="email"
-                  value={effectiveEmail}
-                  onChange={(event) => {
-                    setEmailEdited(true);
-                    setEmail(event.target.value);
-                  }}
-                  placeholder="account@dazz.local"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="manager@gmail.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="op-manager-phone">WhatsApp number</Label>
+                <Input
+                  id="op-manager-phone"
+                  type="tel"
+                  required
+                  value={managerPhone}
+                  onChange={(event) => setManagerPhone(event.target.value)}
+                  maxLength={20}
+                  placeholder="10-digit mobile number"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="op-password">Password</Label>
-                <Input
-                  id="op-password"
-                  type="text"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="new-password"
-                  placeholder="At least 8 characters"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="op-password"
+                    type="text"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="new-password"
+                    placeholder="At least 8 characters"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    title="Generate a password"
+                    onClick={() => setPassword(generatePassword())}
+                  >
+                    <Wand2 className="size-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { sendRentReminder } from "@/lib/aisensy";
+import { sendRentReminder } from "@/lib/whatsapp";
 import { formatINR } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 

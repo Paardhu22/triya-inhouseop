@@ -82,7 +82,7 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [sort, setSort] = useState<string>("name");
+  const [sort, setSort] = useState<string>("room");
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -93,11 +93,23 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
       if (query && !`${t.fullName} ${t.phone}`.toLowerCase().includes(query)) return false;
       return true;
     });
-    list.sort((a, b) =>
-      sort === "recent"
-        ? b.createdAt.getTime() - a.createdAt.getTime()
-        : a.fullName.localeCompare(b.fullName),
-    );
+    list.sort((a, b) => {
+      if (sort === "recent") return b.createdAt.getTime() - a.createdAt.getTime();
+      if (sort === "room") {
+        const roomA = a.tenancies[0]?.bed.room.number;
+        const roomB = b.tenancies[0]?.bed.room.number;
+        if (roomA == null && roomB == null) return a.fullName.localeCompare(b.fullName);
+        if (roomA == null) return 1;
+        if (roomB == null) return -1;
+        const numA = Number(roomA);
+        const numB = Number(roomB);
+        if (!Number.isNaN(numA) && !Number.isNaN(numB) && numA !== numB) return numA - numB;
+        const roomCompare = roomA.localeCompare(roomB, undefined, { numeric: true });
+        if (roomCompare !== 0) return roomCompare;
+        return (a.tenancies[0]?.bed.label ?? "").localeCompare(b.tenancies[0]?.bed.label ?? "");
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
     return list;
   }, [tenants, q, statusFilter, sort]);
 
@@ -129,6 +141,7 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="name">Sort: Name</SelectItem>
+            <SelectItem value="room">Sort: Room number</SelectItem>
             <SelectItem value="recent">Sort: Recently added</SelectItem>
           </SelectContent>
         </Select>

@@ -19,7 +19,7 @@ import { getActiveProperty } from "@/lib/property";
 import { resolvePublicBaseUrl } from "@/lib/public-url";
 import { PAYMENT_STATUS_META } from "@/lib/status";
 import { storage } from "@/lib/storage";
-import { sendWhatsAppMedia } from "@/lib/twilio";
+import { sendWhatsAppMedia } from "@/lib/whatsapp";
 import { sendInvoiceSchema, type SendInvoiceInput } from "@/lib/validations/invoice";
 
 const isoDate = (d: Date) => format(d, "yyyy-MM-dd");
