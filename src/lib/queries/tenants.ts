@@ -15,12 +15,15 @@ export async function getTenants(propertyId: string) {
       college: true,
       company: true,
       createdAt: true,
+      photoUrl: true,
       tenancies: {
         where: { status: "ACTIVE" },
         take: 1,
         select: {
           paymentStatus: true,
           monthlyRent: true,
+          securityDeposit: true,
+          depositStatus: true,
           checkInDate: true,
           bed: { select: { label: true, room: { select: { number: true } } } },
         },

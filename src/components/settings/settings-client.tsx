@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   user: { name: string | null; email: string | null; role: string };
-  property: { name: string; slug: string; address: string | null; city: string | null; phone: string | null };
+  property: { name: string; slug: string; address: string | null; city: string | null; phone: string | null } | null;
   canManageProperty: boolean;
 };
 
@@ -23,7 +23,7 @@ export function SettingsClient({ user, property, canManageProperty }: Props) {
     <div className="grid gap-6 xl:grid-cols-2">
       <AccountCard user={user} />
       <PasswordCard />
-      <PropertyCard property={property} canManage={canManageProperty} />
+      {property ? <PropertyCard property={property} canManage={canManageProperty} /> : null}
     </div>
   );
 }
@@ -75,7 +75,13 @@ function PasswordCard() {
   );
 }
 
-function PropertyCard({ property, canManage }: { property: Props["property"]; canManage: boolean }) {
+function PropertyCard({
+  property,
+  canManage,
+}: {
+  property: NonNullable<Props["property"]>;
+  canManage: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   function submit(event: FormEvent<HTMLFormElement>) {

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import { formatINR, paiseToRupees } from "@/lib/money";
 import type { TenantListItem } from "@/lib/queries/tenants";
-import { PAYMENT_STATUS_META } from "@/lib/status";
+import { DEPOSIT_STATUS_META, KYC_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
 
 function csvCell(value: string) {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
@@ -41,6 +41,9 @@ function exportCsv(rows: TenantListItem[]) {
     "Bed",
     "Monthly Rent",
     "Payment",
+    "Deposit",
+    "Deposit Status",
+    "KYC",
     "Occupation",
     "Joined",
   ];
@@ -56,6 +59,9 @@ function exportCsv(rows: TenantListItem[]) {
         active?.bed.label ?? "",
         active ? String(paiseToRupees(active.monthlyRent)) : "",
         active?.paymentStatus ?? "",
+        active?.securityDeposit != null ? String(paiseToRupees(active.securityDeposit)) : "",
+        active?.depositStatus ?? "",
+        t.photoUrl ? "Verified" : "Pending",
         t.occupation ?? "",
         format(t.createdAt, "yyyy-MM-dd"),
       ]
@@ -143,13 +149,15 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
               <TableHead className="w-28">Room / Bed</TableHead>
               <TableHead className="w-28">Rent</TableHead>
               <TableHead className="w-28">Payment</TableHead>
+              <TableHead className="w-32">Deposit</TableHead>
+              <TableHead className="w-24">KYC</TableHead>
               <TableHead className="w-24">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
                   No tenants match your filters.
                 </TableCell>
               </TableRow>
@@ -181,6 +189,21 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {active ? (
+                        <div className="space-y-0.5">
+                          <div className="text-sm tabular-nums">
+                            {active.securityDeposit != null ? formatINR(active.securityDeposit) : "—"}
+                          </div>
+                          <StatusBadge meta={DEPOSIT_STATUS_META[active.depositStatus]} />
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge meta={t.photoUrl ? KYC_STATUS_META.VERIFIED : KYC_STATUS_META.PENDING} />
                     </TableCell>
                     <TableCell>
                       {active ? (

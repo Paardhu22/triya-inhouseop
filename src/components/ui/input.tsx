@@ -118,6 +118,20 @@ const SmoothInput = React.forwardRef<HTMLInputElement, React.ComponentProps<"inp
         }
       }
 
+      // "input" (and the "keyup" that follows it) fire on the input element itself,
+      // which — during native event bubbling — runs *before* React's own delegated
+      // onChange listener up at the root. Calling place() synchronously here would
+      // set caret state and force a same-tick re-render of this controlled input
+      // while it's still holding the *previous* value, which makes React re-sync
+      // the DOM value back to stale — wiping out the character the user just typed
+      // before onChange ever gets to read it. Deferring to the next frame lets the
+      // real value commit (and onChange) finish first.
+      let frame = 0
+      const placeDeferred = () => {
+        cancelAnimationFrame(frame)
+        frame = requestAnimationFrame(place)
+      }
+
       const onFocus = () => place()
       const onBlur = () => setCaretOpacity(0)
       const onCompStart = () => {
@@ -131,8 +145,8 @@ const SmoothInput = React.forwardRef<HTMLInputElement, React.ComponentProps<"inp
 
       input.addEventListener("focus", onFocus)
       input.addEventListener("blur", onBlur)
-      input.addEventListener("input", place)
-      input.addEventListener("keyup", place)
+      input.addEventListener("input", placeDeferred)
+      input.addEventListener("keyup", placeDeferred)
       input.addEventListener("click", place)
       input.addEventListener("select", place)
       input.addEventListener("compositionstart", onCompStart)
@@ -141,10 +155,11 @@ const SmoothInput = React.forwardRef<HTMLInputElement, React.ComponentProps<"inp
       if (document.activeElement === input) place()
 
       return () => {
+        cancelAnimationFrame(frame)
         input.removeEventListener("focus", onFocus)
         input.removeEventListener("blur", onBlur)
-        input.removeEventListener("input", place)
-        input.removeEventListener("keyup", place)
+        input.removeEventListener("input", placeDeferred)
+        input.removeEventListener("keyup", placeDeferred)
         input.removeEventListener("click", place)
         input.removeEventListener("select", place)
         input.removeEventListener("compositionstart", onCompStart)

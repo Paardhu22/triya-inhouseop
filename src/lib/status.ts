@@ -4,6 +4,7 @@ import type {
   BedStatus,
   ComplaintPriority,
   ComplaintStatus,
+  DepositStatus,
   PaymentStatus,
 } from "@/generated/prisma/client";
 
@@ -44,3 +45,15 @@ export const COMPLAINT_PRIORITY_META: Record<ComplaintPriority, Meta> = {
   MEDIUM: { label: "Medium", ...TONE.amber },
   HIGH: { label: "High", ...TONE.red },
 };
+
+export const DEPOSIT_STATUS_META: Record<DepositStatus, Meta> = {
+  PENDING: { label: "Pending", ...TONE.amber },
+  REFUNDABLE: { label: "Refundable", ...TONE.green },
+  FORFEITED: { label: "Forfeited", ...TONE.red },
+  ADJUSTED: { label: "Adjusted", ...TONE.neutral },
+};
+
+export const KYC_STATUS_META = {
+  VERIFIED: { label: "Verified", ...TONE.green },
+  PENDING: { label: "Pending", ...TONE.amber },
+} as const;

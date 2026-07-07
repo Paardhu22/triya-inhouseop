@@ -61,7 +61,9 @@ export async function createPropertyOwner(input: unknown): Promise<ActionResult<
     userName: data.name,
     email: data.email,
     password: data.password,
-  }).catch(() => {});
+  }).then((res) => {
+    if (!res.ok) console.error(`[aisensy] credentials WhatsApp to ${data.phone} failed: ${res.error}`);
+  });
 
   revalidatePath("/admin");
   return actionOk({ id: owner.id });
@@ -119,6 +121,26 @@ export async function setPropertyOwnerActive(input: unknown): Promise<ActionResu
     data: { isActive: parsed.data.active },
   });
   if (updated.count !== 1) return actionError("Property owner not found");
+
+  revalidatePath("/admin");
+  return actionOk();
+}
+
+/**
+ * Permanently delete a Property Owner login. Their properties, tenants, and other
+ * records are untouched (FKs to this user are SetNull) — only the account and its
+ * ownership links go away. Deactivating is the reversible alternative.
+ */
+export async function deletePropertyOwner(input: unknown): Promise<ActionResult> {
+  if (!(await requireAppOwner())) return actionError("App Owner access required");
+
+  const parsed = setOwnerActiveSchema.pick({ userId: true }).safeParse(input);
+  if (!parsed.success) return actionError("Invalid request");
+
+  const deleted = await prisma.user.deleteMany({
+    where: { id: parsed.data.userId, role: "PROPERTY_OWNER" },
+  });
+  if (deleted.count !== 1) return actionError("Property owner not found");
 
   revalidatePath("/admin");
   return actionOk();

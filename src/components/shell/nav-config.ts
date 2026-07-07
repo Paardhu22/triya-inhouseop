@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   Banknote,
   Building2,
   LayoutDashboard,
@@ -30,12 +31,33 @@ export const MAIN_NAV: NavItem[] = [
 
 export const SETTINGS_NAV: NavItem[] = [SETTINGS_ITEM];
 
-// The App Owner maintains the app, not properties — their only nav is the console
-// (managing Property Owners) and their own account settings. No property-operational
-// pages (dashboard, floor manager, complaints, expenses, etc.).
+// The App Owner maintains the app, not properties — their nav is a platform-wide
+// Dashboard (owners/properties/growth), the console (managing Property Owners), and
+// their own account settings. No property-operational pages (floor manager,
+// complaints, expenses, etc.) here — those only appear while "viewing" a specific
+// property, see APP_OWNER_PROPERTY_VIEW_NAV below.
 export const APP_OWNER_NAV: NavItem[] = [
+  { href: "/app-owner-dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin", label: "App Owner Console", icon: ShieldCheck },
   SETTINGS_ITEM,
+];
+
+// Property-operational routes an App Owner can browse into (e.g. from an owner's
+// detail page, "View property"). Shared with the sidebar's path check.
+export const APP_OWNER_PROPERTY_VIEW_PATHS = [
+  "/dashboard",
+  "/floor-manager",
+  "/complaints",
+  "/expenses",
+  "/tenants",
+  "/collections",
+];
+
+// While an App Owner is browsing into a specific property, show the same
+// operational nav a Manager sees, plus a way back to the console.
+export const APP_OWNER_PROPERTY_VIEW_NAV: NavItem[] = [
+  { href: "/admin", label: "Back to Console", icon: ArrowLeft },
+  ...MAIN_NAV,
 ];
 
 // The Property Owner runs their own properties end-to-end: Owner Dashboard replaces

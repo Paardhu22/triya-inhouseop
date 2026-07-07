@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { APP_OWNER_PROPERTY_VIEW_PATHS } from "./nav-config";
 import { SidebarContent } from "./sidebar";
 import { UserMenu } from "./user-menu";
 
@@ -37,6 +39,14 @@ type Props = {
 export function Topbar({ property, properties, user }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const pathname = usePathname();
+
+  // The App Owner Console has no "current property" concept — the property widget
+  // only makes sense once an App Owner has browsed into a specific property (e.g.
+  // via "View property" on an owner's detail page).
+  const isAppOwnerOutsidePropertyView =
+    user.role === "APP_OWNER" &&
+    !APP_OWNER_PROPERTY_VIEW_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   // Only admins reach more than one property; a property manager is locked to theirs,
   // so there is nothing to switch to — show it as a static label instead of a menu.
@@ -68,7 +78,7 @@ export function Topbar({ property, properties, user }: Props) {
         </SheetContent>
       </Sheet>
 
-      {canSwitch ? (
+      {isAppOwnerOutsidePropertyView ? null : canSwitch ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

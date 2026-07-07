@@ -16,11 +16,13 @@ import {
 } from "@/lib/validations/expense-category";
 
 // Category management is configuration, so it is limited to PROPERTY_OWNER + MANAGER
-// (logging an expense stays open to any authenticated staff).
+// + APP_OWNER (browsing a property with full manager-level access) — logging an
+// expense stays open to any authenticated staff.
 async function requireManagerContext() {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user || (role !== "PROPERTY_OWNER" && role !== "MANAGER")) return null;
+  if (!session?.user || (role !== "PROPERTY_OWNER" && role !== "MANAGER" && role !== "APP_OWNER"))
+    return null;
   const propertyId = await getSelectedPropertyId();
   return propertyId ? { propertyId } : null;
 }

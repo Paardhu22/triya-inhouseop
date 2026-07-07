@@ -127,7 +127,9 @@ export async function updateComplaint(id: string, patch: unknown): Promise<Actio
       phone: complaint.tenant.phone,
       userName: complaint.tenant.fullName,
       complaintTitle: complaint.title,
-    }).catch(() => {});
+    }).then((res) => {
+      if (!res.ok) console.error(`[aisensy] complaint-resolved WhatsApp to ${complaint.tenant!.phone} failed: ${res.error}`);
+    });
   }
 
   revalidatePath("/complaints");

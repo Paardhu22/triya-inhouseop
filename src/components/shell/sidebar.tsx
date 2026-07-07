@@ -4,7 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { APP_OWNER_NAV, MAIN_NAV, OWNER_NAV, SETTINGS_NAV, type NavItem } from "./nav-config";
+import {
+  APP_OWNER_NAV,
+  APP_OWNER_PROPERTY_VIEW_NAV,
+  APP_OWNER_PROPERTY_VIEW_PATHS,
+  MAIN_NAV,
+  OWNER_NAV,
+  SETTINGS_NAV,
+  type NavItem,
+} from "./nav-config";
 
 import { motion } from "motion/react";
 import TextRoll from "@/components/ui/text-roll";
@@ -51,8 +59,24 @@ export function SidebarContent({
   role: string;
   onNavigate?: () => void;
 }) {
-  const primaryNav = role === "PROPERTY_OWNER" ? OWNER_NAV : role === "APP_OWNER" ? APP_OWNER_NAV : MAIN_NAV;
-  // OWNER_NAV and APP_OWNER_NAV already include their own Settings entry.
+  const pathname = usePathname();
+  // An App Owner browsing into a specific property (e.g. via "View property" on an
+  // owner's detail page) sees the same operational nav a Manager sees, with a way
+  // back to the console — otherwise they see the platform-wide console nav.
+  const isAppOwnerViewingProperty =
+    role === "APP_OWNER" &&
+    APP_OWNER_PROPERTY_VIEW_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  const primaryNav =
+    role === "PROPERTY_OWNER"
+      ? OWNER_NAV
+      : role === "APP_OWNER"
+        ? isAppOwnerViewingProperty
+          ? APP_OWNER_PROPERTY_VIEW_NAV
+          : APP_OWNER_NAV
+        : MAIN_NAV;
+  // OWNER_NAV and APP_OWNER_NAV already include their own Settings entry; the
+  // property-view nav intentionally omits Settings too (it's a temporary lens).
   const secondaryNav = role === "PROPERTY_OWNER" || role === "APP_OWNER" ? [] : SETTINGS_NAV;
   return (
     <div className="flex h-full flex-col px-3 py-6">

@@ -304,7 +304,9 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
       userName: fullName,
       email: createdLogin.email,
       password: createdLogin.password,
-    }).catch(() => {});
+    }).then((res) => {
+      if (!res.ok) console.error(`[aisensy] credentials WhatsApp to ${phone} failed: ${res.error}`);
+    });
   }
 
   // Clean up old files from storage after successful transaction

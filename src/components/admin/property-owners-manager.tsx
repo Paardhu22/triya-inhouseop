@@ -1,10 +1,22 @@
 "use client";
 
 import { FormEvent, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Power, PowerOff, X } from "lucide-react";
+import { ChevronRight, Loader2, Plus, Power, PowerOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +47,7 @@ import {
 import {
   assignPropertyToOwner,
   createPropertyOwner,
+  deletePropertyOwner,
   setPropertyOwnerActive,
   unassignPropertyFromOwner,
 } from "@/lib/actions/property-owners";
@@ -52,7 +65,12 @@ export function PropertyOwnersManager({
     <Card>
       <CardHeader className="border-b sm:grid-cols-[1fr_auto]">
         <div>
-          <CardTitle>Property owners</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Property owners</CardTitle>
+            <Badge variant="secondary" className="font-mono">
+              {owners.length}
+            </Badge>
+          </div>
           <CardDescription>
             Create a Property Owner login and assign it the properties they own.
           </CardDescription>
@@ -118,54 +136,99 @@ function OwnerRow({
     });
   }
 
+  function remove() {
+    startTransition(async () => {
+      const res = await deletePropertyOwner({ userId: owner.id });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Property owner removed");
+      router.refresh();
+    });
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3 py-3 first:pt-4 last:pb-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate font-medium">{owner.name}</p>
-          {!owner.isActive ? <Badge variant="secondary">Inactive</Badge> : null}
+      <Link
+        href={`/admin/owners/${owner.id}`}
+        className="group flex min-w-0 flex-1 items-center gap-1.5"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate font-medium group-hover:underline">{owner.name}</p>
+            {!owner.isActive ? <Badge variant="secondary">Inactive</Badge> : null}
+          </div>
+          <p className="truncate text-xs text-muted-foreground">{owner.email}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5" onClick={(e) => e.preventDefault()}>
+            {owner.ownedProperties.map(({ property }) => (
+              <Badge key={property.id} variant="outline" className="gap-1 pr-1">
+                {property.name}
+                <button
+                  type="button"
+                  onClick={() => unassign(property.id)}
+                  disabled={pending}
+                  className="rounded-full p-0.5 hover:bg-muted"
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            ))}
+            {available.length > 0 ? (
+              <Select onValueChange={assign} disabled={pending}>
+                <SelectTrigger className="h-6 w-auto gap-1 border-dashed px-2 text-xs">
+                  <SelectValue placeholder="+ Add property" />
+                </SelectTrigger>
+                <SelectContent>
+                  {available.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+          </div>
         </div>
-        <p className="truncate text-xs text-muted-foreground">{owner.email}</p>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {owner.ownedProperties.map(({ property }) => (
-            <Badge key={property.id} variant="outline" className="gap-1 pr-1">
-              {property.name}
-              <button
-                type="button"
-                onClick={() => unassign(property.id)}
-                disabled={pending}
-                className="rounded-full p-0.5 hover:bg-muted"
-              >
-                <X className="size-3" />
-              </button>
-            </Badge>
-          ))}
-          {available.length > 0 ? (
-            <Select onValueChange={assign} disabled={pending}>
-              <SelectTrigger className="h-6 w-auto gap-1 border-dashed px-2 text-xs">
-                <SelectValue placeholder="+ Add property" />
-              </SelectTrigger>
-              <SelectContent>
-                {available.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-        </div>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      </Link>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button variant="outline" size="sm" disabled={pending} onClick={toggleActive}>
+          {pending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : owner.isActive ? (
+            <PowerOff className="size-4" />
+          ) : (
+            <Power className="size-4" />
+          )}
+          {owner.isActive ? "Deactivate" : "Reactivate"}
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="sm" disabled={pending}>
+              <Trash2 className="size-4" />
+              Remove
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove {owner.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently deletes their login. Their properties and all
+                property data are kept — only the owner account and its property
+                assignments are removed. This can&apos;t be undone; deactivating
+                instead keeps the login around to re-enable later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={remove}>
+                Remove owner
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
-      <Button variant="outline" size="sm" disabled={pending} onClick={toggleActive}>
-        {pending ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : owner.isActive ? (
-          <PowerOff className="size-4" />
-        ) : (
-          <Power className="size-4" />
-        )}
-        {owner.isActive ? "Deactivate" : "Reactivate"}
-      </Button>
     </div>
   );
 }
