@@ -31,6 +31,14 @@ const envSchema = z.object({
   RAZORPAY_KEY_SECRET: z.string().optional(),
   NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().optional(),
 
+  // AiSensy: template-based WhatsApp campaigns (rent reminders, complaint-resolved
+  // notices, credential delivery) — separate from Twilio, which only handles the
+  // invoice PDF media message.
+  AISENSY_API_KEY: z.string().optional(),
+  AISENSY_CAMPAIGN_RENT_REMINDER: z.string().optional(),
+  AISENSY_CAMPAIGN_COMPLAINT_RESOLVED: z.string().optional(),
+  AISENSY_CAMPAIGN_CREDENTIALS: z.string().optional(),
+
   // Exotel: outbound AI/test calling (Collections "AI Call" button). CALLER_ID is
   // the purchased ExoPhone shown as caller ID; without it the API rejects every
   // call attempt. APP_ID is the App Bazaar app id for the Greeting->Hangup Flow

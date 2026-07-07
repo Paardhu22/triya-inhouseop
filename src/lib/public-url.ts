@@ -52,6 +52,20 @@ export function resolvePublicBaseUrl(): Resolved {
     };
   }
 
+  // The .env.example placeholder itself is a resolvable domain (example.com is a real,
+  // reserved IANA host), so it slips past every other check here while still being
+  // useless to any external service. Reject it explicitly instead of letting Twilio/
+  // Exotel hit a page that isn't ours and fail in a confusing way downstream.
+  if (url.hostname === "example.com" || url.hostname.endsWith(".example.com")) {
+    return {
+      ok: false,
+      error:
+        "APP_PUBLIC_URL is still set to the placeholder example.com value. " +
+        "Start a tunnel (e.g. `ngrok http 3000`), set APP_PUBLIC_URL to the public " +
+        "https URL it prints, and restart the server.",
+    };
+  }
+
   // GreenAPI strongly prefers HTTPS for media; warn once rather than block.
   if (url.protocol === "http:" && !warnedHttp) {
     warnedHttp = true;
