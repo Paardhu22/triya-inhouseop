@@ -57,3 +57,11 @@ export const KYC_STATUS_META = {
   VERIFIED: { label: "Verified", ...TONE.green },
   PENDING: { label: "Pending", ...TONE.amber },
 } as const;
+
+// Whether the caution/security deposit has actually been collected (cash or
+// online) — distinct from DepositStatus above, which is about refund eligibility
+// at vacate and stays PENDING for the entire active stay either way.
+export const DEPOSIT_COLLECTED_META = {
+  COLLECTED: { label: "Collected", ...TONE.green },
+  NOT_COLLECTED: { label: "Not collected", ...TONE.amber },
+} as const;

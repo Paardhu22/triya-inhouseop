@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { DEPOSIT_PAYMENT_NOTE_PREFIX } from "@/lib/payments/razorpay";
 
 export async function getTenants(propertyId: string) {
   return prisma.tenant.findMany({
@@ -20,12 +21,18 @@ export async function getTenants(propertyId: string) {
         where: { status: "ACTIVE" },
         take: 1,
         select: {
+          id: true,
           paymentStatus: true,
           monthlyRent: true,
           securityDeposit: true,
           depositStatus: true,
           checkInDate: true,
           bed: { select: { label: true, room: { select: { number: true } } } },
+          payments: {
+            where: { notes: { startsWith: DEPOSIT_PAYMENT_NOTE_PREFIX } },
+            take: 1,
+            select: { id: true },
+          },
         },
       },
     },
@@ -83,6 +90,7 @@ export async function getTenantProfile(tenantId: string, propertyId: string) {
         take: 12,
         select: {
           id: true,
+          tenancyId: true,
           amount: true,
           forMonth: true,
           status: true,

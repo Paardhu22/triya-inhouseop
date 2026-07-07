@@ -6,6 +6,7 @@ import { startOfMonth } from "date-fns";
 import { type PaymentMethod } from "@/generated/prisma/client";
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { DEPOSIT_PAYMENT_NOTE_PREFIX } from "@/lib/payments/razorpay";
 import { prisma } from "@/lib/prisma";
 import { getSelectedPropertyId } from "@/lib/property";
 import { storage } from "@/lib/storage";
@@ -153,5 +154,51 @@ export async function togglePaymentStatus(
   revalidatePath("/collections");
   revalidatePath(`/tenants/${tenancy.tenantId}`);
 
+  return actionOk();
+}
+
+/**
+ * Manager-side "record the caution deposit as collected" — for cash move-ins, where
+ * there's no Razorpay order to verify. Tagged with DEPOSIT_PAYMENT_NOTE_PREFIX, the
+ * same marker the tenant-side online advance payment uses, so both paths are
+ * indistinguishable to anything checking "has this tenancy's deposit been paid".
+ */
+export async function recordDepositCollected(tenancyId: string): Promise<ActionResult> {
+  const ctx = await requireContext();
+  if (!ctx) return actionError("Not authenticated");
+
+  const tenancy = await prisma.tenancy.findFirst({
+    where: { id: tenancyId, propertyId: ctx.propertyId, status: "ACTIVE" },
+    select: { id: true, tenantId: true, securityDeposit: true },
+  });
+  if (!tenancy) return actionError("Active tenancy not found");
+  if (!tenancy.securityDeposit || tenancy.securityDeposit <= 0) {
+    return actionError("No deposit amount is set for this tenancy");
+  }
+
+  const existing = await prisma.payment.findFirst({
+    where: { tenancyId: tenancy.id, notes: { startsWith: DEPOSIT_PAYMENT_NOTE_PREFIX } },
+    select: { id: true },
+  });
+  if (existing) return actionError("Deposit already marked as collected");
+
+  await prisma.payment.create({
+    data: {
+      propertyId: ctx.propertyId,
+      tenancyId: tenancy.id,
+      tenantId: tenancy.tenantId,
+      amount: tenancy.securityDeposit,
+      forMonth: startOfMonth(new Date()),
+      status: "PAID",
+      method: "CASH",
+      cashAmount: tenancy.securityDeposit,
+      paidAt: new Date(),
+      recordedById: ctx.userId,
+      notes: `${DEPOSIT_PAYMENT_NOTE_PREFIX} — collected in cash`,
+    },
+  });
+
+  revalidatePath("/tenants");
+  revalidatePath(`/tenants/${tenancy.tenantId}`);
   return actionOk();
 }

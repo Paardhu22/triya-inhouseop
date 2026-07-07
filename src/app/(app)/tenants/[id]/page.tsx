@@ -6,10 +6,12 @@ import { ArrowLeft, FileText, Mail, Phone, User } from "lucide-react";
 
 import { StatusBadge } from "@/components/common/status-badge";
 import { formatINR } from "@/lib/money";
+import { DEPOSIT_PAYMENT_NOTE_PREFIX } from "@/lib/payments/razorpay";
 import { getActiveProperty } from "@/lib/property";
 import { getTenantProfile, type TenantProfile } from "@/lib/queries/tenants";
-import { COMPLAINT_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
+import { DEPOSIT_COLLECTED_META, PAYMENT_STATUS_META } from "@/lib/status";
 import { DeleteTenantButton } from "@/components/tenants/delete-tenant-button";
+import { RecordDepositButton } from "@/components/tenants/record-deposit-button";
 import { TogglePaymentStatusButton } from "@/components/tenants/toggle-payment-status";
 
 export const metadata: Metadata = {
@@ -88,6 +90,11 @@ export default async function TenantProfilePage({
   if (!tenant) notFound();
 
   const active = tenant.tenancies.find((t) => t.status === "ACTIVE");
+  const depositPaid = active
+    ? tenant.payments.some(
+        (p) => p.tenancyId === active.id && p.notes?.startsWith(DEPOSIT_PAYMENT_NOTE_PREFIX),
+      )
+    : false;
   const hasKyc = Boolean(
     tenant.fatherName ||
       tenant.motherName ||
@@ -224,6 +231,21 @@ export default async function TenantProfilePage({
                   </span>
                 </div>
               ) : null}
+              {active && active.securityDeposit ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border p-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Caution deposit</p>
+                    <StatusBadge
+                      meta={
+                        depositPaid
+                          ? DEPOSIT_COLLECTED_META.COLLECTED
+                          : DEPOSIT_COLLECTED_META.NOT_COLLECTED
+                      }
+                    />
+                  </div>
+                  {!depositPaid ? <RecordDepositButton tenancyId={active.id} /> : null}
+                </div>
+              ) : null}
             </div>
           )}
         </SectionCard>
@@ -233,27 +255,32 @@ export default async function TenantProfilePage({
             <Empty label="No payments recorded." />
           ) : (
             <div className="divide-y">
-              {tenant.payments.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium">{format(p.forMonth, "MMMM yyyy")}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {p.paidAt
-                        ? `Paid ${format(p.paidAt, "dd MMM")} by ${paymentMethodLabel(p)}`
-                        : "Not paid"}
-                    </p>
-                    {p.recordedBy ? (
-                      <p className="text-[11px] text-muted-foreground/80 mt-0.5">
-                        Recorded by {p.recordedBy.name}
+              {tenant.payments.map((p) => {
+                const isDeposit = p.notes?.startsWith(DEPOSIT_PAYMENT_NOTE_PREFIX);
+                return (
+                  <div key={p.id} className="flex items-center justify-between gap-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium">
+                        {isDeposit ? "Caution deposit" : format(p.forMonth, "MMMM yyyy")}
                       </p>
-                    ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        {p.paidAt
+                          ? `Paid ${format(p.paidAt, "dd MMM")} by ${paymentMethodLabel(p)}`
+                          : "Not paid"}
+                      </p>
+                      {p.recordedBy ? (
+                        <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                          Recorded by {p.recordedBy.name}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium tabular-nums">{formatINR(p.amount)}</span>
+                      <StatusBadge meta={PAYMENT_STATUS_META[p.status]} />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium tabular-nums">{formatINR(p.amount)}</span>
-                    <StatusBadge meta={PAYMENT_STATUS_META[p.status]} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </SectionCard>

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import { formatINR, paiseToRupees } from "@/lib/money";
 import type { TenantListItem } from "@/lib/queries/tenants";
-import { DEPOSIT_STATUS_META, KYC_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
+import { DEPOSIT_COLLECTED_META, KYC_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
 
 function csvCell(value: string) {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
@@ -42,6 +42,7 @@ function exportCsv(rows: TenantListItem[]) {
     "Monthly Rent",
     "Payment",
     "Deposit",
+    "Deposit Collected",
     "Deposit Status",
     "KYC",
     "Occupation",
@@ -60,6 +61,7 @@ function exportCsv(rows: TenantListItem[]) {
         active ? String(paiseToRupees(active.monthlyRent)) : "",
         active?.paymentStatus ?? "",
         active?.securityDeposit != null ? String(paiseToRupees(active.securityDeposit)) : "",
+        active ? (active.payments.length > 0 ? "Yes" : "No") : "",
         active?.depositStatus ?? "",
         t.photoUrl ? "Verified" : "Pending",
         t.occupation ?? "",
@@ -209,7 +211,13 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
                           <div className="text-sm tabular-nums">
                             {active.securityDeposit != null ? formatINR(active.securityDeposit) : "—"}
                           </div>
-                          <StatusBadge meta={DEPOSIT_STATUS_META[active.depositStatus]} />
+                          <StatusBadge
+                            meta={
+                              active.payments.length > 0
+                                ? DEPOSIT_COLLECTED_META.COLLECTED
+                                : DEPOSIT_COLLECTED_META.NOT_COLLECTED
+                            }
+                          />
                         </div>
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>
