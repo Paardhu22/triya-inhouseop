@@ -2,9 +2,11 @@
 // complaint states look identical everywhere they appear.
 import type {
   BedStatus,
+  CallStatus,
   ComplaintPriority,
   ComplaintStatus,
   DepositStatus,
+  MessageStatus,
   PaymentStatus,
 } from "@/generated/prisma/client";
 
@@ -33,6 +35,9 @@ export const PAYMENT_STATUS_META: Record<PaymentStatus, Meta> = {
   PENDING: { label: "Pending", ...TONE.amber },
   OVERDUE: { label: "Overdue", ...TONE.red },
 };
+
+/** Badge for synthetic test tenants (see TEST_TENANT_MARKER) — not a real PaymentStatus. */
+export const TEST_STATUS_META: Meta = { label: "Test", ...TONE.neutral };
 
 export const COMPLAINT_STATUS_META: Record<ComplaintStatus, Meta> = {
   OPEN: { label: "Open", ...TONE.red },
@@ -65,3 +70,15 @@ export const DEPOSIT_COLLECTED_META = {
   COLLECTED: { label: "Collected", ...TONE.green },
   NOT_COLLECTED: { label: "Not collected", ...TONE.amber },
 } as const;
+
+export const MESSAGE_STATUS_META: Record<MessageStatus, Meta> = {
+  SENT: { label: "Sent", ...TONE.green },
+  FAILED: { label: "Failed", ...TONE.red },
+};
+
+export const CALL_STATUS_META: Record<CallStatus, Meta> = {
+  CALLING: { label: "Calling", ...TONE.amber },
+  CONNECTED: { label: "Connected", ...TONE.amber },
+  COMPLETED: { label: "Completed", ...TONE.green },
+  FAILED: { label: "Failed", ...TONE.red },
+};

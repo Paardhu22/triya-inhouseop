@@ -13,6 +13,7 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "db:seed:test-tenant": "tsx prisma/seed-test-tenant.ts",
     "db:reset": "prisma migrate reset",
     "postinstall": "prisma generate"
   },

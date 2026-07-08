@@ -81,6 +81,18 @@ enum InvoiceStatus {
   FAILED
 }
 
+enum CallStatus {
+  CALLING
+  CONNECTED
+  COMPLETED
+  FAILED
+}
+
+enum MessageStatus {
+  SENT
+  FAILED
+}
+
 // ============================================================================
 // Auth (Auth.js v5). Credentials + JWT today; Account/Session/VerificationToken
 // included to future-proof OAuth and the owner dashboard.
@@ -210,6 +222,8 @@ model Property {
   expenses       Expense[]
   floorTemplates FloorTemplate[]
   invoices       Invoice[]
+  calls          Call[]
+  messages       Message[]
 
   expenseCategories    ExpenseCategory[]
   expenseSubcategories ExpenseSubcategory[]
@@ -362,6 +376,8 @@ model Tenant {
   payments   Payment[]
   complaints Complaint[]
   invoices   Invoice[]
+  calls      Call[]
+  messages   Message[]
 
   @@index([propertyId])
   @@index([phone])
@@ -481,6 +497,49 @@ model Invoice {
   @@index([tenancyId])
   @@index([tenantId])
   @@index([billingMonth])
+}
+
+// An outbound AI/test call placed via Exotel. One row per call attempt, tracked
+// from initiation through Exotel's StatusCallback webhook so the UI can poll for
+// live status without holding any Exotel credentials client-side.
+model Call {
+  id         String     @id @default(cuid())
+  propertyId String
+  tenantId   String
+  phone      String
+  message    String
+  callSid    String?    @unique // Exotel Call Sid; null until the API call succeeds
+  status     CallStatus @default(CALLING)
+  error      String? // Exotel's error message, when status = FAILED
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([tenantId])
+}
+
+// A WhatsApp text message sent to a tenant (rent reminders today — manual, from the
+// Collections "Reminders" column, or automated via the daily cron). One row per
+// send attempt, so the Collections "Message & Call status" tab has a real history
+// to show instead of the fire-and-forget best-effort send being invisible.
+model Message {
+  id         String        @id @default(cuid())
+  propertyId String
+  tenantId   String
+  phone      String
+  body       String
+  status     MessageStatus @default(SENT)
+  error      String? // best-effort send failure reason, when status = FAILED
+  createdAt  DateTime      @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([tenantId])
 }
 
 // ============================================================================

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { sendRentReminder } from "@/lib/whatsapp";
+import { buildRentReminderMessage, sendWhatsAppText } from "@/lib/whatsapp";
 import { formatINR } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
@@ -33,10 +33,11 @@ export async function POST(request: Request) {
       },
       select: {
         id: true,
+        propertyId: true,
         monthlyRent: true,
         maintenanceCharge: true,
         paymentDueDay: true,
-        tenant: { select: { fullName: true, phone: true } },
+        tenant: { select: { id: true, fullName: true, phone: true } },
       },
     });
 
@@ -49,12 +50,24 @@ export async function POST(request: Request) {
       const shouldRemind = REMINDER_DAYS_BEFORE.has(diff) || diff <= 0;
       if (!shouldRemind) continue;
 
-      const result = await sendRentReminder({
-        phone: tenancy.tenant.phone,
+      const body = buildRentReminderMessage({
         userName: tenancy.tenant.fullName,
         amountLabel: formatINR(tenancy.monthlyRent + tenancy.maintenanceCharge),
         daysUntilDue: diff,
       });
+      const result = await sendWhatsAppText(tenancy.tenant.phone, body);
+
+      await prisma.message.create({
+        data: {
+          propertyId: tenancy.propertyId,
+          tenantId: tenancy.tenant.id,
+          phone: tenancy.tenant.phone,
+          body,
+          status: result.ok ? "SENT" : "FAILED",
+          error: result.ok ? null : result.error,
+        },
+      });
+
       if (result.ok) sent += 1;
       else skipped += 1;
     }

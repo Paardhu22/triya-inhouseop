@@ -23,11 +23,16 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatINR } from "@/lib/money";
+import type { RecentCall, RecentMessage } from "@/lib/queries/activity";
 import type { CollectionRow } from "@/lib/queries/collections";
 import type { InvoiceHistoryRow } from "@/lib/queries/invoices";
-import { PAYMENT_STATUS_META } from "@/lib/status";
+import { PAYMENT_STATUS_META, TEST_STATUS_META } from "@/lib/status";
+import { TEST_TENANT_MARKER } from "@/lib/tenancy";
+import { ActivityTab } from "./activity-tab";
+import { AiCallButton } from "./ai-call-button";
 import { InvoiceHistory } from "./invoice-history";
 import { SendInvoiceButton } from "./send-invoice-button";
+import { SendReminderButton } from "./send-reminder-button";
 
 const STATUS_FILTERS = [
   { value: "ALL", label: "All" },
@@ -39,21 +44,29 @@ const STATUS_FILTERS = [
 export function CollectionsClient({
   rows,
   invoices,
+  messages,
+  calls,
 }: {
   rows: CollectionRow[];
   invoices: InvoiceHistoryRow[];
+  messages: RecentMessage[];
+  calls: RecentCall[];
 }) {
   return (
     <Tabs defaultValue="dues" className="space-y-5">
       <TabsList>
         <TabsTrigger value="dues">Dues</TabsTrigger>
         <TabsTrigger value="history">Invoice History</TabsTrigger>
+        <TabsTrigger value="activity">Message &amp; Call Status</TabsTrigger>
       </TabsList>
       <TabsContent value="dues">
         <DuesTab rows={rows} />
       </TabsContent>
       <TabsContent value="history">
         <InvoiceHistory invoices={invoices} />
+      </TabsContent>
+      <TabsContent value="activity">
+        <ActivityTab messages={messages} calls={calls} />
       </TabsContent>
     </Tabs>
   );
@@ -112,7 +125,7 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
         </Select>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -124,18 +137,20 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
               <TableHead className="w-36">Last Invoice</TableHead>
               <TableHead className="w-28">Status</TableHead>
               <TableHead className="w-36 text-right">Actions</TableHead>
+              <TableHead className="w-72 text-right">Reminders (Message → Call)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">
                   No tenants match your filters.
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((r) => {
                 const totalDue = r.monthlyRent + r.maintenanceCharge;
+                const isTestTenant = r.tenant.notes === TEST_TENANT_MARKER;
                 return (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.tenant.fullName}</TableCell>
@@ -153,10 +168,16 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
                       {r.invoices[0] ? format(new Date(r.invoices[0].createdAt), "MMM d, yyyy") : "Never"}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge meta={PAYMENT_STATUS_META[r.paymentStatus]} />
+                      <StatusBadge meta={isTestTenant ? TEST_STATUS_META : PAYMENT_STATUS_META[r.paymentStatus]} />
                     </TableCell>
                     <TableCell className="text-right">
                       <SendInvoiceButton tenancyId={r.id} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-start justify-end gap-2">
+                        <SendReminderButton tenancyId={r.id} />
+                        <AiCallButton tenantId={r.tenant.id} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

@@ -70,6 +70,21 @@ export async function sendWhatsAppMedia(opts: { to: string; body: string; mediaU
   return String(data.idMessage ?? "");
 }
 
+/**
+ * Composed separately from sendRentReminder so callers that need to persist what
+ * was actually sent (see Message model / the Collections "Send Reminder" action)
+ * don't have to duplicate the template.
+ */
+export function buildRentReminderMessage(opts: {
+  userName: string;
+  amountLabel: string;
+  daysUntilDue: number;
+}): string {
+  const dueLabel =
+    opts.daysUntilDue > 0 ? `in ${opts.daysUntilDue} day${opts.daysUntilDue === 1 ? "" : "s"}` : "today or overdue";
+  return `Hi ${opts.userName}, this is a reminder that your rent of ${opts.amountLabel} is due ${dueLabel}. Please pay at your earliest convenience.`;
+}
+
 /** Rent due in `daysUntilDue` days (negative/0 = due today or overdue). */
 export async function sendRentReminder(opts: {
   phone: string;
@@ -77,12 +92,7 @@ export async function sendRentReminder(opts: {
   amountLabel: string;
   daysUntilDue: number;
 }) {
-  const dueLabel =
-    opts.daysUntilDue > 0 ? `in ${opts.daysUntilDue} day${opts.daysUntilDue === 1 ? "" : "s"}` : "today or overdue";
-  return sendWhatsAppText(
-    opts.phone,
-    `Hi ${opts.userName}, this is a reminder that your rent of ${opts.amountLabel} is due ${dueLabel}. Please pay at your earliest convenience.`,
-  );
+  return sendWhatsAppText(opts.phone, buildRentReminderMessage(opts));
 }
 
 /** Notify a tenant that their complaint has been resolved. */

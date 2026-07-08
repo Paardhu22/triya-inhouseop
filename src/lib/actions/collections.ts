@@ -19,7 +19,7 @@ import { getActiveProperty } from "@/lib/property";
 import { resolvePublicBaseUrl } from "@/lib/public-url";
 import { PAYMENT_STATUS_META } from "@/lib/status";
 import { storage } from "@/lib/storage";
-import { sendWhatsAppMedia } from "@/lib/whatsapp";
+import { buildRentReminderMessage, sendWhatsAppMedia, sendWhatsAppText } from "@/lib/whatsapp";
 import { sendInvoiceSchema, type SendInvoiceInput } from "@/lib/validations/invoice";
 
 const isoDate = (d: Date) => format(d, "yyyy-MM-dd");
@@ -413,4 +413,57 @@ export async function resendInvoice(
   } catch (e) {
     return actionError(e instanceof Error ? e.message : "Failed to resend the invoice");
   }
+}
+
+/**
+ * Manual "Send Reminder" trigger from the Collections Dues table — a free-text
+ * WhatsApp nudge, separate from the formal invoice PDF. Persists a Message row
+ * either way (SENT or FAILED) so the "Message & Call status" tab has a real
+ * history instead of the send being invisible.
+ */
+export async function sendReminderMessage(tenancyId: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return actionError("Not authenticated");
+
+  const property = await getActiveProperty();
+  if (!property) return actionError("No active property selected");
+
+  const tenancy = await prisma.tenancy.findFirst({
+    where: { id: tenancyId, propertyId: property.id, status: "ACTIVE" },
+    select: {
+      monthlyRent: true,
+      maintenanceCharge: true,
+      paymentDueDay: true,
+      tenant: { select: { id: true, fullName: true, phone: true } },
+    },
+  });
+  if (!tenancy) return actionError("Active tenancy not found");
+  if (!tenancy.tenant.phone) return actionError("Tenant has no phone number on file");
+
+  const today = new Date();
+  const dueDay = tenancy.paymentDueDay || 5;
+  let dueDate = new Date(today.getFullYear(), today.getMonth(), dueDay);
+  if (dueDate < today) dueDate = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
+  const daysUntilDue = Math.round((dueDate.getTime() - today.getTime()) / 86_400_000);
+
+  const body = buildRentReminderMessage({
+    userName: tenancy.tenant.fullName,
+    amountLabel: formatINR(tenancy.monthlyRent + tenancy.maintenanceCharge),
+    daysUntilDue,
+  });
+  const result = await sendWhatsAppText(tenancy.tenant.phone, body);
+
+  await prisma.message.create({
+    data: {
+      propertyId: property.id,
+      tenantId: tenancy.tenant.id,
+      phone: tenancy.tenant.phone,
+      body,
+      status: result.ok ? "SENT" : "FAILED",
+      error: result.ok ? null : result.error,
+    },
+  });
+
+  revalidatePath("/collections");
+  return result.ok ? actionOk() : actionError(result.error);
 }

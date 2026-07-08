@@ -19,7 +19,7 @@ export async function getCollectionsData(propertyId: string) {
       depositStatus: true,
       noticeGivenDate: true,
       tenant: {
-        select: { id: true, fullName: true, phone: true, email: true },
+        select: { id: true, fullName: true, phone: true, email: true, notes: true },
       },
       bed: {
         select: {

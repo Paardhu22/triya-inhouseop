@@ -8,6 +8,14 @@ import type { DepositStatus } from "@/generated/prisma/client";
 export const NOTICE_PERIOD_DAYS = 15;
 
 /**
+ * Marker stored in `Tenant.notes` for synthetic test tenants (e.g. the AI Call demo
+ * tenant). Lets the Collections UI show a distinct "Test" badge without adding a
+ * PaymentStatus enum value that would ripple through the toggle/dashboard/tenant
+ * detail pages, which only know about real payment states.
+ */
+export const TEST_TENANT_MARKER = "AI_CALL_TEST_TENANT";
+
+/**
  * Maintenance reserve deducted from a tenant's security deposit at move-in.
  * Fixed at ₹1000, stored — like all money — in integer paise.
  */
