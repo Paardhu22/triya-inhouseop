@@ -27,6 +27,7 @@ import type { CollectionRow } from "@/lib/queries/collections";
 import type { InvoiceHistoryRow } from "@/lib/queries/invoices";
 import { PAYMENT_STATUS_META } from "@/lib/status";
 import { InvoiceHistory } from "./invoice-history";
+import { MarkAsPaidButton } from "./mark-as-paid-button";
 import { RentReminderButton } from "./rent-reminder-button";
 import { SendInvoiceButton } from "./send-invoice-button";
 
@@ -136,7 +137,10 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
               </TableRow>
             ) : (
               filtered.map((r) => {
-                const totalDue = r.monthlyRent + r.maintenanceCharge;
+                const isPaid = r.paymentStatus === "PAID";
+                const outstanding = r.monthlyRent + r.maintenanceCharge;
+                // Once paid, the tenant owes nothing for the current cycle.
+                const totalDue = isPaid ? 0 : outstanding;
                 return (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.tenant.fullName}</TableCell>
@@ -158,7 +162,14 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <RentReminderButton tenancyId={r.id} />
+                        {!isPaid && <RentReminderButton tenancyId={r.id} />}
+                        {!isPaid && (
+                          <MarkAsPaidButton
+                            tenancyId={r.id}
+                            tenantName={r.tenant.fullName}
+                            amountPaise={outstanding}
+                          />
+                        )}
                         <SendInvoiceButton tenancyId={r.id} />
                       </div>
                     </TableCell>

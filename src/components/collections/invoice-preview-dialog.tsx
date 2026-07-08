@@ -1,6 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import {
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
+  useTransition,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Send, X } from "lucide-react";
 import { toast } from "sonner";
@@ -36,12 +44,21 @@ const toPaise = (s: string): number => {
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : 0;
 };
 
+/** Imperative handle so a parent can open the dialog (and load its data) on demand. */
+export type InvoicePreviewHandle = { open: () => void };
+
 export function InvoicePreviewDialog({
   tenancyId,
   trigger,
+  onOpenChange,
+  ref,
 }: {
   tenancyId: string;
-  trigger: ReactNode;
+  /** Optional — omit when the dialog is driven externally via the imperative `ref`. */
+  trigger?: ReactNode;
+  /** Notified whenever the dialog opens or closes. */
+  onOpenChange?: (open: boolean) => void;
+  ref?: Ref<InvoicePreviewHandle>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -50,34 +67,51 @@ export function InvoicePreviewDialog({
   const [fields, setFields] = useState<Fields>(blankFields);
   const [sending, startSending] = useTransition();
 
+  const change = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
+
   function set<K extends keyof Fields>(key: K, value: Fields[K]) {
     setFields((f) => ({ ...f, [key]: value }));
   }
 
-  async function onOpenChange(next: boolean) {
-    setOpen(next);
-    if (!next) return;
-    // Load fresh defaults each time the dialog opens.
+  // Open the dialog and load fresh defaults. Called both from the trigger and via the
+  // imperative handle (e.g. straight after marking a payment received), so the numbers
+  // are always freshly computed server-side.
+  const openAndLoad = useCallback(() => {
+    change(true);
     setBase(null);
     setFields(blankFields());
     setLoading(true);
-    const res = await prepareInvoice(tenancyId);
-    setLoading(false);
-    if (!res.ok) {
-      toast.error(res.error);
-      setOpen(false);
-      return;
-    }
-    setBase(res.data);
-    setFields({
-      billingMonth: res.data.billingMonth.slice(0, 7),
-      dueDate: res.data.dueDate ?? "",
-      previousDue: "",
-      extraChargesLabel: "",
-      extraCharges: "",
-      discount: "",
-      notes: "",
+    prepareInvoice(tenancyId).then((res) => {
+      setLoading(false);
+      if (!res.ok) {
+        toast.error(res.error);
+        change(false);
+        return;
+      }
+      setBase(res.data);
+      setFields({
+        billingMonth: res.data.billingMonth.slice(0, 7),
+        dueDate: res.data.dueDate ?? "",
+        previousDue: "",
+        extraChargesLabel: "",
+        extraCharges: "",
+        discount: "",
+        notes: "",
+      });
     });
+  }, [tenancyId, change]);
+
+  useImperativeHandle(ref, () => ({ open: openAndLoad }), [openAndLoad]);
+
+  function onDialogOpenChange(next: boolean) {
+    if (next) openAndLoad();
+    else change(false);
   }
 
   // Live preview: merge edits onto the prepared base and recompute totals so the
@@ -116,14 +150,14 @@ export function InvoicePreviewDialog({
         return;
       }
       toast.success("Invoice sent on WhatsApp");
-      setOpen(false);
+      change(false);
       router.refresh();
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+    <Dialog open={open} onOpenChange={onDialogOpenChange}>
+      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <DialogContent
         showCloseButton={false}
         className="flex h-[90vh] w-[90vw] max-w-[1500px] flex-col gap-0 overflow-y-auto p-0 sm:max-w-[1500px] lg:flex-row lg:overflow-hidden"
@@ -216,7 +250,7 @@ export function InvoicePreviewDialog({
           </div>
 
           <div className="flex shrink-0 items-center justify-end gap-2 border-t bg-muted/50 px-6 py-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={sending}>
+            <Button variant="outline" onClick={() => change(false)} disabled={sending}>
               Cancel
             </Button>
             <Button onClick={onSend} disabled={sending || loading || !preview}>

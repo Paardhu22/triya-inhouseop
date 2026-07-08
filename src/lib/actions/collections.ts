@@ -441,6 +441,77 @@ export async function resendInvoice(
 }
 
 /**
+ * Record that the current-cycle rent for an active tenancy has been collected, straight
+ * from the Collections screen. Flips the tenancy's snapshot to PAID and upserts a PAID
+ * Payment row for the current month (idempotent per month) so the ledger stays in step —
+ * mirroring what `saveBed` does when a bed is marked paid. The recorded amount is the full
+ * outstanding (rent + maintenance), so the tenant's outstanding drops to zero.
+ */
+export async function markRentPaid(tenancyId: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return actionError("Not authenticated");
+
+  const property = await getActiveProperty();
+  if (!property) return actionError("No active property selected");
+
+  const tenancy = await prisma.tenancy.findFirst({
+    where: { id: tenancyId, propertyId: property.id, status: "ACTIVE" },
+    select: {
+      id: true,
+      tenantId: true,
+      monthlyRent: true,
+      maintenanceCharge: true,
+      paymentStatus: true,
+    },
+  });
+  if (!tenancy) return actionError("Active tenancy not found for this property");
+  if (tenancy.paymentStatus === "PAID") return actionError("Rent is already marked as paid");
+
+  const amountPaise = tenancy.monthlyRent + tenancy.maintenanceCharge;
+  const forMonth = startOfMonth(new Date());
+  const paidAt = new Date();
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.tenancy.update({
+        where: { id: tenancy.id },
+        data: { paymentStatus: "PAID" },
+      });
+      const existing = await tx.payment.findFirst({
+        where: { tenancyId: tenancy.id, forMonth },
+        select: { id: true },
+      });
+      if (existing) {
+        await tx.payment.update({
+          where: { id: existing.id },
+          data: { status: "PAID", amount: amountPaise, paidAt, recordedById: session.user.id },
+        });
+      } else {
+        await tx.payment.create({
+          data: {
+            propertyId: property.id,
+            tenancyId: tenancy.id,
+            tenantId: tenancy.tenantId,
+            amount: amountPaise,
+            forMonth,
+            status: "PAID",
+            method: "CASH",
+            paidAt,
+            recordedById: session.user.id,
+          },
+        });
+      }
+    });
+  } catch {
+    return actionError("Could not record the payment. Please try again.");
+  }
+
+  revalidatePath("/collections");
+  revalidatePath("/dashboard");
+  return actionOk();
+}
+
+/**
  * Send a single active tenant a plain-text rent reminder over WhatsApp. Independent of
  * invoices: no PDF is generated or persisted, so this needs no public URL. Nothing is
  * written to the database — a reminder is a transient nudge, not a billing record.
