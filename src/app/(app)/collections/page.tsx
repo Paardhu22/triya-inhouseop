@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { CollectionsClient } from "@/components/collections/collections-client";
+import { RemindEveryoneButton } from "@/components/collections/remind-everyone-button";
 import { PageHeader } from "@/components/shell/page-header";
 import { getCollectionsData } from "@/lib/queries/collections";
 import { getInvoiceHistory } from "@/lib/queries/invoices";
@@ -22,6 +23,7 @@ export default async function CollectionsPage() {
       <PageHeader
         title="Collections"
         description="Rent and maintenance dues for every active tenant in this property."
+        actions={<RemindEveryoneButton />}
       />
       <CollectionsClient rows={rows} invoices={invoices} />
     </div>

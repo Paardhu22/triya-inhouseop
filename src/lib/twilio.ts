@@ -59,3 +59,19 @@ export async function sendWhatsAppMedia(opts: {
   });
   return message.sid;
 }
+
+/** Send a plain-text WhatsApp message (no media). Returns the message SID. */
+export async function sendWhatsAppText(opts: {
+  to: string;
+  body: string;
+}): Promise<string> {
+  if (!whatsappNumber) {
+    throw new Error("Twilio is not configured. Set TWILIO_WHATSAPP_NUMBER.");
+  }
+  const message = await getClient().messages.create({
+    from: fromAddress(whatsappNumber),
+    to: toWhatsAppAddress(opts.to),
+    body: opts.body,
+  });
+  return message.sid;
+}

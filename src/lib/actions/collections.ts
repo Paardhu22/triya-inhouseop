@@ -19,7 +19,7 @@ import { getActiveProperty } from "@/lib/property";
 import { resolvePublicBaseUrl } from "@/lib/public-url";
 import { PAYMENT_STATUS_META } from "@/lib/status";
 import { storage } from "@/lib/storage";
-import { sendWhatsAppMedia } from "@/lib/twilio";
+import { sendWhatsAppMedia, sendWhatsAppText } from "@/lib/twilio";
 import { sendInvoiceSchema, type SendInvoiceInput } from "@/lib/validations/invoice";
 
 const isoDate = (d: Date) => format(d, "yyyy-MM-dd");
@@ -54,6 +54,31 @@ function buildWhatsAppBody(args: {
     `Due Date: ${args.dueDate ? format(args.dueDate, "dd MMM yyyy") : "—"}`,
     "",
     "Please complete the payment before the due date.",
+    "",
+    "Thank you,",
+    args.propertyName,
+  ].join("\n");
+}
+
+/**
+ * Short, attachment-free rent reminder body (WhatsApp/SMS style). Unlike an invoice,
+ * this carries no PDF — just a friendly nudge to pay the pending rent. Money uses the
+ * unicode ₹ (WhatsApp text is unicode, unlike the WinAnsi PDF which needs "Rs.").
+ */
+function buildReminderBody(args: {
+  tenantName: string;
+  rentPaise: number;
+  roomNumber: string;
+  propertyName: string;
+}): string {
+  return [
+    `Hi ${args.tenantName},`,
+    "",
+    `This is a friendly reminder that your monthly rent of ${formatINR(
+      args.rentPaise,
+    )} for Room ${args.roomNumber} is pending.`,
+    "",
+    "Kindly make the payment at your earliest convenience.",
     "",
     "Thank you,",
     args.propertyName,
@@ -413,4 +438,95 @@ export async function resendInvoice(
   } catch (e) {
     return actionError(e instanceof Error ? e.message : "Failed to resend the invoice");
   }
+}
+
+/**
+ * Send a single active tenant a plain-text rent reminder over WhatsApp. Independent of
+ * invoices: no PDF is generated or persisted, so this needs no public URL. Nothing is
+ * written to the database — a reminder is a transient nudge, not a billing record.
+ */
+export async function sendRentReminder(
+  tenancyId: string,
+): Promise<ActionResult<{ messageSid: string }>> {
+  const session = await auth();
+  if (!session?.user) return actionError("Not authenticated");
+
+  const property = await getActiveProperty();
+  if (!property) return actionError("No active property selected");
+
+  const tenancy = await prisma.tenancy.findFirst({
+    where: { id: tenancyId, propertyId: property.id, status: "ACTIVE" },
+    select: {
+      monthlyRent: true,
+      tenant: { select: { fullName: true, phone: true } },
+      bed: { select: { room: { select: { number: true } } } },
+    },
+  });
+  if (!tenancy) return actionError("Active tenancy not found for this property");
+  if (!tenancy.tenant.phone) return actionError("Tenant has no phone number on file");
+
+  try {
+    const messageSid = await sendWhatsAppText({
+      to: tenancy.tenant.phone,
+      body: buildReminderBody({
+        tenantName: tenancy.tenant.fullName,
+        rentPaise: tenancy.monthlyRent,
+        roomNumber: tenancy.bed.room.number,
+        propertyName: property.name,
+      }),
+    });
+    return actionOk({ messageSid });
+  } catch (e) {
+    return actionError(e instanceof Error ? e.message : "Failed to send the rent reminder");
+  }
+}
+
+/**
+ * Send the same plain-text rent reminder to every active tenant in the active property,
+ * one message at a time. Never throws for an individual tenant: a missing phone number
+ * is skipped and a Twilio failure is counted so one bad number can't abort the batch.
+ */
+export async function remindAllTenants(): Promise<
+  ActionResult<{ sent: number; failed: number; skipped: number }>
+> {
+  const session = await auth();
+  if (!session?.user) return actionError("Not authenticated");
+
+  const property = await getActiveProperty();
+  if (!property) return actionError("No active property selected");
+
+  const tenancies = await prisma.tenancy.findMany({
+    where: { propertyId: property.id, status: "ACTIVE" },
+    select: {
+      monthlyRent: true,
+      tenant: { select: { fullName: true, phone: true } },
+      bed: { select: { room: { select: { number: true } } } },
+    },
+  });
+
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const t of tenancies) {
+    if (!t.tenant.phone) {
+      skipped++;
+      continue;
+    }
+    try {
+      await sendWhatsAppText({
+        to: t.tenant.phone,
+        body: buildReminderBody({
+          tenantName: t.tenant.fullName,
+          rentPaise: t.monthlyRent,
+          roomNumber: t.bed.room.number,
+          propertyName: property.name,
+        }),
+      });
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return actionOk({ sent, failed, skipped });
 }

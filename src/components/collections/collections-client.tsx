@@ -27,6 +27,7 @@ import type { CollectionRow } from "@/lib/queries/collections";
 import type { InvoiceHistoryRow } from "@/lib/queries/invoices";
 import { PAYMENT_STATUS_META } from "@/lib/status";
 import { InvoiceHistory } from "./invoice-history";
+import { RentReminderButton } from "./rent-reminder-button";
 import { SendInvoiceButton } from "./send-invoice-button";
 
 const STATUS_FILTERS = [
@@ -123,7 +124,7 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
               <TableHead className="w-32 text-right">Total Due (₹)</TableHead>
               <TableHead className="w-36">Last Invoice</TableHead>
               <TableHead className="w-28">Status</TableHead>
-              <TableHead className="w-36 text-right">Actions</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -156,7 +157,10 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
                       <StatusBadge meta={PAYMENT_STATUS_META[r.paymentStatus]} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <SendInvoiceButton tenancyId={r.id} />
+                      <div className="flex items-center justify-end gap-2">
+                        <RentReminderButton tenancyId={r.id} />
+                        <SendInvoiceButton tenancyId={r.id} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
