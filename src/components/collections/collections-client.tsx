@@ -125,7 +125,7 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
               <TableHead className="w-32 text-right">Total Due (₹)</TableHead>
               <TableHead className="w-36">Last Invoice</TableHead>
               <TableHead className="w-28">Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="w-[340px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -161,7 +161,7 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
                       <StatusBadge meta={PAYMENT_STATUS_META[r.paymentStatus]} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
                         {!isPaid && <RentReminderButton tenancyId={r.id} />}
                         {!isPaid && (
                           <MarkAsPaidButton
