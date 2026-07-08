@@ -22,7 +22,7 @@ export function RentReminderButton({ tenancyId }: { tenancyId: string }) {
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={onClick} disabled={pending}>
+    <Button variant="outline" size="sm" onClick={onClick} disabled={pending} className="w-36 justify-start">
       {pending ? <Loader2 className="size-4 animate-spin" /> : <BellRing className="size-4" />}
       Rent Reminder
     </Button>

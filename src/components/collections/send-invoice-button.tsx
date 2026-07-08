@@ -10,7 +10,7 @@ export function SendInvoiceButton({ tenancyId }: { tenancyId: string }) {
     <InvoicePreviewDialog
       tenancyId={tenancyId}
       trigger={
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="w-36 justify-start">
           <Send className="size-4" />
           Send Invoice
         </Button>

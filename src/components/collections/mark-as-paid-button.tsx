@@ -64,7 +64,7 @@ export function MarkAsPaidButton({
     <>
       <AlertDialog open={confirmOpen} onOpenChange={(next) => !pending && setConfirmOpen(next)}>
         <AlertDialogTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="w-36 justify-start">
             <CheckCircle2 className="size-4" />
             Mark as Paid
           </Button>
