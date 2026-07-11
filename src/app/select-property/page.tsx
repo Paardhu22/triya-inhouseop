@@ -20,6 +20,19 @@ export default async function SelectPropertyPage() {
 
   const properties = await listProperties();
 
+  // TEMP DEBUG — remove after Vercel "no properties" investigation
+  console.log("[DEBUG] /select-property session:", JSON.stringify(session));
+  console.log("[DEBUG] /select-property session.user:", JSON.stringify(session.user));
+  console.log("[DEBUG] /select-property properties:", JSON.stringify(properties));
+  console.log("[DEBUG] /select-property properties.length:", properties.length);
+  if (!session.user) {
+    console.log("[DEBUG] SESSION USER MISSING");
+  }
+  if (properties.length === 0) {
+    console.log("[DEBUG] ZERO ROWS RETURNED");
+    console.log("[DEBUG] PROPERTY FILTER RETURNED EMPTY");
+  }
+
   // Only PROPERTY_OWNER ever needs to choose — MANAGER is pinned to a single
   // property and APP_OWNER just wants straight into the dashboard, so pick a
   // property for them server-side and skip the picker entirely (as long as they

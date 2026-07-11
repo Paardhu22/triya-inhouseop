@@ -42,6 +42,13 @@ export const authConfig = {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
       }
+      // TEMP DEBUG — remove after Vercel "no properties" investigation
+      console.log("[DEBUG] session() user id:", session.user?.id);
+      console.log("[DEBUG] session() user email:", session.user?.email);
+      console.log("[DEBUG] session() user role:", session.user?.role);
+      if (!session.user) {
+        console.log("[DEBUG] SESSION USER MISSING");
+      }
       return session;
     },
   },

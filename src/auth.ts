@@ -36,6 +36,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
+        // TEMP DEBUG — remove after Vercel "no properties" investigation
+        console.log("[DEBUG] authorize() user id:", user.id);
+        console.log("[DEBUG] authorize() user email:", user.email);
+        console.log("[DEBUG] authorize() user role:", user.role);
+        console.log("[DEBUG] authorize() user propertyId:", user.propertyId ?? "(none)");
+
         return {
           id: user.id,
           name: user.name,

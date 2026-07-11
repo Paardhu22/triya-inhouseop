@@ -37,9 +37,7 @@ export default async function LoginPage({
           </span>
           <div className="relative">
             <h2 className="text-[2.25rem] leading-[1.02] font-bold tracking-[-0.02em] text-primary">
-              DAZZ
-              <br />
-              Manager
+              Triya
             </h2>
             <p className="mt-4 max-w-[26ch] text-sm leading-relaxed text-primary/70">
               Rooms, beds, tenants and payments — organized on one precise grid.
