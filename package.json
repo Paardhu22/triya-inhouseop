@@ -13,6 +13,7 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "db:mock": "tsx prisma/mock-frieden.ts",
     "db:reset": "prisma migrate reset",
     "postinstall": "prisma generate"
   },
