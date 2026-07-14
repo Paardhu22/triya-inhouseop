@@ -27,6 +27,8 @@ import { formatINR, paiseToRupees } from "@/lib/money";
 import type { TenantListItem } from "@/lib/queries/tenants";
 import { PAYMENT_STATUS_META } from "@/lib/status";
 
+import { SendRulesButton } from "./send-rules-button";
+
 function csvCell(value: string) {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
@@ -144,12 +146,13 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
               <TableHead className="w-28">Rent</TableHead>
               <TableHead className="w-28">Payment</TableHead>
               <TableHead className="w-24">Status</TableHead>
+              <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
                   No tenants match your filters.
                 </TableCell>
               </TableRow>
@@ -191,6 +194,9 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
                       ) : (
                         <span className="text-xs text-muted-foreground">Past</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {active ? <SendRulesButton tenantId={t.id} /> : null}
                     </TableCell>
                   </TableRow>
                 );

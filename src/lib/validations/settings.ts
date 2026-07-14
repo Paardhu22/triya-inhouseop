@@ -10,5 +10,6 @@ export const propertySettingsSchema = z.object({
   address: z.string().trim().max(240),
   city: z.string().trim().max(100),
   phone: z.string().trim().max(20),
+  rulesText: z.string().trim().max(4000),
 });
 

@@ -162,6 +162,9 @@ model Property {
   address   String?
   city      String?
   phone     String? // contact number shown on invoices
+  // Free-text house rules, sent verbatim as a WhatsApp message body from the tenants
+  // page. Optional — "Send Rules" is disabled until an admin sets this in Settings.
+  rulesText String? @db.Text
   // Storage key (not a public URL) of the property's own logo, served through the
   // authenticated /api/files route. Used on invoices and in the app chrome; falls back
   // to the Triya brand logo when null. See src/lib/storage.ts.

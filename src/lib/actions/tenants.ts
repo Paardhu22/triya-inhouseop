@@ -7,8 +7,9 @@ import { type PaymentMethod } from "@/generated/prisma/client";
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
-import { getSelectedPropertyId } from "@/lib/property";
+import { getActiveProperty, getSelectedPropertyId } from "@/lib/property";
 import { storage } from "@/lib/storage";
+import { sendWhatsAppText } from "@/lib/twilio";
 
 async function requireContext() {
   const session = await auth();
@@ -154,4 +155,47 @@ export async function togglePaymentStatus(
   revalidatePath(`/tenants/${tenancy.tenantId}`);
 
   return actionOk();
+}
+
+/**
+ * Send the property's house rules (configured in Settings) to one tenant over WhatsApp.
+ * Plain text, no PDF — same shape as sendRentReminder in collections.ts. Nothing is
+ * written to the database.
+ */
+export async function sendPgRules(
+  tenantId: string,
+): Promise<ActionResult<{ messageSid: string }>> {
+  const session = await auth();
+  if (!session?.user) return actionError("Not authenticated");
+
+  const property = await getActiveProperty();
+  if (!property) return actionError("No active property selected");
+  if (!property.rulesText?.trim()) {
+    return actionError("No PG rules configured yet. Add them in Settings first.");
+  }
+
+  const tenant = await prisma.tenant.findFirst({
+    where: { id: tenantId, propertyId: property.id },
+    select: { fullName: true, phone: true },
+  });
+  if (!tenant) return actionError("Tenant not found");
+  if (!tenant.phone) return actionError("Tenant has no phone number on file");
+
+  const body = [
+    `Hi ${tenant.fullName},`,
+    "",
+    `Here are the house rules for ${property.name}:`,
+    "",
+    property.rulesText.trim(),
+    "",
+    "Thank you,",
+    property.name,
+  ].join("\n");
+
+  try {
+    const messageSid = await sendWhatsAppText({ to: tenant.phone, body });
+    return actionOk({ messageSid });
+  } catch (e) {
+    return actionError(e instanceof Error ? e.message : "Failed to send the PG rules");
+  }
 }

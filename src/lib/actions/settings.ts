@@ -58,6 +58,7 @@ export async function updatePropertySettings(input: unknown): Promise<ActionResu
       address: parsed.data.address || null,
       city: parsed.data.city || null,
       phone: parsed.data.phone || null,
+      rulesText: parsed.data.rulesText || null,
     },
   });
   if (updated.count !== 1) return actionError("Property not found");

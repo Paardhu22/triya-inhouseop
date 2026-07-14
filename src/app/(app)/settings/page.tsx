@@ -17,7 +17,7 @@ export default async function SettingsPage() {
       <PageHeader title="Settings" description="Account security, appearance, and current property details." />
       <SettingsClient
         user={{ name: session.user.name ?? null, email: session.user.email ?? null, role: session.user.role }}
-        property={{ name: property.name, slug: property.slug, address: property.address, city: property.city, phone: property.phone }}
+        property={{ name: property.name, slug: property.slug, address: property.address, city: property.city, phone: property.phone, rulesText: property.rulesText }}
         canManageProperty={session.user.role === "ADMIN"}
       />
     </div>
