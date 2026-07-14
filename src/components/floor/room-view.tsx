@@ -74,15 +74,15 @@ export function RoomView({
               >
                 {/* Headboard & Pillow Area */}
                 <div className="flex w-full shrink-0 items-center justify-center py-4">
-                  <div className="flex min-w-[5rem] items-center justify-center rounded-lg border border-black/5 bg-white px-3 py-1 shadow-sm dark:border-white/10 dark:bg-muted">
-                    <span className="text-xs font-bold tracking-tight text-foreground">
+                  <div className="flex min-w-[5rem] items-center justify-center rounded-lg border border-black/5 bg-white px-3 py-1 dark:border-white/10 dark:bg-muted">
+                    <span className="text-[10px] font-bold tracking-tight text-foreground uppercase">
                       Bed {bed.label}
                     </span>
                   </div>
                 </div>
                 
                 {/* Mattress / Info Card Area */}
-                <div className="flex w-full flex-1 flex-col justify-between gap-3 rounded-t-2xl border-t border-border bg-card p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.2)]">
+                <div className="flex w-full flex-1 flex-col justify-between gap-3 rounded-t-2xl border-t border-border bg-card p-4">
                   <div className="flex w-full items-start justify-end">
                     <StatusChip bed={bed} />
                   </div>
