@@ -160,7 +160,7 @@ export default async function TenantProfilePage({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4">
         <SectionCard title="KYC & personal details">
           {hasKyc ? (
             <div className="divide-y">
