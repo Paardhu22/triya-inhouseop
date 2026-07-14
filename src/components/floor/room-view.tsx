@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 function bedState(bed: FloorRoom["beds"][number]) {
   const tenancy = bed.tenancies[0];
   if (!tenancy || bed.status !== "OCCUPIED") {
-    return { label: "Empty", cardClass: "bg-available-soft" };
+    return { label: "Empty", blanket: "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" };
   }
   if (tenancy.paymentStatus === "PAID") {
-    return { label: "Paid", cardClass: "bg-occupied-soft" };
+    return { label: "Paid", blanket: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" };
   }
-  return { label: "Not Paid", cardClass: "bg-occupied-soft" };
+  return { label: "Not Paid", blanket: "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400" };
 }
 
 export function RoomView({
@@ -32,7 +32,7 @@ export function RoomView({
 }) {
   return (
     <Dialog open={Boolean(room)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-0 bg-gradient-to-br from-white to-slate-100 shadow-2xl sm:max-w-2xl dark:from-slate-900 dark:to-slate-950">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl bg-gradient-to-b from-background to-muted/30">
         <DialogHeader>
           <DialogTitle>Room {room?.number}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -47,25 +47,28 @@ export function RoomView({
               <button
                 key={bed.id}
                 onClick={() => onSelectBed(bed.id)}
-                className={cn(
-                  "group relative flex h-[240px] w-[140px] shrink-0 flex-col items-center overflow-hidden rounded-[32px] shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/20",
-                  state.cardClass,
-                )}
+                className="group relative flex h-[200px] w-[130px] shrink-0 flex-col items-center overflow-hidden rounded-[24px] border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 {/* Pillow */}
-                <div className="absolute top-6 h-12 w-[84px] rounded-[20px] bg-white/70 shadow-sm transition-transform duration-300 group-hover:scale-105 dark:bg-black/20" />
+                <div className="absolute top-4 h-[32px] w-[70px] rounded-[14px] bg-muted shadow-sm transition-transform duration-300 group-hover:scale-105" />
                 
                 {/* Blanket */}
-                <div className="absolute bottom-0 h-[65%] w-full rounded-t-[32px] bg-white/40 shadow-[0_-8px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 group-hover:h-[68%] dark:bg-black/10" />
-
-                {/* Content */}
-                <div className="z-10 mt-auto flex w-full flex-col items-center pb-8">
-                  <span className="mb-1 text-[11px] font-bold tracking-[0.1em] text-foreground/50 uppercase">
-                    {state.label}
-                  </span>
-                  <span className="text-xl font-bold tracking-tight text-foreground/80">
-                    {bed.label}
-                  </span>
+                <div className={cn(
+                  "absolute bottom-0 h-[60%] w-full rounded-t-[20px] transition-all duration-300 group-hover:h-[64%]",
+                  state.blanket
+                )}>
+                  {/* Fold detail */}
+                  <div className="absolute top-0 h-3 w-full bg-black/5 dark:bg-white/5" />
+                  
+                  {/* Content inside blanket */}
+                  <div className="absolute bottom-5 left-0 right-0 flex flex-col items-center">
+                    <span className="mb-1 text-[10px] font-bold tracking-[0.1em] uppercase opacity-70">
+                      {state.label}
+                    </span>
+                    <span className="text-xl font-bold tracking-tight">
+                      Bed {bed.label}
+                    </span>
+                  </div>
                 </div>
               </button>
             );
