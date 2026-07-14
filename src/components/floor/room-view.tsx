@@ -61,7 +61,7 @@ export function RoomView({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-wrap justify-center gap-4 py-4">
+        <div className="flex flex-wrap justify-center gap-5 py-6">
           {room?.beds.map((bed) => {
             const tenancy = bed.tenancies[0];
             const isOccupied = bed.status === "OCCUPIED" && tenancy;
@@ -70,39 +70,43 @@ export function RoomView({
               <button
                 key={bed.id}
                 onClick={() => onSelectBed(bed.id)}
-                className="group relative flex w-full max-w-[200px] flex-col justify-between gap-4 rounded-xl border border-border bg-card p-4 pt-5 text-left transition-all hover:border-primary/30 hover:shadow-md focus:outline-none overflow-hidden"
+                className="group relative flex w-full max-w-[210px] min-h-[190px] flex-col overflow-hidden rounded-2xl border border-border bg-muted/30 text-left transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg focus:outline-none"
               >
-                {/* Subtle Bed Design Elements: Pillow and Blanket line */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-muted/30" />
-                <div className="absolute top-2 left-1/2 h-2.5 w-12 -translate-x-1/2 rounded-full border border-black/5 dark:border-white/5 bg-muted/20" />
-                
-                <div className="mt-1 flex w-full items-start justify-between gap-2">
-                  <div className="flex items-center gap-1.5 font-semibold tracking-tight text-foreground">
-                    Bed {bed.label}
-                  </div>
-                  <StatusChip bed={bed} />
+                {/* Headboard & Pillow Area */}
+                <div className="flex w-full shrink-0 items-center justify-center py-4">
+                  <div className="h-6 w-24 rounded-lg border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-muted" />
                 </div>
                 
-                {isOccupied ? (
-                  <div className="flex flex-col gap-1 z-10">
-                    <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <User className="size-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{tenancy.tenant.fullName}</span>
+                {/* Mattress / Info Card Area */}
+                <div className="flex w-full flex-1 flex-col justify-between gap-3 rounded-t-2xl border-t border-border bg-card p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.2)]">
+                  <div className="flex w-full items-start justify-between gap-2">
+                    <div className="font-semibold tracking-tight text-foreground">
+                      Bed {bed.label}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatCurrency(tenancy.monthlyRent / 100)}/mo
-                    </div>
+                    <StatusChip bed={bed} />
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-1 z-10">
-                    <div className="text-sm font-medium text-muted-foreground">
-                      No tenant
+                  
+                  {isOccupied ? (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                        <User className="size-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{tenancy.tenant.fullName}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatCurrency(tenancy.monthlyRent / 100)}/mo
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground/60">
-                      Empty bed
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="text-sm font-medium text-muted-foreground">
+                        No tenant
+                      </div>
+                      <div className="text-xs text-muted-foreground/60">
+                        Empty bed
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </button>
             );
           })}
