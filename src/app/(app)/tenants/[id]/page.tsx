@@ -218,7 +218,7 @@ export default async function TenantProfilePage({
                   <span>
                     Deposit: {active.securityDeposit ? formatINR(active.securityDeposit) : "Not set"}
                   </span>
-                  <span>Rent due: Day {active.paymentDueDay || 5} · {getRentDueText(active)}</span>
+                  <span>Rent cycle: {format(setDate(new Date(), active.paymentDueDay || 5), "do 'of month'")} · {getRentDueText(active)}</span>
                   <span>
                     Leaving: {active.expectedLeavingDate ? format(active.expectedLeavingDate, "dd MMM yyyy") : "Not set"}
                   </span>
