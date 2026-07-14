@@ -23,20 +23,20 @@ function StatusChip({ bed }: { bed: FloorRoom["beds"][number] }) {
   const tenancy = bed.tenancies[0];
   if (!tenancy || bed.status !== "OCCUPIED") {
     return (
-      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
         Available
       </span>
     );
   }
   if (tenancy.paymentStatus === "PAID") {
     return (
-      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-500">
         Paid
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-800 dark:bg-rose-950/60 dark:text-rose-400">
+    <span className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-500">
       Pending
     </span>
   );
@@ -61,7 +61,7 @@ export function RoomView({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 py-4">
+        <div className="flex flex-wrap justify-center gap-4 py-4">
           {room?.beds.map((bed) => {
             const tenancy = bed.tenancies[0];
             const isOccupied = bed.status === "OCCUPIED" && tenancy;
@@ -70,7 +70,7 @@ export function RoomView({
               <button
                 key={bed.id}
                 onClick={() => onSelectBed(bed.id)}
-                className="group flex flex-col justify-between gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="group flex w-full max-w-[200px] flex-col justify-between gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-md focus:outline-none"
               >
                 <div className="flex w-full items-start justify-between gap-2">
                   <div className="font-semibold tracking-tight text-foreground">
@@ -82,11 +82,11 @@ export function RoomView({
                 {isOccupied ? (
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <User className="size-3.5 text-muted-foreground" />
+                      <User className="size-3.5 shrink-0 text-muted-foreground" />
                       <span className="truncate">{tenancy.tenant.fullName}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {formatCurrency(tenancy.monthlyRent)}/mo
+                      {formatCurrency(tenancy.monthlyRent / 100)}/mo
                     </div>
                   </div>
                 ) : (
