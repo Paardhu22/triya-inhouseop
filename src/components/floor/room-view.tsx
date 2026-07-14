@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 function bedState(bed: FloorRoom["beds"][number]) {
   const tenancy = bed.tenancies[0];
   if (!tenancy || bed.status !== "OCCUPIED") {
-    return { label: "Empty", blanket: "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" };
+    return { label: "Empty", cardClass: "bg-muted/50 text-muted-foreground" };
   }
   if (tenancy.paymentStatus === "PAID") {
-    return { label: "Paid", blanket: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" };
+    return { label: "Paid", cardClass: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400" };
   }
-  return { label: "Not Paid", blanket: "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400" };
+  return { label: "Not Paid", cardClass: "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-400" };
 }
 
 export function RoomView({
@@ -32,7 +32,7 @@ export function RoomView({
 }) {
   return (
     <Dialog open={Boolean(room)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl bg-gradient-to-b from-background to-muted/30">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border-border shadow-lg">
         <DialogHeader>
           <DialogTitle>Room {room?.number}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -40,36 +40,24 @@ export function RoomView({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-wrap justify-center gap-6 py-8">
+        <div className="flex flex-wrap justify-center gap-4 py-4">
           {room?.beds.map((bed) => {
             const state = bedState(bed);
             return (
               <button
                 key={bed.id}
                 onClick={() => onSelectBed(bed.id)}
-                className="group relative flex h-[200px] w-[130px] shrink-0 flex-col items-center overflow-hidden rounded-[24px] border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className={cn(
+                  "flex w-full max-w-[160px] sm:max-w-[185px] min-h-[168px] flex-col items-center justify-between rounded-2xl p-6 transition duration-150 hover:brightness-[0.98] active:scale-[0.98]",
+                  state.cardClass,
+                )}
               >
-                {/* Pillow */}
-                <div className="absolute top-4 h-[32px] w-[70px] rounded-[14px] bg-muted shadow-sm transition-transform duration-300 group-hover:scale-105" />
-                
-                {/* Blanket */}
-                <div className={cn(
-                  "absolute bottom-0 h-[60%] w-full rounded-t-[20px] transition-all duration-300 group-hover:h-[64%]",
-                  state.blanket
-                )}>
-                  {/* Fold detail */}
-                  <div className="absolute top-0 h-3 w-full bg-black/5 dark:bg-white/5" />
-                  
-                  {/* Content inside blanket */}
-                  <div className="absolute bottom-5 left-0 right-0 flex flex-col items-center">
-                    <span className="mb-1 text-[10px] font-bold tracking-[0.1em] uppercase opacity-70">
-                      {state.label}
-                    </span>
-                    <span className="text-xl font-bold tracking-tight">
-                      Bed {bed.label}
-                    </span>
-                  </div>
-                </div>
+                <span className="text-xs font-semibold tracking-[0.08em] uppercase opacity-75">
+                  {state.label}
+                </span>
+                <span className="text-base font-semibold tracking-tight">
+                  Bed {bed.label}
+                </span>
               </button>
             );
           })}
