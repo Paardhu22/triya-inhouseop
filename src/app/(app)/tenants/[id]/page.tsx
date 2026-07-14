@@ -29,7 +29,7 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-border bg-card">
-      <div className="border-b border-border px-5 py-3.5 text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+      <div className="border-b border-border px-5 py-3.5 text-xs font-semibold tracking-[0.06em] text-foreground uppercase">
         {title}
       </div>
       <div className="p-5">{children}</div>
