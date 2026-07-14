@@ -32,7 +32,7 @@ export function RoomView({
 }) {
   return (
     <Dialog open={Boolean(room)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-0 bg-gradient-to-br from-white to-slate-100 shadow-2xl sm:max-w-2xl dark:from-slate-900 dark:to-slate-950">
         <DialogHeader>
           <DialogTitle>Room {room?.number}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -40,7 +40,7 @@ export function RoomView({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-wrap justify-center gap-4 py-2">
+        <div className="flex flex-wrap justify-center gap-6 py-8">
           {room?.beds.map((bed) => {
             const state = bedState(bed);
             return (
@@ -48,16 +48,25 @@ export function RoomView({
                 key={bed.id}
                 onClick={() => onSelectBed(bed.id)}
                 className={cn(
-                  "flex w-full max-w-[160px] sm:max-w-[185px] min-h-[168px] flex-col items-center justify-between rounded-2xl p-6 transition duration-150 hover:brightness-[0.98] active:scale-[0.98]",
+                  "group relative flex h-[240px] w-[140px] shrink-0 flex-col items-center overflow-hidden rounded-[32px] shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/20",
                   state.cardClass,
                 )}
               >
-                <span className="text-xs font-semibold tracking-[0.08em] text-foreground/65 uppercase">
-                  {state.label}
-                </span>
-                <span className="text-base font-semibold tracking-tight text-foreground">
-                  Bed {bed.label}
-                </span>
+                {/* Pillow */}
+                <div className="absolute top-6 h-12 w-[84px] rounded-[20px] bg-white/70 shadow-sm transition-transform duration-300 group-hover:scale-105 dark:bg-black/20" />
+                
+                {/* Blanket */}
+                <div className="absolute bottom-0 h-[65%] w-full rounded-t-[32px] bg-white/40 shadow-[0_-8px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 group-hover:h-[68%] dark:bg-black/10" />
+
+                {/* Content */}
+                <div className="z-10 mt-auto flex w-full flex-col items-center pb-8">
+                  <span className="mb-1 text-[11px] font-bold tracking-[0.1em] text-foreground/50 uppercase">
+                    {state.label}
+                  </span>
+                  <span className="text-xl font-bold tracking-tight text-foreground/80">
+                    {bed.label}
+                  </span>
+                </div>
               </button>
             );
           })}
