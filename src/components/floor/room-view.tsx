@@ -74,8 +74,8 @@ export function RoomView({
               >
                 {/* Headboard & Pillow Area */}
                 <div className="flex w-full shrink-0 items-center justify-center py-4">
-                  <div className="flex min-w-[5rem] items-center justify-center rounded-lg border border-black/5 bg-white px-3 py-1 dark:border-white/10 dark:bg-muted">
-                    <span className="text-[10px] font-bold tracking-tight text-foreground uppercase">
+                  <div className="flex min-w-[5rem] items-center justify-center rounded-lg border border-black/5 bg-white px-3 py-1.5 dark:border-white/10 dark:bg-muted">
+                    <span className="text-sm font-bold tracking-tight text-foreground uppercase">
                       Bed {bed.label}
                     </span>
                   </div>
