@@ -49,6 +49,12 @@
   --color-occupied: var(--occupied);
   --color-occupied-soft: var(--occupied-soft);
 
+  /* Floor Manager bed-status accents (Floor Manager only — see components/floor) */
+  --color-bed-paid: var(--bed-paid);
+  --color-bed-pending: var(--bed-pending);
+  --color-bed-vacant: var(--bed-vacant);
+  --color-bed-overdue: var(--bed-overdue);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -107,6 +113,14 @@
   --partial-soft: #fef3c7;
   --occupied: #c84b4b;
   --occupied-soft: #f6e4e1;
+
+  /* Floor Manager bed-status accents. Kept distinct from the tones above (used
+     app-wide) since these are the exact tones requested for the Floor Manager
+     redesign specifically; the mattress itself always stays white. */
+  --bed-paid: #22c55e;
+  --bed-pending: #f59e0b;
+  --bed-vacant: #94a3b8;
+  --bed-overdue: #ef4444;
 
   /* Muted, on-brand data colours */
   --chart-1: #2c3040;

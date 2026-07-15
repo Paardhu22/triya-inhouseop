@@ -28,7 +28,8 @@ npm run db:down        # stop it
 npm run db:migrate     # prisma migrate dev (create/apply a migration)
 npm run db:generate    # regenerate the Prisma client into src/generated/prisma
 npm run db:seed        # seed staff + empty property structure (tsx prisma/seed.ts)
-npm run db:reset       # drop, re-migrate, re-seed
+npm run db:mock        # populate a full demo property with data (tsx prisma/mock-frieden.ts)
+npm run db:reset       # drop, re-migrate, re-seed (prisma migrate reset)
 npm run db:studio      # Prisma Studio
 ```
 
@@ -44,7 +45,7 @@ use `Staff@12345`).
 ### Request/data flow (per feature — the vertical slice)
 
 Each domain feature (tenants, collections, complaints, expenses, floor, admin,
-settings) is a vertical slice with the same shape:
+settings, dashboard) is a vertical slice with the same shape:
 
 - **Page** — `src/app/(app)/<feature>/page.tsx`, a React Server Component. Resolves
   the active property, calls a query, renders a `*-client.tsx`.
@@ -62,6 +63,11 @@ settings) is a vertical slice with the same shape:
   server schema that coerces `FormData` strings, and a client schema of plain strings
   with a `superRefine` for friendly per-field messages (see `tenant.ts`).
 
+Multi-property CRUD (create/rename/deactivate properties, per-property account
+passwords) is ADMIN-only and lives inside the admin slice as its own
+action/query/validation trio (`properties.ts`) rendered by `PropertiesManager`
+within the admin page, rather than as a separate top-level nav route.
+
 ### Multi-tenancy: the active property
 
 The app is always scoped to one property. The selected id lives in an httpOnly cookie
@@ -74,6 +80,10 @@ The app is always scoped to one property. The selected id lives in an httpOnly c
   hydrated by `PropertyStoreHydrator` from the `(app)` layout.
 - `(app)/layout.tsx` redirects to `/login` if unauthenticated and `/select-property`
   if no property is selected.
+- Two per-property display flags on `Property` change how the rest of the UI
+  behaves: `hasBlocks` (Floor Manager shows a Block selector before Floor) and
+  `isFlat` (self-contained flats/studios with no per-bed sharing — the UI shows
+  "Flat <number>" instead of "Room <number> · Bed <label>" throughout).
 
 ### Auth (Auth.js v5 / next-auth beta)
 
@@ -125,6 +135,11 @@ the shared occupancy/finance rules so server actions and client UI agree:
   canonical example: one action covers vacate, new move-in, and edit, transactionally,
   keeping the bed status, the payments ledger, and the KYC photo/document in step.
   `giveNotice` stamps `noticeGivenDate`.
+- The Floor Manager UI additionally derives a page-local, visual-only status
+  (`Vacant`/`Paid`/`Pending`/`Overdue`) from `Bed.status` + `Tenancy.paymentStatus` in
+  `src/components/floor/bed-status.ts`. This is distinct from the app-wide
+  `BED_STATUS_META` / `PAYMENT_STATUS_META` in `src/lib/status.ts`, which cover the two
+  underlying fields separately and are used everywhere else in the app.
 
 ### File storage
 
@@ -182,4 +197,3 @@ actions live in `src/lib/actions/collections.ts` (`prepareInvoice`, `sendInvoice
 - UI is shadcn/ui (`src/components/ui/`, Radix + Tailwind v4) + `lucide-react` icons.
 - The app is **light-theme only and intentionally minimal**; preserve the existing
   blueprint/technical visual style when changing design.
-</content>

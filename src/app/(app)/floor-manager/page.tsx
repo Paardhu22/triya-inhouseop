@@ -68,7 +68,14 @@ export default async function FloorManagerPage({
   const rooms = selectedFloorId ? await getFloorLayout(selectedFloorId, propertyId) : [];
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      {/* Extremely subtle premium gradient, scoped to this page only. */}
+      <div
+        className="fixed inset-0 -z-10"
+        style={{
+          background: "radial-gradient(circle at top, #ffffff, #f6fff9 45%, #edf8ff 100%)",
+        }}
+      />
       <PageHeader title="Floor Manager" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <FloorSelectors

@@ -4,29 +4,39 @@ import { useState } from "react";
 
 import type { FloorRoom } from "@/lib/queries/floor";
 import { cn } from "@/lib/utils";
+import { BED_VISUAL_STATUS_META, bedVisualStatus } from "./bed-status";
 import { BedDialog } from "./bed-dialog";
 import { RoomView } from "./room-view";
 
 function RoomCard({ room, propertySlug, onOpen }: { room: FloorRoom; propertySlug?: string; onOpen: () => void }) {
-  const occupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
-  const isPartiallyOccupied = occupied > 0 && occupied < room.beds.length;
-  const isFullyOccupied = room.beds.length > 0 && occupied === room.beds.length;
   const isFlat = propertySlug === "cozy-gowlidoddy";
+  // A flat property has exactly one bed per "room" — treat the card itself as that
+  // bed, with the same left-edge accent the bed tiles use, instead of a dot row.
+  const flatStatus = isFlat && room.beds[0] ? BED_VISUAL_STATUS_META[bedVisualStatus(room.beds[0])] : null;
 
   return (
     <button
       onClick={onOpen}
-      className="flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 rounded-xl bg-transparent py-3 sm:py-5 transition-[transform,background-color] duration-150 hover:bg-black/5 active:scale-[0.97]"
+      className={cn(
+        "group flex flex-col items-center justify-center gap-2 sm:gap-2.5 rounded-2xl bg-white px-3 py-4 sm:px-4 sm:py-5 text-center shadow-[0_1px_2px_rgba(15,23,42,.04),0_1px_3px_rgba(15,23,42,.04)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(15,23,42,.08)] active:scale-[0.97]",
+        flatStatus
+          ? cn("border-t border-r border-b border-t-[#EEF2F6] border-r-[#EEF2F6] border-b-[#EEF2F6] border-l-4", flatStatus.borderLeft)
+          : "border border-[#EEF2F6]",
+      )}
     >
-      <span
-        className={cn(
-          "size-5 sm:size-6 rounded-full",
-          isFullyOccupied ? "bg-occupied" : isPartiallyOccupied ? "bg-[#f59e0b]" : "bg-available",
-        )}
-      />
       <span className="text-base sm:text-xl font-semibold tabular-nums tracking-tight text-foreground">
         {room.number}
       </span>
+      {!isFlat && room.beds.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-center gap-1">
+          {room.beds.map((bed) => (
+            <span
+              key={bed.id}
+              className={cn("size-2 rounded-full", BED_VISUAL_STATUS_META[bedVisualStatus(bed)].dot)}
+            />
+          ))}
+        </div>
+      ) : null}
       <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
         {isFlat ? "Flat" : `${room.beds.length} Sharing`}
       </span>
@@ -43,7 +53,7 @@ export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; proper
 
   if (rooms.length === 0) {
     return (
-      <div className="rounded-3xl bg-[#E4E4E4] px-6 py-24 text-center text-sm text-primary/55">
+      <div className="rounded-[24px] border border-[#E8EEF3] bg-white px-6 py-24 text-center text-sm text-muted-foreground">
         No rooms on this floor yet.
       </div>
     );
@@ -70,17 +80,17 @@ export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; proper
 
   return (
     <>
-      <div 
-        className="rounded-3xl bg-[#E4E4E4] px-5 sm:px-8 lg:px-12"
+      <div
+        className="rounded-[24px] border border-[#E8EEF3] bg-white px-5 sm:px-8 lg:px-12"
         style={{
           paddingTop: "var(--board-padding-y)",
           paddingBottom: "var(--board-padding-y)"
         }}
       >
-        <div className="flex flex-col gap-3 sm:gap-4">
-          <div 
-            className="grid gap-3 sm:gap-4 mx-auto"
-            style={{ 
+        <div className="flex flex-col gap-4 sm:gap-6">
+          <div
+            className="grid gap-4 sm:gap-6 mx-auto"
+            style={{
               gridTemplateColumns: `repeat(${firstRowSize}, minmax(0, 1fr))`,
               width: `${(firstRowSize / cols) * 100}%`
             }}
@@ -101,9 +111,9 @@ export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; proper
           </div>
 
           {secondRowSize > 0 && (
-            <div 
-              className="grid gap-3 sm:gap-4 mx-auto"
-              style={{ 
+            <div
+              className="grid gap-4 sm:gap-6 mx-auto"
+              style={{
                 gridTemplateColumns: `repeat(${secondRowSize}, minmax(0, 1fr))`,
                 width: `${(secondRowSize / cols) * 100}%`
               }}
