@@ -55,13 +55,9 @@ export function SidebarContent({
   return (
     <div className="flex h-full flex-col px-3 py-6">
       <div className="mb-8 flex h-12 items-center px-3">
-        <Image 
-          src="/logo.png" 
-          alt="Triya Logo" 
-          width={160} 
-          height={48} 
-          className="object-contain"
-        />
+        <span className="font-alex-brush text-5xl leading-none text-foreground pb-1">
+          Triya
+        </span>
       </div>
 
       <nav className="flex flex-col gap-0.5">

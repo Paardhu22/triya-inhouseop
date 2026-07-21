@@ -6,6 +6,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--app-font-sans);
   --font-mono: var(--app-font-mono);
+  --font-alex-brush: var(--font-alex-brush);
   --font-heading: var(--app-font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);

@@ -46,8 +46,7 @@ export default async function LoginPage({
           </span>
           <div className="relative">
             <h2 className="text-[2.25rem] leading-[1.02] font-bold tracking-[-0.02em] text-primary">
-              Triya
-              <br />
+              <span className="font-alex-brush text-[3.5rem] font-normal leading-none block pb-1">Triya</span>
               Manager
             </h2>
             <p className="mt-4 max-w-[26ch] text-sm leading-relaxed text-primary/70">
