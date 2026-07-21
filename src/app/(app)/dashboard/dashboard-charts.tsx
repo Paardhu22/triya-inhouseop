@@ -124,8 +124,8 @@ export function DashboardCharts({
               nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius={50}
-              outerRadius={70}
+              innerRadius={45}
+              outerRadius={60}
               strokeWidth={2}
             >
               <Label
