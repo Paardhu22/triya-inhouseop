@@ -248,3 +248,9 @@
     appearance: textfield;
   }
 }
+
+/* Enforce Sora font on Recharts SVGs so they don't fall back to serif */
+.recharts-wrapper,
+.recharts-surface text {
+  font-family: var(--app-font-sans) !important;
+}
