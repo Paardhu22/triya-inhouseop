@@ -10,9 +10,10 @@ import {
   YAxis,
   CartesianGrid,
   Label,
+  LabelList,
 } from "recharts";
 
-import { formatINR } from "@/lib/money";
+import { formatINR, formatINRCompact } from "@/lib/money";
 import type { DashboardData } from "@/lib/queries/dashboard";
 import {
   ChartContainer,
@@ -51,17 +52,7 @@ export function DashboardCharts({
     vacant: { label: "Vacant", color: "#e2e8f0" }, // Slate-200
   };
 
-  // Payment Status Chart Data
-  const paymentData = [
-    { name: "Paid", value: data.paidCount, fill: "var(--color-paid)" },
-    { name: "Pending", value: data.pendingCount, fill: "var(--color-pending)" },
-  ];
-  const paymentConfig = {
-    paid: { label: "Paid", color: "#10b981" }, // Emerald
-    pending: { label: "Pending", color: "#f59e0b" }, // Amber
-  };
-
-  // Financial Chart Data
+  // Financial Chart Data (Collections vs Expenses side by side for current month)
   const financialData = [
     {
       name: "Current Month",
@@ -120,7 +111,7 @@ export function DashboardCharts({
         </div>
         <ChartContainer
           config={occupancyConfig}
-          className="mx-auto aspect-square max-h-[160px]"
+          className="mx-auto aspect-square max-h-[160px] w-full"
         >
           <PieChart>
             <ChartTooltip
@@ -131,7 +122,10 @@ export function DashboardCharts({
               data={occupancyData}
               dataKey="value"
               nameKey="name"
+              cx="50%"
+              cy="50%"
               innerRadius={50}
+              outerRadius={70}
               strokeWidth={2}
             >
               <Label
@@ -157,111 +151,79 @@ export function DashboardCharts({
                 }}
               />
             </Pie>
+            <ChartLegend content={<ChartLegendContent />} className="mt-2 text-xs" />
           </PieChart>
         </ChartContainer>
       </div>
 
-      {/* 3. Payment Status Pie Chart */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between p-4">
+      {/* 3. Financials Bar Chart (Takes 2 Columns) */}
+      <div className="col-span-1 sm:col-span-2 rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between p-4">
         <div className="text-center mb-2">
           <h3 className="text-[11px] font-mono font-bold tracking-wider text-muted-foreground uppercase">
-            &gt; PAYMENTS
+            &gt; FINANCIALS (THIS MONTH)
           </h3>
         </div>
-        <ChartContainer
-          config={paymentConfig}
-          className="mx-auto aspect-square max-h-[160px]"
-        >
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Pie
-              data={paymentData}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={50}
-              strokeWidth={2}
-            >
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-2xl font-black tabular-nums"
-                        >
-                          {data.paidCount}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 16}
-                          className="fill-muted-foreground text-[10px]"
-                        >
-                          PAID
-                        </tspan>
-                      </text>
-                    );
-                  }
-                }}
-              />
-            </Pie>
-          </PieChart>
-        </ChartContainer>
-      </div>
-
-      {/* 4. Financials Bar Chart */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between p-4">
-        <div className="text-center mb-2">
-          <h3 className="text-[11px] font-mono font-bold tracking-wider text-muted-foreground uppercase">
-            &gt; FINANCIALS
-          </h3>
-        </div>
-        <ChartContainer config={financialConfig} className="w-full h-[160px]">
+        <ChartContainer config={financialConfig} className="w-full h-[180px]">
           <BarChart
             data={financialData}
-            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+            margin={{ top: 20, right: 10, left: 0, bottom: 0 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
-              opacity={0.5}
+              opacity={0.3}
             />
             <XAxis dataKey="name" hide />
-            <YAxis hide />
+            <YAxis 
+              tickFormatter={(value) => formatINRCompact(value * 100)}
+              tickLine={false} 
+              axisLine={false} 
+              tickMargin={10} 
+              fontSize={11} 
+              className="fill-muted-foreground"
+            />
             <ChartTooltip
-              cursor={{ fill: "var(--muted)", opacity: 0.2 }}
+              cursor={{ fill: "var(--muted)", opacity: 0.1 }}
               content={
                 <ChartTooltipContent
                   formatter={(value) => formatINR(Number(value) * 100)}
                 />
               }
             />
+            <ChartLegend content={<ChartLegendContent />} />
             <Bar
               dataKey="collections"
               fill="var(--color-collections)"
               radius={[4, 4, 0, 0]}
-              barSize={40}
-            />
+              maxBarSize={60}
+            >
+              <LabelList 
+                dataKey="collections" 
+                position="top" 
+                formatter={(val: any) => Number(val) > 0 ? formatINRCompact(Number(val) * 100) : ""} 
+                fontSize={10} 
+                className="fill-foreground font-mono font-bold"
+              />
+            </Bar>
             <Bar
               dataKey="expenses"
               fill="var(--color-expenses)"
               radius={[4, 4, 0, 0]}
-              barSize={40}
-            />
+              maxBarSize={60}
+            >
+              <LabelList 
+                dataKey="expenses" 
+                position="top" 
+                formatter={(val: any) => Number(val) > 0 ? formatINRCompact(Number(val) * 100) : ""} 
+                fontSize={10} 
+                className="fill-foreground font-mono font-bold"
+              />
+            </Bar>
           </BarChart>
         </ChartContainer>
       </div>
 
-      {/* 5. Capacity Breakdown Stacked Bar Chart */}
+      {/* 4. Capacity Breakdown Stacked Bar Chart */}
       <div className="col-span-1 sm:col-span-2 lg:col-span-4 rounded-2xl border border-border bg-card overflow-hidden shadow-sm p-6 mt-4">
         <h3 className="text-[11px] font-mono font-bold tracking-wider text-muted-foreground uppercase mb-6">
           &gt; {isFlat ? "FLAT TYPE BREAKDOWN" : "ROOM CAPACITY BREAKDOWN"}
@@ -269,12 +231,12 @@ export function DashboardCharts({
         <ChartContainer config={breakdownConfig} className="w-full h-[250px]">
           <BarChart
             data={breakdownData}
-            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
-              opacity={0.5}
+              opacity={0.3}
             />
             <XAxis
               dataKey="name"
@@ -288,9 +250,10 @@ export function DashboardCharts({
               axisLine={false}
               tickMargin={10}
               fontSize={12}
+              className="fill-muted-foreground"
             />
             <ChartTooltip
-              cursor={{ fill: "var(--muted)", opacity: 0.2 }}
+              cursor={{ fill: "var(--muted)", opacity: 0.1 }}
               content={<ChartTooltipContent />}
             />
             <ChartLegend content={<ChartLegendContent />} className="mt-4" />
@@ -300,14 +263,32 @@ export function DashboardCharts({
               fill="var(--color-occupied)"
               radius={[0, 0, 4, 4]}
               maxBarSize={60}
-            />
+            >
+               <LabelList 
+                  dataKey="occupied" 
+                  position="center" 
+                  fill="white"
+                  fontSize={11} 
+                  formatter={(val: any) => Number(val) > 0 ? val : ""}
+                  className="font-bold"
+                />
+            </Bar>
             <Bar
               dataKey="vacant"
               stackId="a"
               fill="var(--color-vacant)"
               radius={[4, 4, 0, 0]}
               maxBarSize={60}
-            />
+            >
+               <LabelList 
+                  dataKey="vacant" 
+                  position="center" 
+                  fill="#475569" // slate-600 for contrast against light background
+                  fontSize={11} 
+                  formatter={(val: any) => Number(val) > 0 ? val : ""}
+                  className="font-bold"
+                />
+            </Bar>
           </BarChart>
         </ChartContainer>
       </div>
