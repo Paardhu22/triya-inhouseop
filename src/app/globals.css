@@ -78,8 +78,7 @@
 }
 
 :root {
-  --app-font-sans: var(--font-sora), "Sora", "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
+  --app-font-sans: var(--font-sora, "Sora", "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
   --app-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* Core palette — strict, warm, neutral. */
