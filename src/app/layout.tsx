@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Sora } from "next/font/google";
+import { Marcellus } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const sora = Sora({
+const marcellus = Marcellus({
+  weight: "400",
   subsets: ["latin"],
-  variable: "--font-sora",
+  variable: "--font-marcellus",
   display: "swap",
 });
 
@@ -26,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={sora.variable}>
+    <html lang="en" className={marcellus.variable}>
       <body className="min-h-screen bg-background antialiased">
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
         <Toaster richColors position="top-right" />
