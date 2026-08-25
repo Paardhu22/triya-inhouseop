@@ -37,12 +37,10 @@ export async function getDashboardData(propertyId: string) {
     prisma.tenancy.count({
       where: { ...activeScope, paymentStatus: { in: ["PENDING", "OVERDUE"] } },
     }),
+    // Collections are grouped by the month they BILL (forMonth), matching the Reports
+    // page — a backdated entry belongs to the month it settles, not the day it was typed.
     prisma.payment.aggregate({
-      where: {
-        propertyId,
-        status: "PAID",
-        createdAt: { gte: startOfMonth, lte: endOfMonth },
-      },
+      where: { propertyId, status: "PAID", forMonth: startOfMonth },
       _sum: { amount: true },
     }),
     prisma.expense.aggregate({

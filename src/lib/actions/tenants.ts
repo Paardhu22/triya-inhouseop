@@ -6,6 +6,8 @@ import { startOfMonth } from "date-fns";
 import { type PaymentMethod } from "@/generated/prisma/client";
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { refreshPaymentStatus, settleMonth, voidMonthCollections } from "@/lib/ledger";
+import { rupeesToPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { getActiveProperty, getSelectedPropertyId } from "@/lib/property";
 import { storage } from "@/lib/storage";
@@ -84,6 +86,7 @@ export async function togglePaymentStatus(
   tenancyId: string,
   newStatus: "PAID" | "PENDING" | "OVERDUE",
   paymentMethod?: PaymentMethod,
+  /** Rupees, as entered in the dialog. Only used for a SPLIT collection. */
   cashAmount?: number,
   onlineAmount?: number,
 ): Promise<ActionResult> {
@@ -92,66 +95,47 @@ export async function togglePaymentStatus(
 
   const tenancy = await prisma.tenancy.findFirst({
     where: { id: tenancyId, propertyId: ctx.propertyId, status: "ACTIVE" },
-    select: { id: true, tenantId: true, monthlyRent: true },
+    select: {
+      id: true,
+      tenantId: true,
+      monthlyRent: true,
+      maintenanceCharge: true,
+      paymentDueDay: true,
+    },
   });
 
   if (!tenancy) return actionError("Active tenancy not found");
 
+  const monthStart = startOfMonth(new Date());
+
   await prisma.$transaction(async (tx) => {
-    await tx.tenancy.update({
-      where: { id: tenancy.id },
-      data: { paymentStatus: newStatus },
-    });
-
-    const monthStart = startOfMonth(new Date());
-    const existing = await tx.payment.findFirst({
-      where: { tenancyId: tenancy.id, forMonth: monthStart },
-      select: { id: true },
-    });
-
     if (newStatus === "PAID") {
-      if (existing) {
-        await tx.payment.update({
-          where: { id: existing.id },
-          data: {
-            status: "PAID",
-            amount: tenancy.monthlyRent,
-            method: paymentMethod ?? "CASH",
-            cashAmount: cashAmount ?? null,
-            onlineAmount: onlineAmount ?? null,
-            paidAt: new Date(),
-            recordedById: ctx.userId,
-          },
-        });
-      } else {
-        await tx.payment.create({
-          data: {
-            propertyId: ctx.propertyId,
-            tenancyId: tenancy.id,
-            tenantId: tenancy.tenantId,
-            amount: tenancy.monthlyRent,
-            forMonth: monthStart,
-            status: "PAID",
-            method: paymentMethod ?? "CASH",
-            cashAmount: cashAmount ?? null,
-            onlineAmount: onlineAmount ?? null,
-            paidAt: new Date(),
-            recordedById: ctx.userId,
-          },
-        });
-      }
+      await settleMonth(tx, {
+        propertyId: ctx.propertyId,
+        tenancy,
+        forMonth: monthStart,
+        method: paymentMethod ?? "CASH",
+        // The dialog collects rupees; the ledger stores paise.
+        cashPaise: rupeesToPaise(cashAmount ?? 0),
+        onlinePaise: rupeesToPaise(onlineAmount ?? 0),
+        recordedById: ctx.userId,
+        at: new Date(),
+      });
     } else {
-      if (existing) {
-        await tx.payment.update({
-          where: { id: existing.id },
-          data: { status: newStatus, paidAt: null },
-        });
-      }
+      // Reversing the month: the receipts are kept but moved out of PAID so they stop
+      // counting towards the collected total.
+      await voidMonthCollections(tx, tenancy.id, monthStart, newStatus);
     }
+    // The snapshot is always derived from the ledger, never written directly, so this
+    // screen, Collect Rent and the reports cannot drift apart.
+    await refreshPaymentStatus(tx, tenancy);
   });
 
   revalidatePath("/tenants");
   revalidatePath("/collections");
+  revalidatePath("/reports");
+  revalidatePath("/dashboard");
+  revalidatePath("/floor-manager");
   revalidatePath(`/tenants/${tenancy.tenantId}`);
 
   return actionOk();

@@ -55,6 +55,7 @@ export async function getTenantProfile(tenantId: string, propertyId: string) {
           id: true,
           status: true,
           monthlyRent: true,
+          maintenanceCharge: true,
           securityDeposit: true,
           paymentStatus: true,
           paymentDueDay: true,

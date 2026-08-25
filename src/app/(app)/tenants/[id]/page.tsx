@@ -150,10 +150,10 @@ export default async function TenantProfilePage({
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:self-center">
           {active ? (
-            <TogglePaymentStatusButton 
-              tenancyId={active.id} 
-              currentStatus={active.paymentStatus} 
-              monthlyRent={active.monthlyRent}
+            <TogglePaymentStatusButton
+              tenancyId={active.id}
+              currentStatus={active.paymentStatus}
+              duePaise={active.monthlyRent + active.maintenanceCharge}
             />
           ) : null}
           <DeleteTenantButton id={tenant.id} />

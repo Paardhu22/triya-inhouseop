@@ -28,11 +28,12 @@ import { togglePaymentStatus } from "@/lib/actions/tenants";
 export function TogglePaymentStatusButton({
   tenancyId,
   currentStatus,
-  monthlyRent,
+  duePaise,
 }: {
   tenancyId: string;
   currentStatus: "PAID" | "PENDING" | "OVERDUE";
-  monthlyRent?: number; // Passed from parent if needed, otherwise we can't validate on the client side accurately without fetching.
+  /** The month's rent due (rent + maintenance) in paise — what a split must add up to. */
+  duePaise?: number;
 }) {
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
@@ -42,8 +43,6 @@ export function TogglePaymentStatusButton({
   const [error, setError] = useState<string | null>(null);
 
   const isPaid = currentStatus === "PAID";
-  // The rent is usually available via tenancy object in the parent. We should pass it down.
-  // For now, if monthlyRent is not provided, we will just rely on the server validation (if any) or assume any amounts are correct. But let's assume it is passed down.
 
   const handleToggle = () => {
     if (isPaid) {
@@ -79,11 +78,9 @@ export function TogglePaymentStatusButton({
         return;
       }
 
-      if (monthlyRent !== undefined) {
-        if (finalCash + finalOnline !== monthlyRent / 100) {
-          setError(`Split amounts must equal the total rent of ₹${monthlyRent / 100}`);
-          return;
-        }
+      if (duePaise !== undefined && finalCash + finalOnline !== duePaise / 100) {
+        setError(`Split amounts must equal the month's rent of ₹${duePaise / 100}`);
+        return;
       }
     }
 
@@ -179,9 +176,9 @@ export function TogglePaymentStatusButton({
             
             {error && <p className="text-sm text-destructive font-medium">{error}</p>}
             
-            {monthlyRent !== undefined && method === "SPLIT" && !error && (
+            {duePaise !== undefined && method === "SPLIT" && !error && (
               <p className="text-xs text-muted-foreground">
-                Total expected: ₹{monthlyRent / 100}
+                Total expected: ₹{duePaise / 100}
               </p>
             )}
           </div>

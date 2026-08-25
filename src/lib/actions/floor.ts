@@ -5,6 +5,7 @@ import { startOfMonth } from "date-fns";
 
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { refreshPaymentStatus, settleMonth } from "@/lib/ledger";
 import { prisma } from "@/lib/prisma";
 import { getSelectedPropertyId } from "@/lib/property";
 import { rupeesToPaise } from "@/lib/money";
@@ -24,6 +25,8 @@ function revalidateFloorViews() {
   revalidatePath("/floor-manager");
   revalidatePath("/dashboard");
   revalidatePath("/tenants");
+  revalidatePath("/collections");
+  revalidatePath("/reports");
 }
 
 /** Trim a FormData text field to a string, or undefined when blank. */
@@ -54,6 +57,9 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
     securityDeposit: field(formData, "securityDeposit"),
     checkInDate: field(formData, "checkInDate"),
     paymentStatus: field(formData, "paymentStatus"),
+    paymentMethod: field(formData, "paymentMethod"),
+    cashAmount: field(formData, "cashAmount"),
+    onlineAmount: field(formData, "onlineAmount"),
   });
   if (!parsed.success) {
     return actionError(parsed.error.issues[0]?.message ?? "Invalid details");
@@ -68,7 +74,7 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
       tenancies: {
         where: { status: "ACTIVE" },
         take: 1,
-        select: { id: true, tenantId: true, noticeGivenDate: true },
+        select: { id: true, tenantId: true, noticeGivenDate: true, paymentDueDay: true },
       },
     },
   });
@@ -217,44 +223,31 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
         });
       }
 
-      // Keep the payments ledger in step with the paid/not-paid choice.
+      // Keep the payments ledger in step with the paid/not-paid choice. Marking the
+      // bed Paid records whatever is still outstanding for the month as a collection
+      // (a no-op if it was already collected), then the snapshot is re-derived from the
+      // ledger so this form, Collect Rent and the reports can never disagree. The form
+      // cannot un-collect money: choosing "Not Paid" simply leaves the ledger alone.
+      const ledgerTenancy = {
+        id: tenancyId,
+        tenantId,
+        monthlyRent: rentPaise,
+        maintenanceCharge: maintenancePaise,
+        paymentDueDay: active?.paymentDueDay ?? null,
+      };
       if (paymentStatus === "PAID") {
-        const monthStart = startOfMonth(new Date());
-        const existing = await tx.payment.findFirst({
-          where: { tenancyId, forMonth: monthStart },
-          select: { id: true },
+        await settleMonth(tx, {
+          propertyId: ctx.propertyId,
+          tenancy: ledgerTenancy,
+          forMonth: startOfMonth(new Date()),
+          method: paymentMethod,
+          cashPaise: cashAmountPaise ?? 0,
+          onlinePaise: onlineAmountPaise ?? 0,
+          recordedById: ctx.userId,
+          at: new Date(),
         });
-        if (existing) {
-          await tx.payment.update({
-            where: { id: existing.id },
-            data: {
-              status: "PAID",
-              amount: rentPaise,
-              method: paymentMethod,
-              cashAmount: cashAmountPaise,
-              onlineAmount: onlineAmountPaise,
-              paidAt: new Date(),
-              recordedById: ctx.userId,
-            },
-          });
-        } else {
-          await tx.payment.create({
-            data: {
-              propertyId: ctx.propertyId,
-              tenancyId,
-              tenantId,
-              amount: rentPaise,
-              forMonth: monthStart,
-              status: "PAID",
-              method: paymentMethod,
-              cashAmount: cashAmountPaise,
-              onlineAmount: onlineAmountPaise,
-              paidAt: new Date(),
-              recordedById: ctx.userId,
-            },
-          });
-        }
       }
+      await refreshPaymentStatus(tx, ledgerTenancy);
     });
   } catch {
     if (saved) await storage.remove(saved.key);
