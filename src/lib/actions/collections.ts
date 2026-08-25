@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { signFileToken } from "@/lib/file-token";
 import { generateInvoicePdf } from "@/lib/invoice";
+import { refreshPaymentStatus, sumCollected } from "@/lib/ledger";
 import {
   computeInvoiceTotals,
   defaultBillingMonth,
@@ -17,12 +18,44 @@ import { formatINR, rupeesToPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { getActiveProperty } from "@/lib/property";
 import { resolvePublicBaseUrl } from "@/lib/public-url";
+import {
+  advancePaise,
+  balancePaise,
+  monthlyDuePaise,
+  paymentSplit,
+  resolvePaymentStatus,
+  resolveSplitPaise,
+  type RentCollectionView,
+} from "@/lib/rent";
+
 import { PAYMENT_STATUS_META } from "@/lib/status";
 import { storage } from "@/lib/storage";
 import { sendWhatsAppMedia, sendWhatsAppText } from "@/lib/twilio";
+import { collectRentSchema, type CollectRentInput } from "@/lib/validations/collections";
 import { sendInvoiceSchema, type SendInvoiceInput } from "@/lib/validations/invoice";
 
 const isoDate = (d: Date) => format(d, "yyyy-MM-dd");
+
+/**
+ * Parse a `YYYY-MM` billing month into its first day in local time. Returns the current
+ * month when omitted, or null when the string is malformed.
+ */
+function parseBillingMonth(month?: string): Date | null {
+  if (!month) return startOfMonth(new Date());
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return null;
+  const [year, m] = month.split("-").map(Number);
+  return new Date(year, m - 1, 1);
+}
+
+/** Every screen that reads the payments ledger or the tenancy payment snapshot. */
+function revalidateCollectionViews(tenantId: string) {
+  revalidatePath("/collections");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
+  revalidatePath("/floor-manager");
+  revalidatePath("/tenants");
+  revalidatePath(`/tenants/${tenantId}`);
+}
 
 function formatInvoiceNumber(billingMonth: Date, seq: number): string {
   return `INV-${format(billingMonth, "yyyyMM")}-${String(seq).padStart(4, "0")}`;
@@ -441,73 +474,222 @@ export async function resendInvoice(
 }
 
 /**
- * Record that the current-cycle rent for an active tenancy has been collected, straight
- * from the Collections screen. Flips the tenancy's snapshot to PAID and upserts a PAID
- * Payment row for the current month (idempotent per month) so the ledger stays in step —
- * mirroring what `saveBed` does when a bed is marked paid. The recorded amount is the full
- * outstanding (rent + maintenance), so the tenant's outstanding drops to zero.
+ * Everything the Collect Rent dialog needs for one active tenancy and one billing
+ * month: the charges, what has already been collected (with its cash/online split and
+ * timestamps), and the balance left. Read-only — nothing is written.
  */
-export async function markRentPaid(tenancyId: string): Promise<ActionResult> {
+export async function getRentCollection(
+  tenancyId: string,
+  month?: string,
+): Promise<ActionResult<RentCollectionView>> {
   const session = await auth();
-  if (!session?.user?.id) return actionError("Not authenticated");
+  if (!session?.user) return actionError("Not authenticated");
 
   const property = await getActiveProperty();
   if (!property) return actionError("No active property selected");
+
+  const forMonth = parseBillingMonth(month);
+  if (!forMonth) return actionError("Invalid billing month");
 
   const tenancy = await prisma.tenancy.findFirst({
     where: { id: tenancyId, propertyId: property.id, status: "ACTIVE" },
     select: {
       id: true,
-      tenantId: true,
       monthlyRent: true,
       maintenanceCharge: true,
-      paymentStatus: true,
+      paymentDueDay: true,
+      tenant: { select: { fullName: true } },
+      bed: { select: { label: true, room: { select: { number: true } } } },
+      payments: {
+        where: { forMonth, status: "PAID" },
+        orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          amount: true,
+          method: true,
+          cashAmount: true,
+          onlineAmount: true,
+          paidAt: true,
+          createdAt: true,
+          notes: true,
+          recordedBy: { select: { name: true } },
+        },
+      },
     },
   });
   if (!tenancy) return actionError("Active tenancy not found for this property");
-  if (tenancy.paymentStatus === "PAID") return actionError("Rent is already marked as paid");
 
-  const amountPaise = tenancy.monthlyRent + tenancy.maintenanceCharge;
-  const forMonth = startOfMonth(new Date());
-  const paidAt = new Date();
+  const collections = tenancy.payments.map((p) => {
+    const { cash, online } = paymentSplit(p);
+    return {
+      id: p.id,
+      amountPaise: p.amount,
+      cashPaise: cash,
+      onlinePaise: online,
+      method: p.method,
+      collectedAt: (p.paidAt ?? p.createdAt).toISOString(),
+      notes: p.notes,
+      recordedBy: p.recordedBy?.name ?? null,
+    };
+  });
+
+  const duePaise = monthlyDuePaise(tenancy);
+  const collectedPaise = collections.reduce((sum, c) => sum + c.amountPaise, 0);
+
+  return actionOk({
+    tenancyId: tenancy.id,
+    tenantName: tenancy.tenant.fullName,
+    room: property.isFlat
+      ? `Flat ${tenancy.bed.room.number}`
+      : `Room ${tenancy.bed.room.number} · Bed ${tenancy.bed.label}`,
+    month: format(forMonth, "yyyy-MM"),
+    rentPaise: tenancy.monthlyRent,
+    maintenancePaise: tenancy.maintenanceCharge,
+    duePaise,
+    collectedPaise,
+    cashPaise: collections.reduce((sum, c) => sum + c.cashPaise, 0),
+    onlinePaise: collections.reduce((sum, c) => sum + c.onlinePaise, 0),
+    balancePaise: balancePaise(duePaise, collectedPaise),
+    advancePaise: advancePaise(duePaise, collectedPaise),
+    paymentDueDay: tenancy.paymentDueDay,
+    status: resolvePaymentStatus({
+      duePaise,
+      collectedPaise,
+      paymentDueDay: tenancy.paymentDueDay,
+      month: forMonth,
+    }),
+    collections,
+  });
+}
+
+/**
+ * Record one rent collection against an active tenancy — the money actually received,
+ * how it was received (cash / online / both) and when. Replaces the old blunt
+ * "mark as paid": a month can take several collections, so each one is its own Payment
+ * row and `Tenancy.paymentStatus` is re-derived from the month's collected total rather
+ * than flipped by hand.
+ *
+ * Collecting for a past month settles that month's ledger but always leaves the
+ * tenancy's snapshot describing the CURRENT cycle, which is what the app displays.
+ */
+export async function collectRent(
+  input: CollectRentInput,
+): Promise<ActionResult<{ paymentId: string; balancePaise: number; fullyPaid: boolean }>> {
+  const session = await auth();
+  if (!session?.user?.id) return actionError("Not authenticated");
+  const userId = session.user.id;
+
+  const property = await getActiveProperty();
+  if (!property) return actionError("No active property selected");
+
+  const parsed = collectRentSchema.safeParse(input);
+  if (!parsed.success) {
+    return actionError(parsed.error.issues[0]?.message ?? "Invalid collection details");
+  }
+  const v = parsed.data;
+
+  const forMonth = parseBillingMonth(v.forMonth);
+  if (!forMonth) return actionError("Invalid billing month");
+
+  const tenancy = await prisma.tenancy.findFirst({
+    where: { id: v.tenancyId, propertyId: property.id, status: "ACTIVE" },
+    select: {
+      id: true,
+      tenantId: true,
+      monthlyRent: true,
+      maintenanceCharge: true,
+      paymentDueDay: true,
+    },
+  });
+  if (!tenancy) return actionError("Active tenancy not found for this property");
+
+  const amountPaise = rupeesToPaise(v.amount);
+  const { cashAmount, onlineAmount } = resolveSplitPaise(
+    amountPaise,
+    v.method,
+    rupeesToPaise(v.cashAmount ?? 0),
+    rupeesToPaise(v.onlineAmount ?? 0),
+  );
+  const collectedAt = new Date(v.collectedAt);
+
+  let paymentId: string;
+  let monthCollected: number;
+  try {
+    ({ paymentId, monthCollected } = await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          propertyId: property.id,
+          tenancyId: tenancy.id,
+          tenantId: tenancy.tenantId,
+          amount: amountPaise,
+          forMonth,
+          status: "PAID",
+          method: v.method,
+          cashAmount,
+          onlineAmount,
+          paidAt: collectedAt,
+          notes: v.notes || null,
+          recordedById: userId,
+        },
+        select: { id: true },
+      });
+
+      // Re-derive the current-cycle snapshot from the ledger, even when this collection
+      // settled an older month — the status shown on the Collections and Floor Manager
+      // screens always describes today's cycle.
+      await refreshPaymentStatus(tx, tenancy);
+
+      return {
+        paymentId: payment.id,
+        monthCollected: await sumCollected(tx, tenancy.id, forMonth),
+      };
+    }));
+  } catch {
+    return actionError("Could not record the collection. Please try again.");
+  }
+
+  revalidateCollectionViews(tenancy.tenantId);
+  const remaining = balancePaise(monthlyDuePaise(tenancy), monthCollected);
+  return actionOk({ paymentId, balancePaise: remaining, fullyPaid: remaining === 0 });
+}
+
+/**
+ * Delete a wrongly entered collection and re-derive the tenancy snapshot. Correcting a
+ * receipt has to be possible, or a typo would permanently distort the reports.
+ */
+export async function deleteRentCollection(paymentId: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) return actionError("Not authenticated");
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+    return actionError("Only an admin or manager can delete a collection");
+  }
+
+  const property = await getActiveProperty();
+  if (!property) return actionError("No active property selected");
+
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId, propertyId: property.id },
+    select: {
+      id: true,
+      tenancyId: true,
+      tenantId: true,
+      tenancy: {
+        select: { id: true, monthlyRent: true, maintenanceCharge: true, paymentDueDay: true },
+      },
+    },
+  });
+  if (!payment) return actionError("Collection not found");
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.tenancy.update({
-        where: { id: tenancy.id },
-        data: { paymentStatus: "PAID" },
-      });
-      const existing = await tx.payment.findFirst({
-        where: { tenancyId: tenancy.id, forMonth },
-        select: { id: true },
-      });
-      if (existing) {
-        await tx.payment.update({
-          where: { id: existing.id },
-          data: { status: "PAID", amount: amountPaise, paidAt, recordedById: session.user.id },
-        });
-      } else {
-        await tx.payment.create({
-          data: {
-            propertyId: property.id,
-            tenancyId: tenancy.id,
-            tenantId: tenancy.tenantId,
-            amount: amountPaise,
-            forMonth,
-            status: "PAID",
-            method: "CASH",
-            paidAt,
-            recordedById: session.user.id,
-          },
-        });
-      }
+      await tx.payment.delete({ where: { id: payment.id } });
+      await refreshPaymentStatus(tx, { ...payment.tenancy, tenantId: payment.tenantId });
     });
   } catch {
-    return actionError("Could not record the payment. Please try again.");
+    return actionError("Could not delete the collection. Please try again.");
   }
 
-  revalidatePath("/collections");
-  revalidatePath("/dashboard");
+  revalidateCollectionViews(payment.tenantId);
   return actionOk();
 }
 

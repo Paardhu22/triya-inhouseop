@@ -27,9 +27,7 @@ import type { CollectionRow } from "@/lib/queries/collections";
 import type { InvoiceHistoryRow } from "@/lib/queries/invoices";
 import { PAYMENT_STATUS_META } from "@/lib/status";
 import { InvoiceHistory } from "./invoice-history";
-import { MarkAsPaidButton } from "./mark-as-paid-button";
-import { RentReminderButton } from "./rent-reminder-button";
-import { SendInvoiceButton } from "./send-invoice-button";
+import { CollectionsRowActions } from "./row-actions";
 
 const STATUS_FILTERS = [
   { value: "ALL", label: "All" },
@@ -41,9 +39,12 @@ const STATUS_FILTERS = [
 export function CollectionsClient({
   rows,
   invoices,
+  canDelete,
 }: {
   rows: CollectionRow[];
   invoices: InvoiceHistoryRow[];
+  /** ADMIN/MANAGER may remove a wrongly entered collection. */
+  canDelete: boolean;
 }) {
   return (
     <Tabs defaultValue="dues" className="space-y-5">
@@ -52,7 +53,7 @@ export function CollectionsClient({
         <TabsTrigger value="history">Invoice History</TabsTrigger>
       </TabsList>
       <TabsContent value="dues">
-        <DuesTab rows={rows} />
+        <DuesTab rows={rows} canDelete={canDelete} />
       </TabsContent>
       <TabsContent value="history">
         <InvoiceHistory invoices={invoices} />
@@ -61,14 +62,14 @@ export function CollectionsClient({
   );
 }
 
-function DuesTab({ rows }: { rows: CollectionRow[] }) {
+function DuesTab({ rows, canDelete }: { rows: CollectionRow[]; canDelete: boolean }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("ALL");
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     return rows.filter((r) => {
-      if (status !== "ALL" && r.paymentStatus !== status) return false;
+      if (status !== "ALL" && r.status !== status) return false;
       if (query && !`${r.tenant.fullName} ${r.tenant.phone}`.toLowerCase().includes(query)) {
         return false;
       }
@@ -120,62 +121,61 @@ function DuesTab({ rows }: { rows: CollectionRow[] }) {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead className="w-36">Phone</TableHead>
-              <TableHead className="w-28">Room</TableHead>
-              <TableHead className="w-28 text-right">Rent (₹)</TableHead>
-              <TableHead className="w-32 text-right">Total Due (₹)</TableHead>
+              <TableHead className="w-24">Room</TableHead>
+              <TableHead className="w-28 text-right">Month Due (₹)</TableHead>
+              <TableHead className="w-28 text-right">Collected (₹)</TableHead>
+              <TableHead className="w-28 text-right">Balance (₹)</TableHead>
               <TableHead className="w-36">Last Invoice</TableHead>
               <TableHead className="w-28">Status</TableHead>
-              <TableHead className="w-[340px] text-right">Actions</TableHead>
+              <TableHead className="w-28 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">
                   No tenants match your filters.
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((r) => {
-                const isPaid = r.paymentStatus === "PAID";
-                const outstanding = r.monthlyRent + r.maintenanceCharge;
-                // Once paid, the tenant owes nothing for the current cycle.
-                const totalDue = isPaid ? 0 : outstanding;
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.tenant.fullName}</TableCell>
-                    <TableCell className="text-sm tabular-nums">{r.tenant.phone}</TableCell>
-                    <TableCell className="text-sm">
-                      {r.bed.room.number} · {r.bed.label}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatINR(r.monthlyRent)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">
-                      {formatINR(totalDue)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {r.invoices[0] ? format(new Date(r.invoices[0].createdAt), "MMM d, yyyy") : "Never"}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge meta={PAYMENT_STATUS_META[r.paymentStatus]} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        {!isPaid && <RentReminderButton tenancyId={r.id} />}
-                        {!isPaid && (
-                          <MarkAsPaidButton
-                            tenancyId={r.id}
-                            tenantName={r.tenant.fullName}
-                            amountPaise={outstanding}
-                          />
-                        )}
-                        <SendInvoiceButton tenancyId={r.id} />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+              filtered.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-medium">{r.tenant.fullName}</TableCell>
+                  <TableCell className="text-sm tabular-nums">{r.tenant.phone}</TableCell>
+                  <TableCell className="text-sm">
+                    {r.bed.room.number} · {r.bed.label}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatINR(r.duePaise)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatINR(r.collectedPaise)}
+                    {r.collectionCount > 1 ? (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({r.collectionCount})
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">
+                    {formatINR(r.balancePaise)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {r.invoices[0]
+                      ? format(new Date(r.invoices[0].createdAt), "MMM d, yyyy")
+                      : "Never"}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge meta={PAYMENT_STATUS_META[r.status]} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <CollectionsRowActions
+                      tenancyId={r.id}
+                      isPaid={r.status === "PAID"}
+                      canDelete={canDelete}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

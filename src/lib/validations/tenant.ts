@@ -84,18 +84,17 @@ export const bedFormSchema = z
       ctx.addIssue({ code: "custom", path: ["checkInDate"], message: "Select a check-in date" });
     }
     if (val.paymentStatus === "PAID" && val.paymentMethod === "SPLIT") {
-      const rent = Number(val.rentAmount) || 0;
-      const maint = Number(val.maintenanceCharge) || 0;
-      const deposit = Number(val.securityDeposit) || 0;
-      // Assuming initial payment covers all three.
-      const totalExpected = rent + maint + deposit;
+      // The recorded collection is the month's RENT DUE (rent + maintenance). The
+      // security deposit is held on the tenancy, not booked as a rent payment, so
+      // including it here would make the stored split disagree with the amount.
+      const totalExpected = (Number(val.rentAmount) || 0) + (Number(val.maintenanceCharge) || 0);
       const cash = Number(val.cashAmount) || 0;
       const online = Number(val.onlineAmount) || 0;
       if (cash + online !== totalExpected) {
         ctx.addIssue({
           code: "custom",
           path: ["paymentMethod"],
-          message: `Split amounts must equal the total of ₹${totalExpected}`,
+          message: `Split amounts must equal the month's rent of ₹${totalExpected}`,
         });
       }
     }
