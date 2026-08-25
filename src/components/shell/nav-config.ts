@@ -1,6 +1,7 @@
 import {
   Banknote,
   Building2,
+  ChartColumn,
   LayoutDashboard,
   MessageSquareWarning,
   Receipt,
@@ -23,6 +24,7 @@ export const MAIN_NAV: NavItem[] = [
   { href: "/expenses", label: "Expense Tracker", icon: Receipt },
   { href: "/tenants", label: "Tenants", icon: Users },
   { href: "/collections", label: "Collections", icon: Banknote },
+  { href: "/reports", label: "Reports", icon: ChartColumn },
 ];
 
 export const ADMIN_NAV: NavItem[] = [
