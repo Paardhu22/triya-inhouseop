@@ -44,7 +44,16 @@ function RoomCard({ room, propertySlug, onOpen }: { room: FloorRoom; propertySlu
   );
 }
 
-export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; propertySlug?: string }) {
+export function FloorBoard({
+  rooms,
+  propertySlug,
+  canSetRent = false,
+}: {
+  rooms: FloorRoom[];
+  propertySlug?: string;
+  /** ADMIN/MANAGER may set the rent for a whole room. */
+  canSetRent?: boolean;
+}) {
   const [openRoomId, setOpenRoomId] = useState<string | null>(null);
   const [openBedId, setOpenBedId] = useState<string | null>(null);
 
@@ -138,6 +147,7 @@ export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; proper
 
       <RoomView
         room={propertySlug === "cozy-gowlidoddy" ? null : openRoom}
+        canSetRent={canSetRent}
         onOpenChange={(open) => {
           if (!open) {
             setOpenRoomId(null);
@@ -149,6 +159,7 @@ export function FloorBoard({ rooms, propertySlug }: { rooms: FloorRoom[]; proper
 
       <BedDialog
         bed={openBed}
+        room={openRoom}
         roomNumber={openRoom?.number ?? ""}
         isFlat={propertySlug === "cozy-gowlidoddy"}
         onOpenChange={(open) => {

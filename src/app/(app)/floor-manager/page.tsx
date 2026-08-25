@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { auth } from "@/auth";
 import { FloorBoard } from "@/components/floor/floor-board";
 import { FloorSelectors } from "@/components/floor/floor-selectors";
 import { FloorBanner } from "@/components/floor/floor-banner";
@@ -40,7 +41,8 @@ export default async function FloorManagerPage({
   if (!property) redirect("/select-property");
   const propertyId = property.id;
 
-  const nav = await getFloorNavigation(propertyId);
+  const [session, nav] = await Promise.all([auth(), getFloorNavigation(propertyId)]);
+  const canSetRent = session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
   const { block, floor } = await searchParams;
 
   let selectedBlockId: string | null = null;
@@ -85,7 +87,7 @@ export default async function FloorManagerPage({
         />
         <Legend />
       </div>
-      <FloorBoard rooms={rooms} propertySlug={property.slug} />
+      <FloorBoard rooms={rooms} propertySlug={property.slug} canSetRent={canSetRent} />
       {/* Spacer to prevent fixed footer from covering content when scrolling */}
       <div style={{ height: "var(--banner-height)" }} />
       <FloorBanner 

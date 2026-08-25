@@ -44,9 +44,16 @@ export async function getAdminPropertyConfig(propertyId: string) {
               number: true,
               label: true,
               sharingType: true,
+              defaultRent: true,
+              defaultMaintenance: true,
               beds: {
                 orderBy: { order: "asc" },
-                select: { id: true, label: true, status: true },
+                select: {
+                  id: true,
+                  label: true,
+                  status: true,
+                  _count: { select: { tenancies: { where: { status: "ACTIVE" } } } },
+                },
               },
             },
           },

@@ -18,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RoomRentDialog } from "@/components/floor/room-rent-dialog";
+import { formatINR } from "@/lib/money";
 import type { AdminPropertyConfig } from "@/lib/queries/admin";
 import { PropertyStructureActions } from "./property-structure-actions";
 import { RoomCapacityDialog } from "./room-capacity-dialog";
@@ -112,6 +114,11 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {floor.rooms.map((room) => {
                 const occupied = room.beds.filter((bed) => bed.status === "OCCUPIED").length;
+                const occupantCount = room.beds.reduce(
+                  (sum, bed) => sum + bed._count.tenancies,
+                  0,
+                );
+                const isFlat = config.slug === "cozy-gowlidoddy";
                 return (
                   <div key={room.id} className="flex items-center gap-3 rounded-lg border p-3">
                     <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
@@ -119,15 +126,28 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">
-                        {config.slug === "cozy-gowlidoddy" ? `Flat ${room.number}` : `Room ${room.number}`}
+                        {isFlat ? `Flat ${room.number}` : `Room ${room.number}`}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {config.slug === "cozy-gowlidoddy"
+                        {isFlat
                           ? occupied > 0 ? "Occupied" : "Available"
                           : `${room.beds.length} sharing · ${occupied} occupied`}
+                        {room.defaultRent ? ` · ${formatINR(room.defaultRent)}/mo` : ""}
                       </p>
                     </div>
-                    <RoomCapacityDialog room={room} />
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <RoomRentDialog
+                        room={{
+                          id: room.id,
+                          number: room.number,
+                          defaultRent: room.defaultRent,
+                          defaultMaintenance: room.defaultMaintenance,
+                          occupantCount,
+                        }}
+                        isFlat={isFlat}
+                      />
+                      <RoomCapacityDialog room={room} />
+                    </div>
                   </div>
                 );
               })}

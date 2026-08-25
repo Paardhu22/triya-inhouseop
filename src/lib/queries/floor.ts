@@ -45,6 +45,8 @@ export async function getFloorLayout(floorId: string, propertyId: string) {
       number: true,
       label: true,
       sharingType: true,
+      defaultRent: true,
+      defaultMaintenance: true,
       beds: {
         orderBy: { order: "asc" },
         select: {

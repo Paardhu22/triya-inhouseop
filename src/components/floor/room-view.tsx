@@ -9,7 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { formatINR } from "@/lib/money";
 import type { FloorRoom } from "@/lib/queries/floor";
+import { RoomRentDialog } from "./room-rent-dialog";
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -46,11 +48,18 @@ export function RoomView({
   room,
   onOpenChange,
   onSelectBed,
+  canSetRent = false,
 }: {
   room: FloorRoom | null;
   onOpenChange: (open: boolean) => void;
   onSelectBed: (bedId: string) => void;
+  /** ADMIN/MANAGER may set the rent for the whole room. */
+  canSetRent?: boolean;
 }) {
+  const occupantCount = room
+    ? room.beds.reduce((sum, bed) => sum + bed.tenancies.length, 0)
+    : 0;
+
   return (
     <Dialog open={Boolean(room)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl bg-background border-border shadow-lg">
@@ -60,6 +69,33 @@ export function RoomView({
             Select a bed to view or manage tenant details.
           </DialogDescription>
         </DialogHeader>
+
+        {room && canSetRent ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3.5 py-3">
+            <div className="text-sm">
+              <p className="font-medium">Room rent</p>
+              <p className="text-xs text-muted-foreground">
+                {room.defaultRent === null
+                  ? "No room default — rent is set per tenant."
+                  : `${formatINR(room.defaultRent)}/mo${
+                      room.defaultMaintenance
+                        ? ` + ${formatINR(room.defaultMaintenance)} maintenance`
+                        : ""
+                    }`}
+              </p>
+            </div>
+            <RoomRentDialog
+              key={room.id}
+              room={{
+                id: room.id,
+                number: room.number,
+                defaultRent: room.defaultRent,
+                defaultMaintenance: room.defaultMaintenance,
+                occupantCount,
+              }}
+            />
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap justify-center gap-5 py-6">
           {room?.beds.map((bed) => {

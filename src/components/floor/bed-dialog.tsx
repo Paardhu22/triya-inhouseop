@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { paiseToRupees } from "@/lib/money";
-import type { FloorBed } from "@/lib/queries/floor";
+import type { FloorBed, FloorRoom } from "@/lib/queries/floor";
 import type { BedFormValues } from "@/lib/validations/tenant";
 import { BedForm } from "./bed-form";
 
@@ -18,7 +18,12 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function buildDefaults(bed: FloorBed): BedFormValues {
+/** Room-level rent default as a form string; "" when the room has none. */
+function roomAmount(paise: number | null | undefined): string {
+  return paise ? String(paiseToRupees(paise)) : "";
+}
+
+function buildDefaults(bed: FloorBed, room: FloorRoom | null): BedFormValues {
   const tenancy = bed.tenancies[0];
   if (tenancy) {
     return {
@@ -35,31 +40,41 @@ function buildDefaults(bed: FloorBed): BedFormValues {
         : "",
       checkInDate: format(tenancy.checkInDate, "yyyy-MM-dd"),
       paymentStatus: tenancy.paymentStatus === "PAID" ? "PAID" : "PENDING",
+      paymentMethod: "CASH",
+      cashAmount: "",
+      onlineAmount: "",
     };
   }
   // Empty bed: default to Occupied so the details are ready to fill in (the
   // common action when clicking an empty bed). Switch to Available to keep it
-  // empty / vacate.
+  // empty / vacate. Rent starts from the room's default when one is set, so a move-in
+  // does not mean re-typing the same amount for every bed in the room.
   return {
     occupancyStatus: "OCCUPIED",
     fullName: "",
     phone: "",
     email: "",
-    rentAmount: "",
-    maintenanceCharge: "",
+    rentAmount: roomAmount(room?.defaultRent),
+    maintenanceCharge: roomAmount(room?.defaultMaintenance),
     securityDeposit: "",
     checkInDate: todayISO(),
     paymentStatus: "PENDING",
+    paymentMethod: "CASH",
+    cashAmount: "",
+    onlineAmount: "",
   };
 }
 
 export function BedDialog({
   bed,
+  room,
   roomNumber,
   isFlat = false,
   onOpenChange,
 }: {
   bed: FloorBed | null;
+  /** The bed's room — supplies the rent defaults a new move-in starts from. */
+  room?: FloorRoom | null;
   roomNumber: string;
   isFlat?: boolean;
   onOpenChange: (open: boolean) => void;
@@ -80,7 +95,7 @@ export function BedDialog({
           <BedForm
             key={bed.id}
             bedId={bed.id}
-            defaults={buildDefaults(bed)}
+            defaults={buildDefaults(bed, room ?? null)}
             existingPhotoKey={bed.tenancies[0]?.tenant.photoUrl ?? null}
             tenancyId={bed.tenancies[0]?.id ?? null}
             noticeGivenDate={bed.tenancies[0]?.noticeGivenDate ?? null}
