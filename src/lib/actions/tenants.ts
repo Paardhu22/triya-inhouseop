@@ -78,6 +78,10 @@ export async function deleteTenant(id: string): Promise<ActionResult> {
   revalidatePath("/dashboard");
   revalidatePath("/complaints");
   revalidatePath("/expenses");
+  revalidatePath("/collections");
+  revalidatePath("/reports");
+  // Deleting a tenant frees their bed — the admin Room capacity dialog gates on that.
+  revalidatePath("/admin");
 
   return actionOk();
 }

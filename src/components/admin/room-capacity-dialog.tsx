@@ -121,10 +121,25 @@ export function RoomCapacityDialog({ room }: { room: Room }) {
                 {Array.from({ length: 12 }, (_, index) => index + 1).map((count) => (
                   <SelectItem key={count} value={String(count)} disabled={count < occupied.length}>
                     {count} sharing
+                    {count < occupied.length ? (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        below occupancy
+                      </span>
+                    ) : null}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {/* Say why the smaller sizes are greyed out, and how to unlock them —
+              * otherwise this is a dead end with no explanation on screen. */}
+            {occupied.length > 1 ? (
+              <p className="text-xs text-muted-foreground">
+                {occupied.length} beds are occupied, so this room cannot go below{" "}
+                {occupied.length} sharing. Vacate {occupied.length - 1} more bed
+                {occupied.length - 1 === 1 ? "" : "s"} in the Floor Manager to make it
+                1 sharing.
+              </p>
+            ) : null}
           </div>
 
           {removalCount > 0 ? (

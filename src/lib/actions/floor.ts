@@ -27,6 +27,10 @@ function revalidateFloorViews() {
   revalidatePath("/tenants");
   revalidatePath("/collections");
   revalidatePath("/reports");
+  // Vacating a bed changes its occupancy, which is what the admin Room capacity
+  // dialog gates on. Without this the admin page serves a cached render and keeps
+  // refusing to shrink a room that has just been emptied.
+  revalidatePath("/admin");
 }
 
 /** Trim a FormData text field to a string, or undefined when blank. */
