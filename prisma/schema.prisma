@@ -273,6 +273,11 @@ model Room {
   number      String // "301"
   label       String?
   sharingType Int // configured number of beds; kept in sync with beds by admin actions
+  // Per-room rent defaults (paise). Set once for a room and every bed in it inherits
+  // them: they pre-fill a new move-in and can be pushed onto the room's active
+  // tenancies. Null/0 means "no room-level default" — rent is then purely per tenant.
+  defaultRent        Int?
+  defaultMaintenance Int?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
