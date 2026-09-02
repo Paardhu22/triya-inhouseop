@@ -1,455 +1,285 @@
 "use client";
 
-import * as React from "react";
-import {
-  PieChart,
-  Pie,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Label,
-  LabelList,
-  Cell,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
 
-import { formatINR, formatINRCompact } from "@/lib/money";
-import type { DashboardData } from "@/lib/queries/dashboard";
 import {
+  type ChartConfig,
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
 } from "@/components/ui/chart";
+import { formatINR, formatINRCompact } from "@/lib/money";
+import type { DashboardData } from "@/lib/queries/dashboard";
 
-export function DashboardCharts({
-  data,
-  isFlat,
-}: {
-  data: DashboardData;
-  isFlat: boolean;
-}) {
-  const totalUnits = isFlat ? data.totalRooms : data.totalBeds;
-  const occupancyRate =
-    totalUnits > 0 ? Math.round((data.occupiedBeds / totalUnits) * 100) : 0;
+/** "2 sharing", "3 sharing" — the vocabulary staff actually use for a room. */
+export function sharingLabel(sharingType: number, isFlat: boolean): string {
+  if (isFlat) return "Flat";
+  if (sharingType === 1) return "Single";
+  return `${sharingType} sharing`;
+}
 
-  // Occupancy Chart Data
-  const occupancyData = [
-    {
-      name: "Occupied",
-      value: data.occupiedBeds,
-      fill: "var(--color-occupied)",
-    },
-    {
-      name: "Vacant",
-      value: data.availableBeds,
-      fill: "var(--color-vacant)",
-    },
-  ];
-  const occupancyConfig = {
-    occupied: { label: "Occupied", color: "#8b5cf6" }, // Purple
-    vacant: { label: "Vacant", color: "#e2e8f0" }, // Slate-200
-  };
+const occupancyConfig = {
+  occupied: { label: "Occupied", color: "var(--chart-1)" },
+  available: { label: "Available", color: "var(--chart-4)" },
+} satisfies ChartConfig;
 
-  // Payment Status Chart Data
-  const totalInvoices = data.paidCount + data.pendingCount;
-  const paidRate = totalInvoices > 0 ? Math.round((data.paidCount / totalInvoices) * 100) : 0;
-  const paymentData = [
-    { name: "Paid", value: data.paidCount, fill: "var(--color-paid)" },
-    { name: "Pending", value: data.pendingCount, fill: "var(--color-pending)" },
-  ];
-  const paymentConfig = {
-    paid: { label: "Paid", color: "#10b981" }, // Emerald
-    pending: { label: "Pending", color: "#f59e0b" }, // Amber
-  };
+const moneyConfig = {
+  collected: { label: "Collected", color: "var(--chart-1)" },
+  expenses: { label: "Expenses", color: "var(--chart-5)" },
+} satisfies ChartConfig;
 
-  // Financial Chart Data (Collections vs Expenses)
-  const financialData = [
-    {
-      name: "Current Month",
-      collections: data.monthlyCollections / 100,
-      expenses: data.monthlyExpenses / 100,
-    },
-  ];
-  const financialConfig = {
-    collections: { label: "Collections", color: "#10b981" },
-    expenses: { label: "Expenses", color: "#f43f5e" },
-  };
+const panel = "space-y-4 rounded-xl border border-border bg-card p-6";
+const heading = "text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase";
 
-  // Capacity Breakdown Chart Data (Sharing Types)
-  const sharingData = data.sharingBreakdown.map((s) => ({
-    name: `${s.sharingType} Sharing`,
-    occupied: s.occupied,
-    vacant: s.available,
+/**
+ * Mark geometry, shared by every chart here.
+ *
+ * Bars are *capped*, never left to fill their band — a property with two sharing
+ * types should get two thin bars, not two slabs. The occupancy panels then size
+ * their container from the row count (`ROW_HEIGHT` each plus the x-axis band)
+ * rather than a fixed height, so the plot never floats in dead space and the axis
+ * band plus legend are always inside the box.
+ */
+const BAR_THICKNESS = 18;
+const ROW_HEIGHT = 40;
+const AXIS_BAND = 56;
+
+/** Touching marks are separated by a 2px gap in the surface colour, not by a border. */
+const segmentGap = { stroke: "var(--card)", strokeWidth: 2 } as const;
+
+const axisProps = {
+  tickLine: false,
+  axisLine: false,
+  tickMargin: 8,
+  className: "fill-muted-foreground",
+  fontSize: 12,
+} as const;
+
+type OccupancyRow = { label: string; occupied: number; available: number };
+
+/**
+ * Occupied against free for a set of named groups — sharing types, or blocks.
+ *
+ * Horizontal, because the group names are words ("3 sharing", "Block A") that read
+ * straight across without tilting the ticks; stacked, because the pair is
+ * part-to-whole and the bar's full length is that group's capacity. The tip carries
+ * `occupied/total` directly, so no figure is gated behind a hover.
+ */
+function OccupancyBars({ rows, labelWidth }: { rows: OccupancyRow[]; labelWidth: number }) {
+  const data = rows.map((r) => ({
+    ...r,
+    tip: `${r.occupied}/${r.occupied + r.available}`,
   }));
-
-  // Block Breakdown Chart Data
-  const blockData = data.blockBreakdown.map((b) => ({
-    name: `Block ${b.name}`,
-    occupied: b.occupied,
-    vacant: b.available,
-  }));
-
-  const breakdownConfig = {
-    occupied: { label: "Occupied", color: "#8b5cf6" },
-    vacant: { label: "Vacant", color: "#cbd5e1" },
-  };
 
   return (
-    <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-      {/* 1. Total Capacity Text Card */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between">
-        <div className="h-[160px] flex flex-col items-center justify-center p-6 bg-slate-500/5">
-          <div className="text-5xl font-black tracking-tight text-foreground tabular-nums">
-            {totalUnits}
-          </div>
-          <div className="text-xs font-medium text-muted-foreground mt-2 uppercase tracking-widest">
-            {isFlat ? "Total Flats" : "Total Beds"}
-          </div>
-        </div>
-        <div className="p-4 flex-1 flex flex-col justify-end bg-card">
-          <div className="border-t pt-2 flex items-center justify-between text-[9px] font-mono text-muted-foreground/50">
-            <span>status = &quot;active&quot;</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Occupancy Donut Chart */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between p-4">
-        <div className="text-center mb-2">
-          <h3 className="text-[11px] font-mono font-bold tracking-wider text-muted-foreground uppercase">
-            &gt; OCCUPANCY
-          </h3>
-        </div>
-        <ChartContainer
-          config={occupancyConfig}
-          className="mx-auto aspect-square max-h-[160px] w-full"
+    <ChartContainer
+      config={occupancyConfig}
+      className="aspect-auto w-full"
+      style={{ height: data.length * ROW_HEIGHT + AXIS_BAND }}
+    >
+      <BarChart
+        accessibilityLayer
+        data={data}
+        layout="vertical"
+        margin={{ left: 4, right: 48, top: 4 }}
+        barCategoryGap="35%"
+      >
+        <CartesianGrid horizontal={false} stroke="var(--border)" />
+        <XAxis type="number" allowDecimals={false} {...axisProps} />
+        <YAxis type="category" dataKey="label" width={labelWidth} {...axisProps} />
+        <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+        <ChartLegend content={<ChartLegendContent />} />
+        <Bar
+          dataKey="occupied"
+          stackId="a"
+          fill="var(--color-occupied)"
+          maxBarSize={BAR_THICKNESS}
+          radius={[4, 0, 0, 4]}
+          {...segmentGap}
+        />
+        <Bar
+          dataKey="available"
+          stackId="a"
+          fill="var(--color-available)"
+          maxBarSize={BAR_THICKNESS}
+          radius={[0, 4, 4, 0]}
+          {...segmentGap}
         >
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Pie
-              data={occupancyData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={45}
-              outerRadius={60}
-              strokeWidth={2}
-            >
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-2xl font-black tabular-nums"
-                        >
-                          {occupancyRate}%
-                        </tspan>
-                      </text>
-                    );
-                  }
-                }}
-              />
-            </Pie>
-            <ChartLegend content={<ChartLegendContent />} className="mt-2 text-xs" />
-          </PieChart>
-        </ChartContainer>
+          <LabelList
+            dataKey="tip"
+            position="right"
+            offset={10}
+            fontSize={12}
+            className="fill-muted-foreground tabular-nums"
+          />
+        </Bar>
+      </BarChart>
+    </ChartContainer>
+  );
+}
+
+/**
+ * Beds occupied against beds free for every room configuration in the property —
+ * how many 2-sharing beds are open, how many 3-sharing, and what each earns.
+ */
+export function SharingOccupancyPanel({
+  rows,
+  isFlat,
+}: {
+  rows: DashboardData["sharingBreakdown"];
+  isFlat: boolean;
+}) {
+  const unit = isFlat ? "flats" : "beds";
+
+  return (
+    <section className={panel}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className={heading}>
+          {isFlat ? "Occupancy by unit type" : "Occupancy by sharing type"}
+        </h2>
+        <span className="text-xs text-muted-foreground">
+          {rows.reduce((n, r) => n + r.available, 0)} {unit} available
+        </span>
       </div>
 
-      {/* 3. Payment Status Donut Chart */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between p-4">
-        <div className="text-center mb-2">
-          <h3 className="text-[11px] font-mono font-bold tracking-wider text-muted-foreground uppercase">
-            &gt; PAYMENT STATUS
-          </h3>
-        </div>
-        <ChartContainer
-          config={paymentConfig}
-          className="mx-auto aspect-square max-h-[160px] w-full"
-        >
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
+      {rows.length === 0 ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          No rooms configured for this property yet.
+        </p>
+      ) : (
+        <>
+          {/* One row is a one-bar chart — the table below already says it better. */}
+          {rows.length > 1 ? (
+            <OccupancyBars
+              rows={rows.map((r) => ({
+                label: sharingLabel(r.sharingType, isFlat),
+                occupied: r.occupied,
+                available: r.available,
+              }))}
+              labelWidth={84}
             />
-            <Pie
-              data={paymentData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={45}
-              outerRadius={60}
-              strokeWidth={2}
-            >
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-2xl font-black tabular-nums"
-                        >
-                          {paidRate}%
-                        </tspan>
-                      </text>
-                    );
-                  }
-                }}
-              />
-            </Pie>
-            <ChartLegend content={<ChartLegendContent />} className="mt-2 text-xs" />
-          </PieChart>
-        </ChartContainer>
-      </div>
+          ) : null}
 
-      {/* 4. Total Collections Text Card */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between">
-        <div className="h-[160px] flex flex-col items-center justify-center p-6 bg-emerald-500/5">
-          <div className="text-4xl font-black tracking-tight text-foreground tabular-nums">
-            {formatINRCompact(data.monthlyCollections)}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
+                  <th className="py-2 pr-4 font-medium">Type</th>
+                  <th className="py-2 pr-4 text-right font-medium">
+                    {isFlat ? "Flats" : "Rooms"}
+                  </th>
+                  <th className="py-2 pr-4 text-right font-medium">
+                    {isFlat ? "Units" : "Beds"}
+                  </th>
+                  <th className="py-2 pr-4 text-right font-medium">Occupied</th>
+                  <th className="py-2 pr-4 text-right font-medium">Available</th>
+                  <th className="py-2 pr-4 text-right font-medium">Fill</th>
+                  <th className="py-2 text-right font-medium">Rent / month</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const fill = r.beds > 0 ? Math.round((r.occupied / r.beds) * 100) : 0;
+                  return (
+                    <tr key={r.sharingType} className="border-b border-border/60 last:border-0">
+                      <td className="py-2 pr-4 font-medium text-foreground">
+                        {sharingLabel(r.sharingType, isFlat)}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{r.rooms}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{r.beds}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{r.occupied}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums font-medium text-foreground">
+                        {r.available}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums text-muted-foreground">
+                        {fill}%
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {formatINRCompact(r.expectedPaise)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <div className="text-xs font-medium text-muted-foreground mt-2 uppercase tracking-widest text-center">
-            Collections<br/>(This Month)
-          </div>
-        </div>
-        <div className="p-4 flex-1 flex flex-col justify-end bg-card">
-          <div className="border-t pt-2 flex items-center justify-between text-[9px] font-mono text-muted-foreground/50">
-            <span>period = current_month</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 2: Breakdowns */}
-      {/* 5. Financials Bar Chart */}
-      <div className="col-span-1 sm:col-span-2 rounded-2xl border border-border bg-card overflow-hidden shadow-sm p-4 flex flex-col justify-between">
-        <div className="text-center mb-2">
-          <h3 className="text-[11px] font-mono font-bold tracking-wider text-muted-foreground uppercase">
-            &gt; FINANCIALS (THIS MONTH)
-          </h3>
-        </div>
-        <ChartContainer config={financialConfig} className="w-full h-[200px]">
-          <BarChart
-            data={financialData}
-            margin={{ top: 20, right: 10, left: 0, bottom: 0 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              vertical={false}
-              opacity={0.3}
-            />
-            <XAxis dataKey="name" hide />
-            <YAxis 
-              tickFormatter={(value) => formatINRCompact(value * 100)}
-              tickLine={false} 
-              axisLine={false} 
-              tickMargin={10} 
-              fontSize={11} 
-              className="fill-muted-foreground"
-            />
-            <ChartTooltip
-              cursor={{ fill: "var(--muted)", opacity: 0.1 }}
-              content={
-                <ChartTooltipContent
-                  formatter={(value) => formatINR(Number(value) * 100)}
-                />
-              }
-            />
-            <ChartLegend content={<ChartLegendContent />} />
-            <Bar
-              dataKey="collections"
-              fill="var(--color-collections)"
-              radius={[4, 4, 0, 0]}
-              maxBarSize={60}
-            >
-              <LabelList 
-                dataKey="collections" 
-                position="top" 
-                formatter={(val: any) => Number(val) > 0 ? formatINRCompact(Number(val) * 100) : ""} 
-                fontSize={10} 
-                className="fill-foreground font-mono font-bold"
-              />
-            </Bar>
-            <Bar
-              dataKey="expenses"
-              fill="var(--color-expenses)"
-              radius={[4, 4, 0, 0]}
-              maxBarSize={60}
-            >
-              <LabelList 
-                dataKey="expenses" 
-                position="top" 
-                formatter={(val: any) => Number(val) > 0 ? formatINRCompact(Number(val) * 100) : ""} 
-                fontSize={10} 
-                className="fill-foreground font-mono font-bold"
-              />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
-      </div>
-
-      {/* 6. Block Breakdown (for both Flat and PG) */}
-      <div className="col-span-1 sm:col-span-2 rounded-2xl border border-border bg-card overflow-hidden shadow-sm p-6">
-        <h3 className="text-[11px] font-mono font-bold tracking-wider text-muted-foreground uppercase mb-6 text-center">
-          &gt; {isFlat ? "FLAT TYPE OCCUPANCY" : "OCCUPANCY BY BLOCK"}
-        </h3>
-        <ChartContainer config={breakdownConfig} className="w-full h-[200px]">
-          <BarChart
-            data={blockData}
-            margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              vertical={false}
-              opacity={0.3}
-            />
-            <XAxis
-              dataKey="name"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={10}
-              fontSize={11}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={10}
-              fontSize={11}
-              className="fill-muted-foreground"
-            />
-            <ChartTooltip
-              cursor={{ fill: "var(--muted)", opacity: 0.1 }}
-              content={<ChartTooltipContent />}
-            />
-            <ChartLegend content={<ChartLegendContent />} className="mt-2" />
-            <Bar
-              dataKey="occupied"
-              stackId="a"
-              fill="var(--color-occupied)"
-              radius={[0, 0, 4, 4]}
-              maxBarSize={60}
-            >
-               <LabelList 
-                  dataKey="occupied" 
-                  position="center" 
-                  fill="white"
-                  fontSize={10} 
-                  formatter={(val: any) => Number(val) > 0 ? val : ""}
-                  className="font-bold"
-                />
-            </Bar>
-            <Bar
-              dataKey="vacant"
-              stackId="a"
-              fill="var(--color-vacant)"
-              radius={[4, 4, 0, 0]}
-              maxBarSize={60}
-            >
-               <LabelList 
-                  dataKey="vacant" 
-                  position="center" 
-                  fill="#475569"
-                  fontSize={10} 
-                  formatter={(val: any) => Number(val) > 0 ? val : ""}
-                  className="font-bold"
-                />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
-      </div>
-
-      {/* 7. Sharing Breakdown (Only for PG) */}
-      {!isFlat && (
-        <div className="col-span-1 sm:col-span-2 lg:col-span-4 rounded-2xl border border-border bg-card overflow-hidden shadow-sm p-6 mt-4">
-          <h3 className="text-[11px] font-mono font-bold tracking-wider text-muted-foreground uppercase mb-6 text-center">
-            &gt; ROOM CAPACITY BREAKDOWN (SHARING)
-          </h3>
-          <ChartContainer config={breakdownConfig} className="w-full h-[250px]">
-            <BarChart
-              data={sharingData}
-              margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                opacity={0.3}
-              />
-              <XAxis
-                dataKey="name"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={10}
-                fontSize={12}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={10}
-                fontSize={12}
-                className="fill-muted-foreground"
-              />
-              <ChartTooltip
-                cursor={{ fill: "var(--muted)", opacity: 0.1 }}
-                content={<ChartTooltipContent />}
-              />
-              <ChartLegend content={<ChartLegendContent />} className="mt-4" />
-              <Bar
-                dataKey="occupied"
-                stackId="a"
-                fill="var(--color-occupied)"
-                radius={[0, 0, 4, 4]}
-                maxBarSize={60}
-              >
-                 <LabelList 
-                    dataKey="occupied" 
-                    position="center" 
-                    fill="white"
-                    fontSize={11} 
-                    formatter={(val: any) => Number(val) > 0 ? val : ""}
-                    className="font-bold"
-                  />
-              </Bar>
-              <Bar
-                dataKey="vacant"
-                stackId="a"
-                fill="var(--color-vacant)"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={60}
-              >
-                 <LabelList 
-                    dataKey="vacant" 
-                    position="center" 
-                    fill="#475569"
-                    fontSize={11} 
-                    formatter={(val: any) => Number(val) > 0 ? val : ""}
-                    className="font-bold"
-                  />
-              </Bar>
-            </BarChart>
-          </ChartContainer>
-        </div>
+        </>
       )}
+    </section>
+  );
+}
+
+/** Occupied against free beds per block, for properties laid out in blocks. */
+export function BlockOccupancyPanel({ rows }: { rows: DashboardData["blockBreakdown"] }) {
+  return (
+    <section className={panel}>
+      <h2 className={heading}>Occupancy by block</h2>
+      <OccupancyBars
+        rows={rows.map((r) => ({
+          label: `Block ${r.name}`,
+          occupied: r.occupied,
+          available: r.available,
+        }))}
+        labelWidth={84}
+      />
+    </section>
+  );
+}
+
+/**
+ * Rent collected against money spent, month by month, so the figures have direction.
+ *
+ * Grouped rather than stacked: collections and expenses are two independent
+ * quantities, and the reader's job is to compare their heights within a month, not
+ * to read a combined total.
+ */
+export function MoneyTrendPanel({ trend }: { trend: DashboardData["trend"] }) {
+  // Amounts stay in paise; only the axis and tooltip formatters convert.
+  const data = trend.map((t) => ({
+    label: t.label,
+    collected: t.collectedPaise,
+    expenses: t.expensesPaise,
+  }));
+
+  return (
+    <section className={panel}>
+      <h2 className={heading}>Collections against expenses · last 6 months</h2>
+      <ChartContainer config={moneyConfig} className="aspect-auto h-[260px] w-full">
+        <BarChart
+          accessibilityLayer
+          data={data}
+          margin={{ top: 8 }}
+          barGap={2}
+          barCategoryGap="30%"
+        >
+          <CartesianGrid vertical={false} stroke="var(--border)" />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis
+            width={56}
+            tickFormatter={(value) => formatINRCompact(Number(value))}
+            {...axisProps}
+          />
+          <ChartTooltip
+            cursor={false}
+            content={<ChartTooltipContent formatter={(value) => formatINR(Number(value))} />}
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar
+            dataKey="collected"
+            fill="var(--color-collected)"
+            maxBarSize={26}
+            radius={[4, 4, 0, 0]}
+          />
+          <Bar
+            dataKey="expenses"
+            fill="var(--color-expenses)"
+            maxBarSize={26}
+            radius={[4, 4, 0, 0]}
+          />
+        </BarChart>
+      </ChartContainer>
     </section>
   );
 }

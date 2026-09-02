@@ -1,151 +1,302 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
-import {
-  ArrowUpRight,
-  ClipboardList,
-} from "lucide-react";
 
+import { StatusBadge } from "@/components/common/status-badge";
+import { StatCard } from "@/components/dashboard/stat-card";
 import { PageHeader } from "@/components/shell/page-header";
+import { formatINR, formatINRCompact } from "@/lib/money";
 import { getActiveProperty } from "@/lib/property";
 import { getDashboardData } from "@/lib/queries/dashboard";
-import { formatINR } from "@/lib/money";
-import type { PaymentStatus, ComplaintStatus, ComplaintPriority } from "@/generated/prisma/client";
+import {
+  COMPLAINT_PRIORITY_META,
+  COMPLAINT_STATUS_META,
+  PAYMENT_STATUS_META,
+} from "@/lib/status";
+import { vacateByDate } from "@/lib/tenancy";
 
-import { DashboardCharts } from "./dashboard-charts";
+import {
+  BlockOccupancyPanel,
+  MoneyTrendPanel,
+  SharingOccupancyPanel,
+} from "./dashboard-charts";
 
 export const metadata: Metadata = {
   title: "Dashboard",
 };
 
-const paymentStatusColors: Record<PaymentStatus, string> = {
-  PAID: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono",
-  PENDING: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono",
-  OVERDUE: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-mono",
-};
-
-const priorityColors: Record<ComplaintPriority, string> = {
-  LOW: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20 font-mono",
-  MEDIUM: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono",
-  HIGH: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-mono",
-};
-
-const complaintStatusColors: Record<ComplaintStatus, string> = {
-  OPEN: "bg-rose-500/10 text-rose-600 border border-rose-500/20 font-mono",
-  IN_PROGRESS: "bg-amber-500/10 text-amber-600 border border-amber-500/20 font-mono",
-  RESOLVED: "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono",
-};
+const panel = "space-y-4 rounded-xl border border-border bg-card p-6";
+const heading = "text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase";
 
 export default async function DashboardPage() {
   const property = await getActiveProperty();
   if (!property) redirect("/select-property");
 
   const data = await getDashboardData(property.id);
-  const isFlat = property.slug === "cozy-gowlidoddy";
+  const { isFlat, hasBlocks } = property;
+
+  const unitLabel = isFlat ? "flats" : "beds";
+  const occupancyRate =
+    data.totalBeds > 0 ? Math.round((data.occupiedBeds / data.totalBeds) * 100) : 0;
+  const collectionRate =
+    data.expectedPaise > 0 ? Math.round((data.collectedPaise / data.expectedPaise) * 100) : 0;
 
   return (
     <div className="space-y-10">
-      <PageHeader title="Dashboard" />
+      <PageHeader
+        title="Dashboard"
+        description={`Occupancy and rent for ${property.name} as at ${format(new Date(), "d MMMM yyyy")}.`}
+      />
 
-      {/* Renders the new charts component */}
-      <DashboardCharts data={data} isFlat={isFlat} />
-
-      {/* Recent Activity Grid */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Payments Card */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="h-14 relative border-b border-border flex items-center justify-between px-5 py-3 bg-emerald-500/5">
-            <h3 className="text-[11px] font-mono font-bold tracking-wider text-foreground uppercase">
-              &gt; RECENT PAYMENTS
-            </h3>
-            <span className="text-[9px] font-mono tracking-wider text-muted-foreground/60">FIG.08</span>
-          </div>
-          <div className="p-5 flex-1 flex flex-col justify-between min-h-[300px]">
-            {data.recentPayments.length === 0 ? (
-              <div className="py-20 text-center text-xs font-mono text-muted-foreground">
-                No recent payment transactions found.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {data.recentPayments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between gap-3 text-xs p-1">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        <ArrowUpRight className="size-3.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground truncate">{p.tenant.fullName}</p>
-                        <p className="text-[10px] font-mono text-muted-foreground">
-                          {format(new Date(p.createdAt), "dd.MM.yyyy")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2.5 shrink-0 text-right">
-                      <span className="font-mono font-bold text-foreground tabular-nums">
-                        {formatINR(p.amount)}
-                      </span>
-                      <span className={`rounded px-2 py-0.5 text-[9px] font-bold border ${paymentStatusColors[p.status]}`}>
-                        {p.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="border-t pt-2 flex items-center justify-between text-[9px] font-mono text-muted-foreground/50 mt-4">
-              <span>transaction = &quot;all&quot;</span>
-              <span>type = &quot;payment&quot;</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Complaints Card */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="h-14 relative border-b border-border flex items-center justify-between px-5 py-3 bg-rose-500/5">
-            <h3 className="text-[11px] font-mono font-bold tracking-wider text-foreground uppercase">
-              &gt; RECENT COMPLAINTS
-            </h3>
-            <span className="text-[9px] font-mono tracking-wider text-muted-foreground/60">FIG.09</span>
-          </div>
-          <div className="p-5 flex-1 flex flex-col justify-between min-h-[300px]">
-            {data.recentComplaints.length === 0 ? (
-              <div className="py-20 text-center text-xs font-mono text-muted-foreground">
-                No active complaints reported.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {data.recentComplaints.map((c) => (
-                  <div key={c.id} className="flex items-start justify-between gap-3 text-xs p-1">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 mt-0.5">
-                        <ClipboardList className="size-3.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground truncate">{c.title}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          By {c.tenant?.fullName ?? "Staff"} · <span className="font-mono text-[9px]">{format(new Date(c.createdAt), "dd.MM.yyyy")}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0 text-right">
-                      <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold border ${priorityColors[c.priority]}`}>
-                        {c.priority}
-                      </span>
-                      <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold border ${complaintStatusColors[c.status]}`}>
-                        {c.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="border-t pt-2 flex items-center justify-between text-[9px] font-mono text-muted-foreground/50 mt-4">
-              <span>tickets = &quot;open&quot;</span>
-              <span>type = &quot;complaint&quot;</span>
-            </div>
-          </div>
+      {/* Capacity */}
+      <section className="space-y-4">
+        <h2 className={heading}>Capacity</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            label={isFlat ? "Total flats" : "Total beds"}
+            value={data.totalBeds}
+            hint={`across ${data.totalRooms} ${isFlat ? "units" : "rooms"}`}
+          />
+          <StatCard
+            label="Occupied"
+            value={data.occupiedBeds}
+            hint={`${occupancyRate}% of capacity`}
+          />
+          <StatCard
+            label="Available"
+            value={data.availableBeds}
+            hint={`${unitLabel} ready to fill`}
+          />
+          <StatCard
+            label={isFlat ? "Units let" : "Rooms full"}
+            value={`${data.fullRooms}/${data.totalRooms}`}
+            hint={`${data.partialRooms} part filled · ${data.emptyRooms} empty`}
+          />
         </div>
       </section>
+
+      {/* Rent */}
+      <section className="space-y-4">
+        <h2 className={heading}>Rent · {format(data.monthStart, "MMMM yyyy")}</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            label="Expected"
+            value={formatINRCompact(data.expectedPaise)}
+            hint={`${data.activeTenancies} active ${data.activeTenancies === 1 ? "tenancy" : "tenancies"}`}
+          />
+          <StatCard
+            label="Collected"
+            value={formatINRCompact(data.collectedPaise)}
+            hint={`${collectionRate}% of expected`}
+          />
+          <StatCard
+            label="Outstanding"
+            value={formatINRCompact(data.outstandingPaise)}
+            hint={`${data.pendingCount} pending · ${data.overdueCount} overdue`}
+          />
+          <StatCard
+            label="Expenses"
+            value={formatINRCompact(data.expensesPaise)}
+            hint={`net ${formatINRCompact(data.netPaise)} this month`}
+          />
+        </div>
+      </section>
+
+      <SharingOccupancyPanel rows={data.sharingBreakdown} isFlat={isFlat} />
+
+      <MoneyTrendPanel trend={data.trend} />
+
+      {/* Two or more blocks — with one there is nothing to compare against. */}
+      {hasBlocks && data.blockBreakdown.length > 1 ? (
+        <BlockOccupancyPanel rows={data.blockBreakdown} />
+      ) : null}
+
+      {/* Floor-by-floor detail */}
+      <section className={panel}>
+        <h2 className={heading}>Occupancy by floor</h2>
+        {data.floorBreakdown.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No floors configured for this property yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[32rem] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
+                  <th className="py-2 pr-4 font-medium">Floor</th>
+                  <th className="py-2 pr-4 text-right font-medium">
+                    {isFlat ? "Flats" : "Rooms"}
+                  </th>
+                  <th className="py-2 pr-4 text-right font-medium">
+                    {isFlat ? "Units" : "Beds"}
+                  </th>
+                  <th className="py-2 pr-4 text-right font-medium">Occupied</th>
+                  <th className="py-2 pr-4 text-right font-medium">Available</th>
+                  <th className="py-2 text-right font-medium">Fill</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.floorBreakdown.map((f) => {
+                  const fill = f.beds > 0 ? Math.round((f.occupied / f.beds) * 100) : 0;
+                  return (
+                    <tr key={f.id} className="border-b border-border/60 last:border-0">
+                      <td className="py-2 pr-4 font-medium text-foreground">
+                        {f.blockName ? `Block ${f.blockName} · ` : ""}
+                        {f.name ?? `Floor ${f.number}`}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{f.rooms}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{f.beds}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{f.occupied}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums font-medium text-foreground">
+                        {f.available}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-muted-foreground">
+                        {fill}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Rent status */}
+        <section className={panel}>
+          <h2 className={heading}>Rent status</h2>
+          <dl className="divide-y divide-border/60">
+            {(
+              [
+                ["PAID", data.paidCount],
+                ["PENDING", data.pendingCount],
+                ["OVERDUE", data.overdueCount],
+              ] as const
+            ).map(([status, count]) => (
+              <div key={status} className="flex items-center justify-between py-2.5">
+                <dt>
+                  <StatusBadge meta={PAYMENT_STATUS_META[status]} />
+                </dt>
+                <dd className="text-sm font-medium tabular-nums text-foreground">
+                  {count}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {count === 1 ? "tenancy" : "tenancies"}
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <div className="grid grid-cols-3 gap-4 border-t border-border pt-4 text-sm">
+            <div>
+              <div className="text-lg font-semibold tabular-nums">{data.moveInsThisMonth}</div>
+              <div className="text-xs text-muted-foreground">moved in</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold tabular-nums">{data.moveOutsThisMonth}</div>
+              <div className="text-xs text-muted-foreground">moved out</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold tabular-nums">{data.openComplaints}</div>
+              <div className="text-xs text-muted-foreground">open complaints</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Vacating soon */}
+        <section className={panel}>
+          <h2 className={heading}>On notice</h2>
+          {data.noticeTenancies.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              Nobody has given notice.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {data.noticeTenancies.map((t) => (
+                <li key={t.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isFlat
+                        ? `Flat ${t.roomNumber}`
+                        : `Room ${t.roomNumber} · Bed ${t.bedLabel}`}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm tabular-nums text-foreground">
+                      {format(vacateByDate(t.noticeGivenDate), "d MMM")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">vacate by</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Recent payments */}
+        <section className={panel}>
+          <h2 className={heading}>Recent payments</h2>
+          {data.recentPayments.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No payments recorded yet.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {data.recentPayments.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {p.tenant.fullName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(p.createdAt, "d MMM yyyy")} · {p.method === "CASH" ? "Cash" : "Online"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-4">
+                    <StatusBadge meta={PAYMENT_STATUS_META[p.status]} />
+                    <span className="text-sm font-medium tabular-nums text-foreground">
+                      {formatINR(p.amount)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Recent complaints */}
+        <section className={panel}>
+          <h2 className={heading}>Recent complaints</h2>
+          {data.recentComplaints.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No complaints raised yet.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {data.recentComplaints.map((c) => (
+                <li key={c.id} className="flex items-start justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{c.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {c.tenant?.fullName ?? "Staff"} · {format(c.createdAt, "d MMM yyyy")}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <StatusBadge meta={COMPLAINT_STATUS_META[c.status]} />
+                    <StatusBadge
+                      meta={COMPLAINT_PRIORITY_META[c.priority]}
+                      className="text-muted-foreground"
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
