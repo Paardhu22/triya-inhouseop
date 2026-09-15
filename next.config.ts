@@ -16,6 +16,9 @@ const allowedOrigins = envOrigins ?? (isProd ? [] : [DEV_TUNNEL_ORIGIN]);
 const nextConfig: NextConfig = {
   // Dev-only: silences Next's cross-origin dev-resource warning behind a tunnel.
   allowedDevOrigins: isProd ? [] : [DEV_TUNNEL_ORIGIN],
+  // exceljs (the .xlsx reader behind the bulk importer) relies on Node built-ins and
+  // ships its own browser build; let Node require it rather than bundling it.
+  serverExternalPackages: ["exceljs"],
   experimental: {
     serverActions: {
       bodySizeLimit: "5mb",

@@ -164,7 +164,7 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
 function Summary({ value, label }: { value: number; label: string }) {
   return (
     <div className="border-t border-border pt-4">
-      <p className="text-3xl font-bold tracking-tight tabular-nums">{value}</p>
+      <p className="text-[2.125rem] font-bold tracking-[-0.03em] tabular-nums">{value}</p>
       <p className="mt-2 text-sm text-muted-foreground">{label}</p>
     </div>
   );

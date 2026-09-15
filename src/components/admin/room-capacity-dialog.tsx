@@ -98,15 +98,15 @@ export function RoomCapacityDialog({ room }: { room: Room }) {
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-2 rounded-lg border bg-muted/30 p-3 text-center">
             <div>
-              <p className="text-lg font-semibold">{room.beds.length}</p>
+              <p className="text-xl font-bold">{room.beds.length}</p>
               <p className="text-xs text-muted-foreground">Current</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-occupied">{occupied.length}</p>
+              <p className="text-xl font-bold text-occupied">{occupied.length}</p>
               <p className="text-xs text-muted-foreground">Occupied</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-available">{available.length}</p>
+              <p className="text-xl font-bold text-available">{available.length}</p>
               <p className="text-xs text-muted-foreground">Available</p>
             </div>
           </div>

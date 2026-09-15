@@ -141,6 +141,27 @@ the shared occupancy/finance rules so server actions and client UI agree:
   `BED_STATUS_META` / `PAYMENT_STATUS_META` in `src/lib/status.ts`, which cover the two
   underlying fields separately and are used everywhere else in the app.
 
+### Rent ledger & payment states
+
+`src/lib/rent.ts` (pure) + `src/lib/ledger.ts` (`server-only`) own the rules:
+- A `Payment` row is one collection; a billing month (`forMonth`) can hold several (part
+  payments, cash and/or online). Nothing sets `Tenancy.paymentStatus` by hand — it is
+  re-derived via `refreshPaymentStatus`. List screens derive status from the ledger
+  rather than trusting that snapshot.
+- Two orthogonal derived states: `resolveCollectionState` → `PAID | PARTIAL | UNPAID`
+  (amounts) and `resolvePaymentStatus` → `PAID | PENDING | OVERDUE` (due date). A part
+  payment can be overdue. The shared filter set is `PAYMENT_FILTER_OPTIONS` /
+  `matchesPaymentFilter` (Collections, Tenants, Reports).
+- `rentDueDate` is the ONE due-date rule (tenancy `paymentDueDay`, else the 5th) — used
+  by the status, invoices, reminders and the tenant profile.
+- **Earlier dues** (`earlierDues`): shortfall for each month from `ledgerStartMonth`
+  (later of check-in month and the tenancy's `createdAt` month, so imported tenancies do
+  not owe pre-import months) up to the viewed month, using the CURRENT rent.
+- Reminders: `remindPendingTenants` messages only tenants with anything outstanding;
+  `remindAllTenants` messages everyone. Both bodies state each tenant's own balance.
+- There is no "mark unpaid". A wrong collection is corrected by deleting that receipt
+  (ADMIN/MANAGER) in the Collect Rent dialog.
+
 ### File storage
 
 `src/lib/storage.ts` defines a `StorageDriver` interface; the default is a local-disk
@@ -177,9 +198,56 @@ actions live in `src/lib/actions/collections.ts` (`prepareInvoice`, `sendInvoice
   row + number (`INV-YYYYMM-NNNN`, unique per property); (2) render + store the PDF,
   deleting the reserved row if this fails; (3) send WhatsApp — on send failure the row
   is **kept as `status = FAILED`** so `resendInvoice` can retry it.
+- **Issuing lives in `src/lib/invoice-delivery.ts`** (`server-only`): `previewInvoice`,
+  `issueInvoice`, `deliverInvoice`, `issueInvoiceForPayment`. Actions stay thin.
+- **Every collection issues an invoice automatically.** `collectRent` (and `saveBed`
+  when "Paid" records money) commits the Payment FIRST, then calls
+  `issueInvoiceForPayment`, which links the invoice to the payment (`Invoice.paymentId`)
+  and snapshots `receivedPaise` (this collection) and `paidPaise` (month total so far),
+  so the PDF shows paid-so-far and the balance. Collect Rent has a default-on
+  "send invoice" checkbox; the importer never issues invoices. A delivery failure keeps
+  the invoice as FAILED with `lastError` — it never rolls back the payment.
 - **Env**: invoices need `APP_PUBLIC_URL` (public, non-localhost) and
   `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_WHATSAPP_NUMBER` (see
   `.env.example`).
+
+### Bulk import (spreadsheets in)
+
+Properties arrive with their history in Excel, so `/import` (ADMIN-only, in `ADMIN_NAV`)
+takes a CSV / TSV / `.xlsx` upload — or cells pasted straight out of Excel — and writes
+it into the app. Four sheet types: **tenants** (residents + occupancy), **structure**
+(floors/rooms/beds), **payments** (historical receipts) and **expenses**.
+
+- **The field catalogue is the single source of truth.** `src/lib/import/fields.ts`
+  defines every importable column, its type, and the header spellings to recognise. The
+  mapping UI, the auto-mapper, the validators and the downloadable templates are all
+  generated from it, so a new column is a one-file change.
+- **Pure core, server shell** — same split as `tenancy.ts` / `rent.ts` /
+  `invoice-compute.ts`. `coerce.ts`, `validate.ts`, `auto-map.ts`, `fields.ts`,
+  `template.ts` and `types.ts` are pure and client-safe; the browser guesses the column
+  mapping and previews single cells with the very same code the server validates with.
+  **The server never trusts the client's verdict on a row** — it re-coerces the raw
+  strings. `parse-file.ts`, `structure-map.ts`, the four `plan-*.ts` and `run.ts` are
+  `server-only`.
+- **Every cell is read as a string** by `parse-file.ts` (papaparse for delimited text,
+  exceljs for `.xlsx`, which is in `serverExternalPackages`). All interpretation happens
+  in `coerce.ts`, so no library gets to decide whether `03/04/2024` is March or April —
+  it is read **day-first**, and legacy `.xls` is rejected with an actionable message.
+- **Preview is a real dry run.** `run.ts` builds the plan, renders it, and throws it
+  away; commit re-plans *inside* the transaction and applies it. One resolver, so the
+  preview cannot promise something the commit does not do. Valid rows import and bad
+  rows are reported rather than failing the whole sheet.
+- **The tenants importer must not drift from `saveBed`** (`src/lib/actions/floor.ts`):
+  it holds back `MAINTENANCE_RESERVE_PAISE` from the deposit and seeds the ledger via
+  `settleMonth` + `refreshPaymentStatus` rather than setting `paymentStatus` by hand.
+  Historical **payments** deliberately bypass `settleMonth` (which clamps to the
+  outstanding balance) and write `Payment` rows at their literal amount.
+- **Re-running a sheet is safe.** Tenants dedupe on the last 10 digits of the phone,
+  payments and expenses on a natural key, so a second pass reports "already on file"
+  instead of double-writing.
+- **Row numbers are the user's own.** `ParsedSheet.firstDataRow` carries the offset past
+  any title row, and blank rows are kept mid-file, so every number reported back points
+  at the right line of their spreadsheet.
 
 ### Conventions
 

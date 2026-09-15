@@ -25,7 +25,7 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         active
-          ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-sidebar-foreground/55 hover:bg-sidebar-accent/55 hover:text-sidebar-foreground",
       )}
     >
@@ -33,7 +33,7 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
       <TextRoll
         className={cn(
           "bg-transparent text-inherit",
-          active ? "text-sidebar-accent-foreground font-semibold" : "text-sidebar-foreground/55"
+          active ? "text-sidebar-accent-foreground font-bold" : "text-sidebar-foreground/60"
         )}
       >
         {item.label}

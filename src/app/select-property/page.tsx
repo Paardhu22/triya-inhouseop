@@ -25,7 +25,7 @@ export default async function SelectPropertyPage() {
           <span className="text-xs font-semibold tracking-[0.18em] text-secondary-surface uppercase">
             Triya Manager
           </span>
-          <h1 className="mt-3 text-[2rem] font-bold tracking-tight text-white">
+          <h1 className="mt-3 text-[2.25rem] font-bold tracking-[-0.035em] text-white">
             {properties.length === 1 ? "Opening your property" : "Select a property"}
           </h1>
           <p className="mt-2 text-sm text-white/60">

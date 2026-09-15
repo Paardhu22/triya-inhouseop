@@ -78,7 +78,7 @@
 }
 
 :root {
-  --app-font-sans: var(--font-sora, "Sora", "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+  --app-font-sans: var(--font-inter, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
   --app-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* Core palette — strict, warm, neutral. */
@@ -233,6 +233,16 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* Inter: contextual alternates, and a tailed lowercase "l" (cv05) so l / I / 1 stay
+       distinct in names and room codes. Optical sizing picks the cut per text size. */
+    font-feature-settings: "calt", "cv05";
+    font-optical-sizing: auto;
+  }
+  h1,
+  h2,
+  h3 {
+    /* Inter reads best slightly tightened at display sizes. */
+    letter-spacing: -0.011em;
   }
   html {
     @apply font-sans;
@@ -249,7 +259,7 @@
   }
 }
 
-/* Enforce Sora font on Recharts SVGs so they don't fall back to serif */
+/* Enforce the app font (Inter) on Recharts SVGs so they don't fall back to serif */
 .recharts-wrapper,
 .recharts-surface text {
   font-family: var(--app-font-sans) !important;

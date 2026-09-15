@@ -45,7 +45,7 @@ export default async function LoginPage({
             Property Manager
           </span>
           <div className="relative">
-            <h2 className="text-[2.25rem] leading-[1.02] font-bold tracking-[-0.02em] text-primary">
+            <h2 className="text-[2.5rem] leading-[1.05] font-bold tracking-[-0.035em] text-primary">
               Triya
               <br />
               Manager
@@ -59,7 +59,7 @@ export default async function LoginPage({
         {/* Form panel */}
         <div className="p-8 sm:p-10 lg:p-12">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
+            <h1 className="text-[1.75rem] font-bold tracking-[-0.025em]">Sign in</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               Welcome back. Enter your credentials to continue.
             </p>
