@@ -2,7 +2,9 @@
 // server action (authoritative) and the client preview render identical numbers —
 // the same pattern as src/lib/tenancy.ts. Money is integer paise throughout.
 
-import { endOfMonth, set, startOfMonth } from "date-fns";
+import { startOfMonth } from "date-fns";
+
+import { rentDueDate } from "@/lib/rent";
 
 /** The five raw charge components, in paise. */
 export type InvoiceChargesPaise = {
@@ -24,20 +26,36 @@ export function computeInvoiceTotals(c: InvoiceChargesPaise): {
   return { subtotalPaise, totalPaise };
 }
 
+/** What is still owed on an invoice after the month's collections so far. */
+export function invoiceBalancePaise(totalPaise: number, paidPaise: number): number {
+  return Math.max(0, totalPaise - paidPaise);
+}
+
+/**
+ * The status printed on an invoice, derived from its own numbers so it can never say
+ * "Pending" next to a zero balance. `dueLabel` is the Pending/Overdue label used when
+ * nothing has been collected.
+ */
+export function invoiceStatusLabel(args: {
+  totalPaise: number;
+  paidPaise: number;
+  dueLabel: string;
+}): string {
+  if (invoiceBalancePaise(args.totalPaise, args.paidPaise) === 0) return "Paid";
+  return args.paidPaise > 0 ? "Partially paid" : args.dueLabel;
+}
+
 /** First day of the current month — the default billed month. */
 export function defaultBillingMonth(now = new Date()): Date {
   return startOfMonth(now);
 }
 
 /**
- * Default due date within the billed month: the tenancy's payment-due day when set
- * (clamped to the month length), otherwise the 5th.
+ * Default due date within the billed month — the same date the payment status turns
+ * Overdue on (see `rentDueDate` in rent.ts).
  */
 export function defaultDueDate(paymentDueDay: number | null, billingMonth: Date): Date {
-  const wanted = paymentDueDay && paymentDueDay >= 1 && paymentDueDay <= 31 ? paymentDueDay : 5;
-  const lastDay = endOfMonth(billingMonth).getDate();
-  const day = Math.min(wanted, lastDay);
-  return set(billingMonth, { date: day, hours: 0, minutes: 0, seconds: 0, milliseconds: 0 });
+  return rentDueDate(paymentDueDay, billingMonth);
 }
 
 /**
@@ -72,5 +90,17 @@ export type InvoiceView = {
   discountPaise: number;
   subtotalPaise: number;
   totalPaise: number;
+  /** Collected against the billing month so far (every part payment). */
+  paidPaise: number;
+  /** max(0, total − paid). */
+  balancePaise: number;
+  /** The collection this invoice was issued for; null on a bill sent before payment. */
+  payment: {
+    amountPaise: number;
+    methodLabel: string;
+    cashPaise: number;
+    onlinePaise: number;
+    collectedAt: string; // YYYY-MM-DD
+  } | null;
   notes: string | null;
 };

@@ -26,7 +26,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { prepareInvoice, sendInvoice } from "@/lib/actions/collections";
-import { computeInvoiceTotals, type InvoiceView } from "@/lib/invoice-compute";
+import {
+  computeInvoiceTotals,
+  invoiceBalancePaise,
+  invoiceStatusLabel,
+  type InvoiceView,
+} from "@/lib/invoice-compute";
+import { formatINR } from "@/lib/money";
 import { InvoiceDocument } from "./invoice-document";
 
 type Fields = {
@@ -47,13 +53,22 @@ const toPaise = (s: string): number => {
 /** Imperative handle so a parent can open the dialog (and load its data) on demand. */
 export type InvoicePreviewHandle = { open: () => void };
 
+/**
+ * Preview and send a rent invoice (a bill) for one tenancy and billing month. The
+ * amount already collected for the month is shown against the total, and previous due
+ * defaults to what is unpaid from earlier months — both recomputed server-side when the
+ * billing month changes, so the preview is exactly what will be sent.
+ */
 export function InvoicePreviewDialog({
   tenancyId,
+  month,
   trigger,
   onOpenChange,
   ref,
 }: {
   tenancyId: string;
+  /** Billing month (YYYY-MM) to open on; the current month when omitted. */
+  month?: string;
   /** Optional — omit when the dialog is driven externally via the imperative `ref`. */
   trigger?: ReactNode;
   /** Notified whenever the dialog opens or closes. */
@@ -79,39 +94,53 @@ export function InvoicePreviewDialog({
     setFields((f) => ({ ...f, [key]: value }));
   }
 
+  // Load server-computed defaults for a billing month. `keep` carries the staff's
+  // free-form edits across a month change; the month-derived fields are refreshed.
+  const load = useCallback(
+    (targetMonth: string | undefined, keep: Fields | null) => {
+      setLoading(true);
+      prepareInvoice(tenancyId, targetMonth).then((res) => {
+        setLoading(false);
+        if (!res.ok) {
+          toast.error(res.error);
+          if (!keep) change(false);
+          return;
+        }
+        setBase(res.data);
+        setFields({
+          billingMonth: res.data.billingMonth.slice(0, 7),
+          dueDate: res.data.dueDate ?? "",
+          previousDue: res.data.previousDuePaise > 0 ? String(res.data.previousDuePaise / 100) : "",
+          extraChargesLabel: keep?.extraChargesLabel ?? "",
+          extraCharges: keep?.extraCharges ?? "",
+          discount: keep?.discount ?? "",
+          notes: keep?.notes ?? "",
+        });
+      });
+    },
+    [tenancyId, change],
+  );
+
   // Open the dialog and load fresh defaults. Called both from the trigger and via the
-  // imperative handle (e.g. straight after marking a payment received), so the numbers
-  // are always freshly computed server-side.
+  // imperative handle, so the numbers are always freshly computed server-side.
   const openAndLoad = useCallback(() => {
     change(true);
     setBase(null);
     setFields(blankFields());
-    setLoading(true);
-    prepareInvoice(tenancyId).then((res) => {
-      setLoading(false);
-      if (!res.ok) {
-        toast.error(res.error);
-        change(false);
-        return;
-      }
-      setBase(res.data);
-      setFields({
-        billingMonth: res.data.billingMonth.slice(0, 7),
-        dueDate: res.data.dueDate ?? "",
-        previousDue: "",
-        extraChargesLabel: "",
-        extraCharges: "",
-        discount: "",
-        notes: "",
-      });
-    });
-  }, [tenancyId, change]);
+    load(month, null);
+  }, [change, load, month]);
 
   useImperativeHandle(ref, () => ({ open: openAndLoad }), [openAndLoad]);
 
   function onDialogOpenChange(next: boolean) {
     if (next) openAndLoad();
     else change(false);
+  }
+
+  function onMonthChange(next: string) {
+    if (!next) return;
+    set("billingMonth", next);
+    load(next, fields);
   }
 
   // Live preview: merge edits onto the prepared base and recompute totals so the
@@ -130,7 +159,6 @@ export function InvoicePreviewDialog({
     });
     return {
       ...base,
-      billingMonth: fields.billingMonth ? `${fields.billingMonth}-01` : base.billingMonth,
       dueDate: fields.dueDate || null,
       previousDuePaise,
       extraChargesPaise,
@@ -139,6 +167,12 @@ export function InvoicePreviewDialog({
       notes: fields.notes.trim() || null,
       subtotalPaise,
       totalPaise,
+      balancePaise: invoiceBalancePaise(totalPaise, base.paidPaise),
+      paymentStatusLabel: invoiceStatusLabel({
+        totalPaise,
+        paidPaise: base.paidPaise,
+        dueLabel: base.paymentStatusLabel,
+      }),
     };
   }, [base, fields]);
 
@@ -189,9 +223,15 @@ export function InvoicePreviewDialog({
                   <Input
                     type="month"
                     value={fields.billingMonth}
-                    onChange={(e) => set("billingMonth", e.target.value)}
+                    onChange={(e) => onMonthChange(e.target.value)}
+                    disabled={loading}
                   />
                 </Field>
+                <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Already collected for this month:{" "}
+                  <strong className="text-foreground">{formatINR(preview.paidPaise)}</strong>
+                  {preview.previousDuePaise > 0 ? " · previous due is the unpaid balance from earlier months" : ""}
+                </p>
                 <Field label="Due date">
                   <Input
                     type="date"
