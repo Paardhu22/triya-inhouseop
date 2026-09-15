@@ -17,9 +17,9 @@ export function StatCard({
 }) {
   return (
     <div className={cn("rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md", className)}>
-      <div className="text-sm font-medium text-muted-foreground">{label}</div>
+      <div className="text-sm font-semibold text-muted-foreground">{label}</div>
       <div
-        className="mt-3 truncate text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground sm:text-3xl"
+        className="mt-3 truncate text-3xl font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground sm:text-[2.125rem]"
         title={String(value)}
       >
         {value}

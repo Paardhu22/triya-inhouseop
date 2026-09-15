@@ -3,6 +3,7 @@ import "server-only";
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
+import { monthlyDuePaise, resolveCollectionState, resolvePaymentStatus } from "@/lib/rent";
 
 /** Months of history shown in the dashboard trend chart, including the current one. */
 const TREND_MONTHS = 6;
@@ -36,6 +37,7 @@ export async function getDashboardData(propertyId: string) {
     openComplaints,
     moveInsThisMonth,
     moveOutsThisMonth,
+    collectedByTenancyRows,
   ] = await Promise.all([
     prisma.room.findMany({
       where: { propertyId },
@@ -60,7 +62,7 @@ export async function getDashboardData(propertyId: string) {
         id: true,
         monthlyRent: true,
         maintenanceCharge: true,
-        paymentStatus: true,
+        paymentDueDay: true,
         noticeGivenDate: true,
         tenant: { select: { fullName: true } },
         bed: {
@@ -120,6 +122,13 @@ export async function getDashboardData(propertyId: string) {
     }),
     prisma.tenancy.count({
       where: { propertyId, checkOutDate: { gte: monthStart, lte: monthEnd } },
+    }),
+    // This month's collections per tenancy, so the rent status counts are derived from
+    // the ledger (and can tell a part payment from none) instead of the stored snapshot.
+    prisma.payment.groupBy({
+      by: ["tenancyId"],
+      where: { propertyId, status: "PAID", forMonth: monthStart },
+      _sum: { amount: true },
     }),
   ]);
 
@@ -204,20 +213,35 @@ export async function getDashboardData(propertyId: string) {
 
   let expectedPaise = 0;
   let paidCount = 0;
-  let pendingCount = 0;
+  let partialCount = 0;
+  let unpaidCount = 0;
   let overdueCount = 0;
+
+  const collectedByTenancy = new Map(
+    collectedByTenancyRows.map((r) => [r.tenancyId, r._sum.amount ?? 0]),
+  );
 
   // Expected rent per sharing type, so the occupancy table can show what each
   // configuration actually earns.
   const revenueBySharing = new Map<number, number>();
 
   for (const t of activeTenancies) {
-    const due = t.monthlyRent + t.maintenanceCharge;
+    const due = monthlyDuePaise(t);
+    const collected = collectedByTenancy.get(t.id) ?? 0;
     expectedPaise += due;
 
-    if (t.paymentStatus === "PAID") paidCount += 1;
-    else if (t.paymentStatus === "OVERDUE") overdueCount += 1;
-    else pendingCount += 1;
+    const state = resolveCollectionState(due, collected);
+    if (state === "PAID") paidCount += 1;
+    else if (state === "PARTIAL") partialCount += 1;
+    else unpaidCount += 1;
+    // Overdue overlaps unpaid / partially paid: it is a due-date state, not an amount.
+    const status = resolvePaymentStatus({
+      duePaise: due,
+      collectedPaise: collected,
+      paymentDueDay: t.paymentDueDay,
+      month: monthStart,
+    });
+    if (status === "OVERDUE") overdueCount += 1;
 
     const sharing = t.bed.room.sharingType;
     revenueBySharing.set(sharing, (revenueBySharing.get(sharing) ?? 0) + due);
@@ -289,7 +313,8 @@ export async function getDashboardData(propertyId: string) {
     // Rent
     activeTenancies: activeTenancies.length,
     paidCount,
-    pendingCount,
+    partialCount,
+    unpaidCount,
     overdueCount,
     expectedPaise,
     collectedPaise,

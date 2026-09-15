@@ -1,40 +1,38 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { format, parseISO, startOfMonth } from "date-fns";
+import { format, parseISO, startOfMonth, subMonths } from "date-fns";
 
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import { signFileToken } from "@/lib/file-token";
-import { generateInvoicePdf } from "@/lib/invoice";
-import { refreshPaymentStatus, sumCollected } from "@/lib/ledger";
+import { defaultDueDate, type InvoiceView } from "@/lib/invoice-compute";
 import {
-  computeInvoiceTotals,
-  defaultBillingMonth,
-  defaultDueDate,
-  type InvoiceView,
-} from "@/lib/invoice-compute";
+  deliverInvoice,
+  issueInvoice,
+  issueInvoiceForPayment,
+  previewInvoice,
+} from "@/lib/invoice-delivery";
+import { loadCollectedByMonth, refreshPaymentStatus, sumCollected } from "@/lib/ledger";
 import { formatINR, rupeesToPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { getActiveProperty } from "@/lib/property";
 import { resolvePublicBaseUrl } from "@/lib/public-url";
+import { getCollectionsData, type CollectionRow } from "@/lib/queries/collections";
 import {
   advancePaise,
   balancePaise,
+  earlierDues,
+  ledgerStartMonth,
   monthlyDuePaise,
   paymentSplit,
+  resolveCollectionState,
   resolvePaymentStatus,
   resolveSplitPaise,
   type RentCollectionView,
 } from "@/lib/rent";
-
-import { PAYMENT_STATUS_META } from "@/lib/status";
-import { storage } from "@/lib/storage";
-import { sendWhatsAppMedia, sendWhatsAppText } from "@/lib/twilio";
+import { sendWhatsAppText } from "@/lib/twilio";
 import { collectRentSchema, type CollectRentInput } from "@/lib/validations/collections";
 import { sendInvoiceSchema, type SendInvoiceInput } from "@/lib/validations/invoice";
-
-const isoDate = (d: Date) => format(d, "yyyy-MM-dd");
 
 /**
  * Parse a `YYYY-MM` billing month into its first day in local time. Returns the current
@@ -57,228 +55,71 @@ function revalidateCollectionViews(tenantId: string) {
   revalidatePath(`/tenants/${tenantId}`);
 }
 
-function formatInvoiceNumber(billingMonth: Date, seq: number): string {
-  return `INV-${format(billingMonth, "yyyyMM")}-${String(seq).padStart(4, "0")}`;
-}
-
-/** Short-lived signed media URL Twilio can fetch without a session. */
-function buildMediaUrl(base: string, storageKey: string): string {
-  const { exp, sig } = signFileToken(storageKey, 900);
-  return `${base}/api/files/${storageKey}?exp=${exp}&sig=${sig}`;
-}
-
-function buildWhatsAppBody(args: {
-  tenantName: string;
-  billingMonth: Date;
-  room: string;
-  totalPaise: number;
-  dueDate: Date | null;
-  propertyName: string;
-}): string {
-  return [
-    `Hello ${args.tenantName},`,
-    "",
-    `Your rent invoice for ${format(args.billingMonth, "MMMM yyyy")} is attached.`,
-    "",
-    `Room: ${args.room}`,
-    "",
-    `Total Amount Due: ${formatINR(args.totalPaise)}`,
-    "",
-    `Due Date: ${args.dueDate ? format(args.dueDate, "dd MMM yyyy") : "—"}`,
-    "",
-    "Please complete the payment before the due date.",
-    "",
-    "Thank you,",
-    args.propertyName,
-  ].join("\n");
+/** Unpaid balance a tenancy carries from months before `month`. */
+async function earlierDuesFor(
+  tenancy: {
+    id: string;
+    monthlyRent: number;
+    maintenanceCharge: number;
+    checkInDate: Date;
+    createdAt: Date;
+  },
+  month: Date,
+) {
+  const start = ledgerStartMonth(tenancy);
+  const collected = await loadCollectedByMonth(prisma, [tenancy.id], start, subMonths(month, 1));
+  return earlierDues({
+    duePaise: monthlyDuePaise(tenancy),
+    startMonth: start,
+    beforeMonth: month,
+    collectedByMonth: collected.get(tenancy.id) ?? new Map(),
+  });
 }
 
 /**
- * Short, attachment-free rent reminder body (WhatsApp/SMS style). Unlike an invoice,
- * this carries no PDF — just a friendly nudge to pay the pending rent. Money uses the
- * unicode ₹ (WhatsApp text is unicode, unlike the WinAnsi PDF which needs "Rs.").
+ * Build the default invoice for an active tenancy and billing month WITHOUT persisting
+ * anything. Powers the preview dialog; the staff can then edit the optional fields
+ * before sending. Previous due defaults to the unpaid balance from earlier months, and
+ * the amount already collected for the month is shown against the total.
  */
-function buildReminderBody(args: {
-  tenantName: string;
-  rentPaise: number;
-  roomNumber: string;
-  propertyName: string;
-}): string {
-  return [
-    `Hi ${args.tenantName},`,
-    "",
-    `This is a friendly reminder that your monthly rent of ${formatINR(
-      args.rentPaise,
-    )} for Room ${args.roomNumber} is pending.`,
-    "",
-    "Kindly make the payment at your earliest convenience.",
-    "",
-    "Thank you,",
-    args.propertyName,
-  ].join("\n");
-}
-
-type ViewParts = {
-  propertyName: string;
-  propertyAddress: string | null;
-  propertyPhone: string | null;
-  propertyLogoKey: string | null;
-  number: string;
-  issueDate: Date;
-  billingMonth: Date;
-  dueDate: Date | null;
-  paymentStatusLabel: string;
-  tenantName: string;
-  tenantPhone: string;
-  dateOfJoining: Date;
-  roomNumber: string;
-  bedLabel: string;
-  rentPaise: number;
-  maintenancePaise: number;
-  previousDuePaise: number;
-  extraChargesPaise: number;
-  extraChargesLabel: string | null;
-  discountPaise: number;
-  notes: string | null;
-};
-
-/** Assemble the shared InvoiceView (HTML preview + PDF render from the same shape). */
-function buildInvoiceView(p: ViewParts): InvoiceView {
-  const { subtotalPaise, totalPaise } = computeInvoiceTotals(p);
-  return {
-    propertyName: p.propertyName,
-    propertyAddress: p.propertyAddress,
-    propertyPhone: p.propertyPhone,
-    propertyLogoKey: p.propertyLogoKey,
-    number: p.number,
-    issueDate: isoDate(p.issueDate),
-    billingMonth: isoDate(p.billingMonth),
-    dueDate: p.dueDate ? isoDate(p.dueDate) : null,
-    paymentStatusLabel: p.paymentStatusLabel,
-    tenantName: p.tenantName,
-    tenantPhone: p.tenantPhone,
-    dateOfJoining: isoDate(p.dateOfJoining),
-    roomNumber: p.roomNumber,
-    bedLabel: p.bedLabel,
-    rentPaise: p.rentPaise,
-    maintenancePaise: p.maintenancePaise,
-    previousDuePaise: p.previousDuePaise,
-    extraChargesPaise: p.extraChargesPaise,
-    extraChargesLabel: p.extraChargesLabel,
-    discountPaise: p.discountPaise,
-    subtotalPaise,
-    totalPaise,
-    notes: p.notes,
-  };
-}
-
-/**
- * Build the default invoice for an active tenancy WITHOUT persisting anything.
- * Powers the preview dialog; the staff can then edit the optional fields before
- * sending. Money is computed server-side so the preview and the final PDF agree.
- */
-export async function prepareInvoice(tenancyId: string): Promise<ActionResult<InvoiceView>> {
+export async function prepareInvoice(
+  tenancyId: string,
+  month?: string,
+): Promise<ActionResult<InvoiceView>> {
   const session = await auth();
   if (!session?.user) return actionError("Not authenticated");
 
   const property = await getActiveProperty();
   if (!property) return actionError("No active property selected");
 
+  const billingMonth = parseBillingMonth(month);
+  if (!billingMonth) return actionError("Invalid billing month");
+
   const tenancy = await prisma.tenancy.findFirst({
     where: { id: tenancyId, propertyId: property.id, status: "ACTIVE" },
     select: {
+      id: true,
       monthlyRent: true,
       maintenanceCharge: true,
-      paymentStatus: true,
       paymentDueDay: true,
       checkInDate: true,
-      tenant: { select: { fullName: true, phone: true } },
-      bed: { select: { label: true, room: { select: { number: true } } } },
+      createdAt: true,
     },
   });
   if (!tenancy) return actionError("Active tenancy not found for this property");
 
-  const billingMonth = defaultBillingMonth();
-  const dueDate = defaultDueDate(tenancy.paymentDueDay, billingMonth);
-  const seq = (await prisma.invoice.count({ where: { propertyId: property.id } })) + 1;
-
-  return actionOk(
-    buildInvoiceView({
-      propertyName: property.name,
-      propertyAddress: property.address,
-      propertyPhone: property.phone,
-      propertyLogoKey: property.logoKey,
-      number: formatInvoiceNumber(billingMonth, seq),
-      issueDate: new Date(),
-      billingMonth,
-      dueDate,
-      paymentStatusLabel: PAYMENT_STATUS_META[tenancy.paymentStatus].label,
-      tenantName: tenancy.tenant.fullName,
-      tenantPhone: tenancy.tenant.phone,
-      dateOfJoining: tenancy.checkInDate,
-      roomNumber: tenancy.bed.room.number,
-      bedLabel: tenancy.bed.label,
-      rentPaise: tenancy.monthlyRent,
-      maintenancePaise: tenancy.maintenanceCharge,
-      previousDuePaise: 0,
-      extraChargesPaise: 0,
-      extraChargesLabel: null,
-      discountPaise: 0,
-      notes: null,
-    }),
-  );
-}
-
-/** Reserve a per-property invoice number by creating the row; retry on the rare race. */
-async function createInvoiceRow(data: {
-  propertyId: string;
-  tenancyId: string;
-  tenantId: string;
-  billingMonth: Date;
-  dueDate: Date | null;
-  notes: string | null;
-  extraChargesLabel: string | null;
-  rentPaise: number;
-  maintenancePaise: number;
-  previousDuePaise: number;
-  extraChargesPaise: number;
-  discountPaise: number;
-  subtotalPaise: number;
-  totalPaise: number;
-}) {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const count = await prisma.invoice.count({ where: { propertyId: data.propertyId } });
-    const number = formatInvoiceNumber(data.billingMonth, count + 1);
-    try {
-      // Created as FAILED (= not yet delivered) and flipped to SENT once Twilio
-      // accepts it. storageKey is filled in immediately after the PDF is stored.
-      return await prisma.invoice.create({
-        data: {
-          propertyId: data.propertyId,
-          tenancyId: data.tenancyId,
-          tenantId: data.tenantId,
-          number,
-          billingMonth: data.billingMonth,
-          dueDate: data.dueDate ?? undefined,
-          rentPaise: data.rentPaise,
-          maintenancePaise: data.maintenancePaise,
-          previousDuePaise: data.previousDuePaise,
-          extraChargesPaise: data.extraChargesPaise,
-          extraChargesLabel: data.extraChargesLabel ?? undefined,
-          discountPaise: data.discountPaise,
-          subtotalPaise: data.subtotalPaise,
-          totalPaise: data.totalPaise,
-          notes: data.notes ?? undefined,
-          storageKey: "",
-          status: "FAILED",
-        },
-      });
-    } catch (e) {
-      if ((e as { code?: string }).code === "P2002" && attempt < 4) continue;
-      throw e;
-    }
-  }
-  throw new Error("Could not allocate an invoice number");
+  const earlier = await earlierDuesFor(tenancy, billingMonth);
+  const view = await previewInvoice(property, tenancy.id, {
+    billingMonth,
+    dueDate: defaultDueDate(tenancy.paymentDueDay, billingMonth),
+    previousDuePaise: earlier.paise,
+    extraChargesPaise: 0,
+    extraChargesLabel: null,
+    discountPaise: 0,
+    notes: null,
+  });
+  if (!view) return actionError("Active tenancy not found for this property");
+  return actionOk(view);
 }
 
 /**
@@ -302,120 +143,37 @@ export async function sendInvoice(
   const v = parsed.data;
 
   // Fail fast on the most common Twilio blocker (non-public APP_PUBLIC_URL) before
-  // generating or persisting anything.
+  // generating or persisting anything — a manual send exists only to be delivered.
   const baseUrl = resolvePublicBaseUrl();
   if (!baseUrl.ok) return actionError(baseUrl.error);
 
   const tenancy = await prisma.tenancy.findFirst({
     where: { id: v.tenancyId, propertyId: property.id, status: "ACTIVE" },
-    select: {
-      id: true,
-      tenantId: true,
-      monthlyRent: true,
-      maintenanceCharge: true,
-      paymentStatus: true,
-      checkInDate: true,
-      tenant: { select: { fullName: true, phone: true } },
-      bed: { select: { label: true, room: { select: { number: true } } } },
-    },
+    select: { id: true, tenantId: true, tenant: { select: { phone: true } } },
   });
   if (!tenancy) return actionError("Active tenancy not found for this property");
   if (!tenancy.tenant.phone) return actionError("Tenant has no phone number on file");
 
-  const billingMonth = startOfMonth(parseISO(`${v.billingMonth}-01`));
-  const dueDate = v.dueDate ? parseISO(v.dueDate) : null;
-  const extraChargesLabel = v.extraChargesLabel?.trim() || null;
-  const notes = v.notes?.trim() || null;
-
-  const charges = {
-    rentPaise: tenancy.monthlyRent,
-    maintenancePaise: tenancy.maintenanceCharge,
-    previousDuePaise: rupeesToPaise(v.previousDue),
-    extraChargesPaise: rupeesToPaise(v.extraCharges),
-    discountPaise: rupeesToPaise(v.discount),
-  };
-  const { subtotalPaise, totalPaise } = computeInvoiceTotals(charges);
-
-  // 1. Reserve the invoice number / row.
-  let invoice;
-  try {
-    invoice = await createInvoiceRow({
-      propertyId: property.id,
-      tenancyId: tenancy.id,
-      tenantId: tenancy.tenantId,
-      billingMonth,
-      dueDate,
-      notes,
-      extraChargesLabel,
-      ...charges,
-      subtotalPaise,
-      totalPaise,
-    });
-  } catch {
-    return actionError("Could not allocate an invoice number. Please try again.");
-  }
-
-  const view = buildInvoiceView({
-    propertyName: property.name,
-    propertyAddress: property.address,
-    propertyPhone: property.phone,
-    propertyLogoKey: property.logoKey,
-    number: invoice.number,
-    issueDate: invoice.issueDate,
-    billingMonth,
-    dueDate,
-    paymentStatusLabel: PAYMENT_STATUS_META[tenancy.paymentStatus].label,
-    tenantName: tenancy.tenant.fullName,
-    tenantPhone: tenancy.tenant.phone,
-    dateOfJoining: tenancy.checkInDate,
-    roomNumber: tenancy.bed.room.number,
-    bedLabel: tenancy.bed.label,
-    ...charges,
-    extraChargesLabel,
-    notes,
+  const result = await issueInvoice({
+    property,
+    tenancyId: tenancy.id,
+    charges: {
+      billingMonth: startOfMonth(parseISO(`${v.billingMonth}-01`)),
+      dueDate: v.dueDate ? parseISO(v.dueDate) : null,
+      previousDuePaise: rupeesToPaise(v.previousDue),
+      extraChargesPaise: rupeesToPaise(v.extraCharges),
+      extraChargesLabel: v.extraChargesLabel?.trim() || null,
+      discountPaise: rupeesToPaise(v.discount),
+      notes: v.notes?.trim() || null,
+    },
   });
 
-  // 2. Render + store the PDF; if this fails, drop the reserved row (no orphan).
-  let storageKey: string;
-  try {
-    const pdfBytes = await generateInvoicePdf(view);
-    const bytes = new Uint8Array(pdfBytes.byteLength);
-    bytes.set(pdfBytes);
-    const file = new File([bytes], `${invoice.number}.pdf`, { type: "application/pdf" });
-    const saved = await storage.save(file, "invoices");
-    storageKey = saved.key;
-    await prisma.invoice.update({ where: { id: invoice.id }, data: { storageKey } });
-  } catch (e) {
-    await prisma.invoice.delete({ where: { id: invoice.id } }).catch(() => {});
-    return actionError(e instanceof Error ? e.message : "Could not generate the invoice PDF");
+  revalidatePath("/collections");
+  if (!result.ok) return actionError(result.error);
+  if (!result.delivered || !result.messageSid) {
+    return actionError(result.deliveryError ?? "Failed to send the WhatsApp message");
   }
-
-  // 3. Deliver over WhatsApp. Keep the row (FAILED) on failure so it can be resent.
-  try {
-    const mediaUrl = buildMediaUrl(baseUrl.base, storageKey);
-    console.info("[invoice] media prepared", storageKey);
-    const messageSid = await sendWhatsAppMedia({
-      to: tenancy.tenant.phone,
-      body: buildWhatsAppBody({
-        tenantName: tenancy.tenant.fullName,
-        billingMonth,
-        room: `${tenancy.bed.room.number} · Bed ${tenancy.bed.label}`,
-        totalPaise,
-        dueDate,
-        propertyName: property.name,
-      }),
-      mediaUrl,
-    });
-    await prisma.invoice.update({
-      where: { id: invoice.id },
-      data: { status: "SENT", messageSid, sentAt: new Date() },
-    });
-    revalidatePath("/collections");
-    return actionOk({ invoiceId: invoice.id, messageSid });
-  } catch (e) {
-    revalidatePath("/collections");
-    return actionError(e instanceof Error ? e.message : "Failed to send the WhatsApp message");
-  }
+  return actionOk({ invoiceId: result.invoiceId, messageSid: result.messageSid });
 }
 
 /** Resend an existing invoice's stored PDF over WhatsApp. */
@@ -431,52 +189,25 @@ export async function resendInvoice(
   const baseUrl = resolvePublicBaseUrl();
   if (!baseUrl.ok) return actionError(baseUrl.error);
 
-  const invoice = await prisma.invoice.findFirst({
+  const exists = await prisma.invoice.findFirst({
     where: { id: invoiceId, propertyId: property.id },
-    select: {
-      id: true,
-      storageKey: true,
-      billingMonth: true,
-      dueDate: true,
-      totalPaise: true,
-      tenant: { select: { fullName: true, phone: true } },
-      tenancy: { select: { bed: { select: { label: true, room: { select: { number: true } } } } } },
-    },
+    select: { id: true },
   });
-  if (!invoice) return actionError("Invoice not found");
-  if (!invoice.storageKey) return actionError("This invoice has no stored PDF to resend");
-  if (!invoice.tenant.phone) return actionError("Tenant has no phone number on file");
+  if (!exists) return actionError("Invoice not found");
 
-  try {
-    const mediaUrl = buildMediaUrl(baseUrl.base, invoice.storageKey);
-    console.info("[invoice] media prepared (resend)", invoice.storageKey);
-    const messageSid = await sendWhatsAppMedia({
-      to: invoice.tenant.phone,
-      body: buildWhatsAppBody({
-        tenantName: invoice.tenant.fullName,
-        billingMonth: invoice.billingMonth,
-        room: `${invoice.tenancy.bed.room.number} · Bed ${invoice.tenancy.bed.label}`,
-        totalPaise: invoice.totalPaise,
-        dueDate: invoice.dueDate,
-        propertyName: property.name,
-      }),
-      mediaUrl,
-    });
-    await prisma.invoice.update({
-      where: { id: invoice.id },
-      data: { status: "SENT", messageSid, sentAt: new Date() },
-    });
-    revalidatePath("/collections");
-    return actionOk({ messageSid });
-  } catch (e) {
-    return actionError(e instanceof Error ? e.message : "Failed to resend the invoice");
+  const delivery = await deliverInvoice(property, invoiceId);
+  revalidatePath("/collections");
+  if (!delivery.delivered || !delivery.messageSid) {
+    return actionError(delivery.error ?? "Failed to resend the invoice");
   }
+  return actionOk({ messageSid: delivery.messageSid });
 }
 
 /**
  * Everything the Collect Rent dialog needs for one active tenancy and one billing
  * month: the charges, what has already been collected (with its cash/online split and
- * timestamps), and the balance left. Read-only — nothing is written.
+ * timestamps), the balance left, and anything still unpaid from earlier months.
+ * Read-only — nothing is written.
  */
 export async function getRentCollection(
   tenancyId: string,
@@ -498,6 +229,8 @@ export async function getRentCollection(
       monthlyRent: true,
       maintenanceCharge: true,
       paymentDueDay: true,
+      checkInDate: true,
+      createdAt: true,
       tenant: { select: { fullName: true } },
       bed: { select: { label: true, room: { select: { number: true } } } },
       payments: {
@@ -535,6 +268,7 @@ export async function getRentCollection(
 
   const duePaise = monthlyDuePaise(tenancy);
   const collectedPaise = collections.reduce((sum, c) => sum + c.amountPaise, 0);
+  const earlier = await earlierDuesFor(tenancy, forMonth);
 
   return actionOk({
     tenancyId: tenancy.id,
@@ -558,23 +292,36 @@ export async function getRentCollection(
       paymentDueDay: tenancy.paymentDueDay,
       month: forMonth,
     }),
+    state: resolveCollectionState(duePaise, collectedPaise),
+    earlierDuePaise: earlier.paise,
+    earlierDueMonths: earlier.months,
+    firstMonth: format(startOfMonth(tenancy.checkInDate), "yyyy-MM"),
     collections,
   });
 }
 
+export type CollectRentResult = {
+  paymentId: string;
+  balancePaise: number;
+  fullyPaid: boolean;
+  /** The invoice issued for this collection; null when the staff chose not to send one. */
+  invoice: { number: string | null; delivered: boolean; error: string | null } | null;
+};
+
 /**
  * Record one rent collection against an active tenancy — the money actually received,
- * how it was received (cash / online / both) and when. Replaces the old blunt
- * "mark as paid": a month can take several collections, so each one is its own Payment
- * row and `Tenancy.paymentStatus` is re-derived from the month's collected total rather
- * than flipped by hand.
+ * how it was received (cash / online / both) and when. A month can take several
+ * collections (part payments on different dates), so each one is its own Payment row
+ * and `Tenancy.paymentStatus` is re-derived from the month's collected total.
  *
- * Collecting for a past month settles that month's ledger but always leaves the
- * tenancy's snapshot describing the CURRENT cycle, which is what the app displays.
+ * Unless the staff opts out, an invoice for the collection (what was received, the
+ * month's total, paid so far and the balance) is then issued and sent to the tenant on
+ * WhatsApp. The collection is committed FIRST: an invoice or delivery failure is
+ * reported but can never lose the record of money received.
  */
 export async function collectRent(
   input: CollectRentInput,
-): Promise<ActionResult<{ paymentId: string; balancePaise: number; fullyPaid: boolean }>> {
+): Promise<ActionResult<CollectRentResult>> {
   const session = await auth();
   if (!session?.user?.id) return actionError("Not authenticated");
   const userId = session.user.id;
@@ -599,9 +346,20 @@ export async function collectRent(
       monthlyRent: true,
       maintenanceCharge: true,
       paymentDueDay: true,
+      checkInDate: true,
     },
   });
   if (!tenancy) return actionError("Active tenancy not found for this property");
+
+  // Rent cannot be owed for a month before the tenant moved in.
+  if (forMonth < startOfMonth(tenancy.checkInDate)) {
+    return actionError(
+      `The tenant moved in on ${format(tenancy.checkInDate, "dd MMM yyyy")} — pick ${format(
+        tenancy.checkInDate,
+        "MMMM yyyy",
+      )} or later.`,
+    );
+  }
 
   const amountPaise = rupeesToPaise(v.amount);
   const { cashAmount, onlineAmount } = resolveSplitPaise(
@@ -648,14 +406,32 @@ export async function collectRent(
     return actionError("Could not record the collection. Please try again.");
   }
 
+  let invoice: CollectRentResult["invoice"] = null;
+  if (v.sendInvoice) {
+    try {
+      const issued = await issueInvoiceForPayment(property, paymentId);
+      invoice = issued.ok
+        ? { number: issued.number, delivered: issued.delivered, error: issued.deliveryError }
+        : { number: null, delivered: false, error: issued.error };
+    } catch (e) {
+      invoice = {
+        number: null,
+        delivered: false,
+        error: e instanceof Error ? e.message : "Could not issue the invoice",
+      };
+    }
+  }
+
   revalidateCollectionViews(tenancy.tenantId);
   const remaining = balancePaise(monthlyDuePaise(tenancy), monthCollected);
-  return actionOk({ paymentId, balancePaise: remaining, fullyPaid: remaining === 0 });
+  return actionOk({ paymentId, balancePaise: remaining, fullyPaid: remaining === 0, invoice });
 }
 
 /**
  * Delete a wrongly entered collection and re-derive the tenancy snapshot. Correcting a
- * receipt has to be possible, or a typo would permanently distort the reports.
+ * receipt has to be possible, or a typo would permanently distort the reports. An
+ * invoice already issued for it is kept (its link to the payment is cleared) so the
+ * record of what was sent to the tenant survives.
  */
 export async function deleteRentCollection(paymentId: string): Promise<ActionResult> {
   const session = await auth();
@@ -693,10 +469,81 @@ export async function deleteRentCollection(paymentId: string): Promise<ActionRes
   return actionOk();
 }
 
+// ---------------------------------------------------------------------------------
+// Reminders
+// ---------------------------------------------------------------------------------
+
 /**
- * Send a single active tenant a plain-text rent reminder over WhatsApp. Independent of
- * invoices: no PDF is generated or persisted, so this needs no public URL. Nothing is
- * written to the database — a reminder is a transient nudge, not a billing record.
+ * Plain-text rent reminder (no PDF, so it needs no public URL). The body is built from
+ * the tenant's actual position — this month's collections, the balance left and any
+ * earlier unpaid months — so a part-paid tenant is asked for the balance, not the full
+ * rent, and a fully paid tenant is never told their rent is pending. Money uses the
+ * unicode ₹ (WhatsApp text is unicode, unlike the PDF which uses "Rs.").
+ */
+function buildReminderBody(row: CollectionRow, propertyName: string, isFlat: boolean): string {
+  const room = isFlat
+    ? `Flat ${row.bed.room.number}`
+    : `Room ${row.bed.room.number} · Bed ${row.bed.label}`;
+  const month = format(new Date(`${row.month}-01T00:00:00`), "MMMM yyyy");
+  const lines = [`Hi ${row.tenant.fullName},`, ""];
+
+  if (row.outstandingPaise > 0) {
+    lines.push(
+      `This is a friendly reminder that ${formatINR(row.outstandingPaise)} of your rent for ${room} is pending.`,
+      "",
+    );
+    if (row.balancePaise > 0) {
+      lines.push(
+        row.collectedPaise > 0
+          ? `${month}: ${formatINR(row.collectedPaise)} of ${formatINR(row.duePaise)} paid — ${formatINR(row.balancePaise)} due by ${format(row.dueDate, "dd MMM")}.`
+          : `${month}: ${formatINR(row.duePaise)} due by ${format(row.dueDate, "dd MMM")}.`,
+      );
+    }
+    if (row.earlierDuePaise > 0) {
+      lines.push(`Earlier months: ${formatINR(row.earlierDuePaise)} unpaid.`);
+    }
+    lines.push(
+      "",
+      "Kindly make the payment at your earliest convenience. Please ignore this message if you have already paid.",
+    );
+  } else {
+    lines.push(
+      `This is a reminder that your monthly rent for ${room} is ${formatINR(row.duePaise)}, due by the ${format(row.dueDate, "do")} of each month.`,
+      "",
+      `Your rent for ${month} has already been received in full — thank you!`,
+    );
+  }
+
+  lines.push("", "Thank you,", propertyName);
+  return lines.join("\n");
+}
+
+/** Send a reminder to each row, one at a time; one bad number never aborts the batch. */
+async function sendReminders(rows: CollectionRow[], propertyName: string, isFlat: boolean) {
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    if (!row.tenant.phone) {
+      skipped++;
+      continue;
+    }
+    try {
+      await sendWhatsAppText({
+        to: row.tenant.phone,
+        body: buildReminderBody(row, propertyName, isFlat),
+      });
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+  return { sent, failed, skipped };
+}
+
+/**
+ * Send a single active tenant a plain-text rent reminder over WhatsApp. Refused when
+ * nothing is outstanding. Nothing is written to the database.
  */
 export async function sendRentReminder(
   tenancyId: string,
@@ -707,26 +554,15 @@ export async function sendRentReminder(
   const property = await getActiveProperty();
   if (!property) return actionError("No active property selected");
 
-  const tenancy = await prisma.tenancy.findFirst({
-    where: { id: tenancyId, propertyId: property.id, status: "ACTIVE" },
-    select: {
-      monthlyRent: true,
-      tenant: { select: { fullName: true, phone: true } },
-      bed: { select: { room: { select: { number: true } } } },
-    },
-  });
-  if (!tenancy) return actionError("Active tenancy not found for this property");
-  if (!tenancy.tenant.phone) return actionError("Tenant has no phone number on file");
+  const row = (await getCollectionsData(property.id)).find((r) => r.id === tenancyId);
+  if (!row) return actionError("Active tenancy not found for this property");
+  if (row.outstandingPaise === 0) return actionError("This tenant has no rent outstanding");
+  if (!row.tenant.phone) return actionError("Tenant has no phone number on file");
 
   try {
     const messageSid = await sendWhatsAppText({
-      to: tenancy.tenant.phone,
-      body: buildReminderBody({
-        tenantName: tenancy.tenant.fullName,
-        rentPaise: tenancy.monthlyRent,
-        roomNumber: tenancy.bed.room.number,
-        propertyName: property.name,
-      }),
+      to: row.tenant.phone,
+      body: buildReminderBody(row, property.name, property.isFlat),
     });
     return actionOk({ messageSid });
   } catch (e) {
@@ -735,9 +571,8 @@ export async function sendRentReminder(
 }
 
 /**
- * Send the same plain-text rent reminder to every active tenant in the active property,
- * one message at a time. Never throws for an individual tenant: a missing phone number
- * is skipped and a Twilio failure is counted so one bad number can't abort the batch.
+ * Send a rent reminder to every active tenant in the active property. Each message
+ * reflects that tenant's own position (see `buildReminderBody`).
  */
 export async function remindAllTenants(): Promise<
   ActionResult<{ sent: number; failed: number; skipped: number }>
@@ -748,38 +583,25 @@ export async function remindAllTenants(): Promise<
   const property = await getActiveProperty();
   if (!property) return actionError("No active property selected");
 
-  const tenancies = await prisma.tenancy.findMany({
-    where: { propertyId: property.id, status: "ACTIVE" },
-    select: {
-      monthlyRent: true,
-      tenant: { select: { fullName: true, phone: true } },
-      bed: { select: { room: { select: { number: true } } } },
-    },
-  });
+  const rows = await getCollectionsData(property.id);
+  return actionOk(await sendReminders(rows, property.name, property.isFlat));
+}
 
-  let sent = 0;
-  let failed = 0;
-  let skipped = 0;
-  for (const t of tenancies) {
-    if (!t.tenant.phone) {
-      skipped++;
-      continue;
-    }
-    try {
-      await sendWhatsAppText({
-        to: t.tenant.phone,
-        body: buildReminderBody({
-          tenantName: t.tenant.fullName,
-          rentPaise: t.monthlyRent,
-          roomNumber: t.bed.room.number,
-          propertyName: property.name,
-        }),
-      });
-      sent++;
-    } catch {
-      failed++;
-    }
-  }
+/**
+ * Send a rent reminder ONLY to tenants with rent outstanding — an unpaid or part-paid
+ * current month, or an unpaid earlier month. Tenants who are fully paid up are left
+ * alone.
+ */
+export async function remindPendingTenants(): Promise<
+  ActionResult<{ sent: number; failed: number; skipped: number; eligible: number }>
+> {
+  const session = await auth();
+  if (!session?.user) return actionError("Not authenticated");
 
-  return actionOk({ sent, failed, skipped });
+  const property = await getActiveProperty();
+  if (!property) return actionError("No active property selected");
+
+  const pending = (await getCollectionsData(property.id)).filter((r) => r.outstandingPaise > 0);
+  const result = await sendReminders(pending, property.name, property.isFlat);
+  return actionOk({ ...result, eligible: pending.length });
 }

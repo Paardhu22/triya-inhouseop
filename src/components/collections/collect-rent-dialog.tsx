@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -33,10 +34,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { collectRent, deleteRentCollection, getRentCollection } from "@/lib/actions/collections";
+import {
+  collectRent,
+  deleteRentCollection,
+  getRentCollection,
+  type CollectRentResult,
+} from "@/lib/actions/collections";
 import { formatINR, paiseToRupees } from "@/lib/money";
 import { PAYMENT_METHOD_META, type RentCollectionView } from "@/lib/rent";
-import { PAYMENT_STATUS_META } from "@/lib/status";
+import { COLLECTION_STATE_META, PAYMENT_STATUS_META } from "@/lib/status";
 import { collectRentSchema } from "@/lib/validations/collections";
 import type { PaymentMethod } from "@/generated/prisma/client";
 
@@ -47,6 +53,7 @@ type Fields = {
   onlineAmount: string;
   collectedAt: string;
   notes: string;
+  sendInvoice: boolean;
 };
 
 /** `datetime-local` wants local wall-clock time, which toISOString() would shift. */
@@ -55,55 +62,83 @@ function toDatetimeLocal(date: Date): string {
 }
 
 const num = (s: string) => (s.trim() === "" ? 0 : Number(s));
+const monthLabel = (key: string) => format(new Date(`${key}-01T00:00:00`), "MMM yyyy");
+const thisMonth = () => format(new Date(), "yyyy-MM");
 
-function defaultFields(view: RentCollectionView): Fields {
+function blankFields(): Fields {
   return {
-    // Pre-fill with what is still owed — the overwhelmingly common case — but leave it
-    // editable so a part payment can be recorded as it actually happened.
-    amount: view.balancePaise > 0 ? String(paiseToRupees(view.balancePaise)) : "",
-    method: "CASH",
-    cashAmount: "",
-    onlineAmount: "",
-    collectedAt: toDatetimeLocal(new Date()),
-    notes: "",
-  };
-}
-
-/**
- * Record a rent collection against one active tenancy: how much came in, how it was
- * split between cash and online, and when it was handed over. Also shows the month's
- * collection history so staff can see what has already been received before adding to
- * it. Replaces the old all-or-nothing "Mark as Paid".
- */
-/** Imperative handle so a parent can open the dialog (and load its data) on demand. */
-export type CollectRentHandle = { open: () => void };
-
-export function CollectRentDialog({
-  tenancyId,
-  canDelete = false,
-  onCollected,
-  ref,
-}: {
-  tenancyId: string;
-  /** ADMIN/MANAGER may remove a wrongly entered collection. */
-  canDelete?: boolean;
-  /** Fired after a successful collection, with the month's remaining balance. */
-  onCollected?: (result: { fullyPaid: boolean; balancePaise: number }) => void;
-  ref?: Ref<CollectRentHandle>;
-}) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [month, setMonth] = useState(() => format(new Date(), "yyyy-MM"));
-  const [view, setView] = useState<RentCollectionView | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fields, setFields] = useState<Fields>({
     amount: "",
     method: "CASH",
     cashAmount: "",
     onlineAmount: "",
     collectedAt: toDatetimeLocal(new Date()),
     notes: "",
-  });
+    sendInvoice: true,
+  };
+}
+
+function defaultFields(view: RentCollectionView): Fields {
+  return {
+    ...blankFields(),
+    // Pre-fill with what is still owed — the overwhelmingly common case — but leave it
+    // editable so a part payment can be recorded as it actually happened.
+    amount: view.balancePaise > 0 ? String(paiseToRupees(view.balancePaise)) : "",
+  };
+}
+
+/** Tell the staff what happened to the money AND to the invoice sent for it. */
+function announce(result: CollectRentResult) {
+  const headline = result.fullyPaid
+    ? "Collection recorded. This month is fully paid."
+    : `Collection recorded. ${formatINR(result.balancePaise)} still due.`;
+  const invoice = result.invoice;
+  if (!invoice) {
+    toast.success(headline);
+  } else if (invoice.delivered) {
+    toast.success(headline, {
+      description: `Invoice ${invoice.number} sent to the tenant on WhatsApp.`,
+    });
+  } else {
+    toast.warning(headline, {
+      description: invoice.number
+        ? `Invoice ${invoice.number} was created but not sent: ${invoice.error ?? "delivery failed"}. Resend it from Invoice History.`
+        : `The invoice could not be created: ${invoice.error ?? "unknown error"}.`,
+      duration: 10_000,
+    });
+  }
+}
+
+/** Imperative handle so a parent can open the dialog (and load its data) on demand. */
+export type CollectRentHandle = { open: () => void };
+
+/**
+ * Record a rent collection against one active tenancy: how much came in (a part
+ * payment is fine — a month can take several), how it was split between cash and
+ * online, and when it was handed over. Shows the month's collection history and any
+ * unpaid earlier months, and by default issues + sends the invoice for the collection.
+ */
+export function CollectRentDialog({
+  tenancyId,
+  canDelete = false,
+  defaultMonth,
+  onCollected,
+  ref,
+}: {
+  tenancyId: string;
+  /** ADMIN/MANAGER may remove a wrongly entered collection. */
+  canDelete?: boolean;
+  /** Billing month (YYYY-MM) to open on; the current month when omitted. */
+  defaultMonth?: string;
+  /** Fired after a successful collection. */
+  onCollected?: (result: CollectRentResult) => void;
+  ref?: Ref<CollectRentHandle>;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState(() => defaultMonth ?? thisMonth());
+  const [view, setView] = useState<RentCollectionView | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fields, setFields] = useState<Fields>(blankFields);
   const [error, setError] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   const [deleting, startDeleting] = useTransition();
@@ -134,12 +169,12 @@ export function CollectRentDialog({
   // onOpenChange when a parent flips the prop, so a controlled dialog would never load.
   const openAndLoad = useCallback(() => {
     setOpen(true);
-    const current = format(new Date(), "yyyy-MM");
-    setMonth(current);
+    const target = defaultMonth ?? thisMonth();
+    setMonth(target);
     setView(null);
     setError(null);
-    load(current, true);
-  }, [load]);
+    load(target, true);
+  }, [load, defaultMonth]);
 
   useImperativeHandle(ref, () => ({ open: openAndLoad }), [openAndLoad]);
 
@@ -152,6 +187,7 @@ export function CollectRentDialog({
     if (!next) return;
     setMonth(next);
     setView(null);
+    setError(null);
     load(next, true);
   }
 
@@ -170,6 +206,11 @@ export function CollectRentDialog({
 
   function onSubmit() {
     if (!view) return;
+    const at = new Date(fields.collectedAt);
+    if (Number.isNaN(at.getTime())) {
+      setError("Select when the payment was collected");
+      return;
+    }
     const input = {
       tenancyId,
       forMonth: month,
@@ -177,8 +218,10 @@ export function CollectRentDialog({
       method: fields.method,
       cashAmount: fields.method === "SPLIT" ? num(fields.cashAmount) : undefined,
       onlineAmount: fields.method === "SPLIT" ? num(fields.onlineAmount) : undefined,
-      collectedAt: fields.collectedAt,
+      // Send an absolute instant so the server does not read it in its own timezone.
+      collectedAt: at.toISOString(),
       notes: fields.notes.trim() || undefined,
+      sendInvoice: fields.sendInvoice,
     };
     const parsed = collectRentSchema.safeParse(input);
     if (!parsed.success) {
@@ -192,11 +235,7 @@ export function CollectRentDialog({
         setError(res.error);
         return;
       }
-      toast.success(
-        res.data.fullyPaid
-          ? "Collection recorded. This month is fully paid."
-          : `Collection recorded. ${formatINR(res.data.balancePaise)} still due.`,
-      );
+      announce(res.data);
       setOpen(false);
       router.refresh();
       onCollected?.(res.data);
@@ -242,12 +281,18 @@ export function CollectRentDialog({
                   <Input
                     type="month"
                     value={month}
+                    min={view.firstMonth}
                     onChange={(e) => onMonthChange(e.target.value)}
                     disabled={busy}
                     className="h-9 w-44 bg-background"
                   />
                 </div>
-                <StatusBadge meta={PAYMENT_STATUS_META[view.status]} />
+                <div className="flex items-center gap-3">
+                  <StatusBadge meta={COLLECTION_STATE_META[view.state]} />
+                  {view.status === "OVERDUE" ? (
+                    <StatusBadge meta={PAYMENT_STATUS_META.OVERDUE} />
+                  ) : null}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
@@ -275,6 +320,28 @@ export function CollectRentDialog({
                 </span>
               </div>
             </div>
+
+            {view.earlierDuePaise > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs text-muted-foreground">
+                <span>
+                  Also unpaid from earlier months:{" "}
+                  <strong className="text-foreground">{formatINR(view.earlierDuePaise)}</strong>
+                </span>
+                {view.earlierDueMonths.slice(0, 6).map((key) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    disabled={busy}
+                    onClick={() => onMonthChange(key)}
+                  >
+                    {monthLabel(key)}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
 
             {/* New collection */}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -321,7 +388,7 @@ export function CollectRentDialog({
                 <Label className="text-xs text-muted-foreground">Note (optional)</Label>
                 <Textarea
                   rows={1}
-                  placeholder="e.g. paid at the desk"
+                  placeholder="e.g. UPI ref / paid at the desk"
                   value={fields.notes}
                   onChange={(e) => set("notes", e.target.value)}
                   disabled={busy}
@@ -368,16 +435,30 @@ export function CollectRentDialog({
                     — <strong className="text-foreground">{formatINR(preview.advance)}</strong> in
                     advance.
                   </>
-                ) : (
+                ) : preview.balance > 0 ? (
                   <>
                     {" "}
                     and{" "}
                     <strong className="text-foreground">{formatINR(preview.balance)}</strong> still
-                    due.
+                    due (partially paid).
                   </>
+                ) : (
+                  <> — fully paid.</>
                 )}
               </p>
             ) : null}
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`send-invoice-${tenancyId}`}
+                checked={fields.sendInvoice}
+                onCheckedChange={(checked) => set("sendInvoice", checked === true)}
+                disabled={busy}
+              />
+              <Label htmlFor={`send-invoice-${tenancyId}`} className="text-sm font-normal">
+                Send the invoice for this payment to the tenant on WhatsApp
+              </Label>
+            </div>
 
             {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
 
@@ -461,7 +542,7 @@ function Metric({
       <p
         className={
           strong
-            ? "text-base font-semibold tabular-nums text-foreground"
+            ? "text-lg font-bold tabular-nums text-foreground"
             : "text-base tabular-nums text-foreground"
         }
       >

@@ -33,6 +33,13 @@ export const PAYMENT_STATUS_META: Record<PaymentStatus, Meta> = {
   OVERDUE: { label: "Overdue", ...TONE.red },
 };
 
+/** How much of a month has been collected — see `resolveCollectionState` in rent.ts. */
+export const COLLECTION_STATE_META: Record<"PAID" | "PARTIAL" | "UNPAID", Meta> = {
+  PAID: { label: "Fully paid", ...TONE.green },
+  PARTIAL: { label: "Partially paid", ...TONE.amber },
+  UNPAID: { label: "Unpaid", ...TONE.red },
+};
+
 export const COMPLAINT_STATUS_META: Record<ComplaintStatus, Meta> = {
   OPEN: { label: "Open", ...TONE.red },
   IN_PROGRESS: { label: "In Progress", ...TONE.amber },

@@ -42,7 +42,7 @@ export function ExpenseDistribution({
   return (
     <Tabs defaultValue="categories" className="gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+        <h2 className="text-[0.8rem] font-bold tracking-[0.08em] text-muted-foreground uppercase">
           Distribution
         </h2>
         <TabsList>

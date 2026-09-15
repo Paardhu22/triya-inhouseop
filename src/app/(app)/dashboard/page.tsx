@@ -8,7 +8,9 @@ import { PageHeader } from "@/components/shell/page-header";
 import { formatINR, formatINRCompact } from "@/lib/money";
 import { getActiveProperty } from "@/lib/property";
 import { getDashboardData } from "@/lib/queries/dashboard";
+import { PAYMENT_METHOD_META } from "@/lib/rent";
 import {
+  COLLECTION_STATE_META,
   COMPLAINT_PRIORITY_META,
   COMPLAINT_STATUS_META,
   PAYMENT_STATUS_META,
@@ -26,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 const panel = "space-y-4 rounded-xl border border-border bg-card p-6";
-const heading = "text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase";
+const heading = "text-[0.8rem] font-bold tracking-[0.08em] text-muted-foreground uppercase";
 
 export default async function DashboardPage() {
   const property = await getActiveProperty();
@@ -92,7 +94,7 @@ export default async function DashboardPage() {
           <StatCard
             label="Outstanding"
             value={formatINRCompact(data.outstandingPaise)}
-            hint={`${data.pendingCount} pending · ${data.overdueCount} overdue`}
+            hint={`${data.unpaidCount} unpaid · ${data.partialCount} part paid · ${data.overdueCount} overdue`}
           />
           <StatCard
             label="Expenses"
@@ -122,17 +124,17 @@ export default async function DashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[32rem] text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
-                  <th className="py-2 pr-4 font-medium">Floor</th>
-                  <th className="py-2 pr-4 text-right font-medium">
+                <tr className="border-b border-border text-left text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">
+                  <th className="py-2 pr-4">Floor</th>
+                  <th className="py-2 pr-4 text-right">
                     {isFlat ? "Flats" : "Rooms"}
                   </th>
-                  <th className="py-2 pr-4 text-right font-medium">
+                  <th className="py-2 pr-4 text-right">
                     {isFlat ? "Units" : "Beds"}
                   </th>
-                  <th className="py-2 pr-4 text-right font-medium">Occupied</th>
-                  <th className="py-2 pr-4 text-right font-medium">Available</th>
-                  <th className="py-2 text-right font-medium">Fill</th>
+                  <th className="py-2 pr-4 text-right">Occupied</th>
+                  <th className="py-2 pr-4 text-right">Available</th>
+                  <th className="py-2 text-right">Fill</th>
                 </tr>
               </thead>
               <tbody>
@@ -140,7 +142,7 @@ export default async function DashboardPage() {
                   const fill = f.beds > 0 ? Math.round((f.occupied / f.beds) * 100) : 0;
                   return (
                     <tr key={f.id} className="border-b border-border/60 last:border-0">
-                      <td className="py-2 pr-4 font-medium text-foreground">
+                      <td className="py-2 pr-4 font-semibold text-foreground">
                         {f.blockName ? `Block ${f.blockName} · ` : ""}
                         {f.name ?? `Floor ${f.number}`}
                       </td>
@@ -169,16 +171,20 @@ export default async function DashboardPage() {
           <dl className="divide-y divide-border/60">
             {(
               [
-                ["PAID", data.paidCount],
-                ["PENDING", data.pendingCount],
-                ["OVERDUE", data.overdueCount],
+                [COLLECTION_STATE_META.PAID, data.paidCount],
+                [COLLECTION_STATE_META.PARTIAL, data.partialCount],
+                [COLLECTION_STATE_META.UNPAID, data.unpaidCount],
+                [
+                  { ...PAYMENT_STATUS_META.OVERDUE, label: "Overdue (unpaid or part paid)" },
+                  data.overdueCount,
+                ],
               ] as const
-            ).map(([status, count]) => (
-              <div key={status} className="flex items-center justify-between py-2.5">
+            ).map(([meta, count]) => (
+              <div key={meta.label} className="flex items-center justify-between py-2.5">
                 <dt>
-                  <StatusBadge meta={PAYMENT_STATUS_META[status]} />
+                  <StatusBadge meta={meta} />
                 </dt>
-                <dd className="text-sm font-medium tabular-nums text-foreground">
+                <dd className="text-base font-bold tabular-nums text-foreground">
                   {count}{" "}
                   <span className="text-xs font-normal text-muted-foreground">
                     {count === 1 ? "tenancy" : "tenancies"}
@@ -189,15 +195,15 @@ export default async function DashboardPage() {
           </dl>
           <div className="grid grid-cols-3 gap-4 border-t border-border pt-4 text-sm">
             <div>
-              <div className="text-lg font-semibold tabular-nums">{data.moveInsThisMonth}</div>
+              <div className="text-xl font-bold tabular-nums">{data.moveInsThisMonth}</div>
               <div className="text-xs text-muted-foreground">moved in</div>
             </div>
             <div>
-              <div className="text-lg font-semibold tabular-nums">{data.moveOutsThisMonth}</div>
+              <div className="text-xl font-bold tabular-nums">{data.moveOutsThisMonth}</div>
               <div className="text-xs text-muted-foreground">moved out</div>
             </div>
             <div>
-              <div className="text-lg font-semibold tabular-nums">{data.openComplaints}</div>
+              <div className="text-xl font-bold tabular-nums">{data.openComplaints}</div>
               <div className="text-xs text-muted-foreground">open complaints</div>
             </div>
           </div>
@@ -252,7 +258,7 @@ export default async function DashboardPage() {
                       {p.tenant.fullName}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {format(p.createdAt, "d MMM yyyy")} · {p.method === "CASH" ? "Cash" : "Online"}
+                      {format(p.createdAt, "d MMM yyyy")} · {PAYMENT_METHOD_META[p.method].label}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-4">

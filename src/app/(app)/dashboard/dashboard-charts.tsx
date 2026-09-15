@@ -31,7 +31,7 @@ const moneyConfig = {
 } satisfies ChartConfig;
 
 const panel = "space-y-4 rounded-xl border border-border bg-card p-6";
-const heading = "text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase";
+const heading = "text-[0.8rem] font-bold tracking-[0.08em] text-muted-foreground uppercase";
 
 /**
  * Mark geometry, shared by every chart here.

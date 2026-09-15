@@ -3,13 +3,13 @@ import "server-only";
 import { startOfMonth } from "date-fns";
 
 import type { PaymentMethod, PaymentStatus, Prisma } from "@/generated/prisma/client";
-import { monthlyDuePaise, resolvePaymentStatus, resolveSplitPaise } from "@/lib/rent";
+import { monthKey, monthlyDuePaise, resolvePaymentStatus, resolveSplitPaise } from "@/lib/rent";
 
 /**
  * The payments ledger, in one place. A Payment row is one collection event; a billing
- * month may hold several. Every write path (Collect Rent, the bed form, the tenant
- * profile toggle) goes through here so `Tenancy.paymentStatus` is always DERIVED from
- * what was actually collected instead of being set by hand in three different ways.
+ * month may hold several. Every write path (Collect Rent, the bed form, the importer)
+ * goes through here so `Tenancy.paymentStatus` is always DERIVED from what was
+ * actually collected instead of being set by hand in different ways.
  */
 
 export type LedgerTenancy = {
@@ -20,9 +20,12 @@ export type LedgerTenancy = {
   paymentDueDay: number | null;
 };
 
+/** Anything that can read payments — the Prisma client or a transaction. */
+type PaymentReader = Pick<Prisma.TransactionClient, "payment">;
+
 /** Total collected (status PAID) against one tenancy for one billing month. */
 export async function sumCollected(
-  tx: Prisma.TransactionClient,
+  tx: PaymentReader,
   tenancyId: string,
   forMonth: Date,
 ): Promise<number> {
@@ -31,6 +34,37 @@ export async function sumCollected(
     _sum: { amount: true },
   });
   return agg._sum.amount ?? 0;
+}
+
+/**
+ * PAID collections per tenancy per billing month (`monthKey`), for every month in
+ * `[from, to]`. One grouped read, so a whole property's arrears cost a single query.
+ */
+export async function loadCollectedByMonth(
+  db: PaymentReader,
+  tenancyIds: string[],
+  from: Date,
+  to: Date,
+): Promise<Map<string, Map<string, number>>> {
+  const result = new Map<string, Map<string, number>>();
+  if (tenancyIds.length === 0 || from > to) return result;
+
+  const rows = await db.payment.groupBy({
+    by: ["tenancyId", "forMonth"],
+    where: {
+      status: "PAID",
+      tenancyId: { in: tenancyIds },
+      forMonth: { gte: startOfMonth(from), lte: startOfMonth(to) },
+    },
+    _sum: { amount: true },
+  });
+  for (const row of rows) {
+    const months = result.get(row.tenancyId) ?? new Map<string, number>();
+    const key = monthKey(row.forMonth);
+    months.set(key, (months.get(key) ?? 0) + (row._sum.amount ?? 0));
+    result.set(row.tenancyId, months);
+  }
+  return result;
 }
 
 /**
@@ -58,7 +92,8 @@ export async function refreshPaymentStatus(
 /**
  * Settle a billing month by recording whatever is still outstanding as one collection.
  * A no-op when the month is already covered, so re-saving a form that says "Paid"
- * cannot double-count the rent.
+ * cannot double-count the rent. Returns the new payment's id, or null when nothing
+ * was recorded.
  */
 export async function settleMonth(
   tx: Prisma.TransactionClient,
@@ -73,11 +108,11 @@ export async function settleMonth(
     recordedById: string;
     at: Date;
   },
-): Promise<void> {
+): Promise<string | null> {
   const { propertyId, tenancy, forMonth, method, recordedById, at } = args;
 
   const shortfall = monthlyDuePaise(tenancy) - (await sumCollected(tx, tenancy.id, forMonth));
-  if (shortfall <= 0) return;
+  if (shortfall <= 0) return null;
 
   // The entered split is validated against the full month's due. When part of the
   // month was already collected we only record the remainder, so re-apportion it —
@@ -90,7 +125,7 @@ export async function settleMonth(
   }
   const split = resolveSplitPaise(shortfall, method, cash, online);
 
-  await tx.payment.create({
+  const payment = await tx.payment.create({
     data: {
       propertyId,
       tenancyId: tenancy.id,
@@ -104,21 +139,7 @@ export async function settleMonth(
       paidAt: at,
       recordedById,
     },
+    select: { id: true },
   });
-}
-
-/**
- * Reverse a month's collections without destroying the receipts: the rows are kept but
- * moved out of PAID, so they stop counting towards the collected total and the reports.
- */
-export async function voidMonthCollections(
-  tx: Prisma.TransactionClient,
-  tenancyId: string,
-  forMonth: Date,
-  status: Exclude<PaymentStatus, "PAID">,
-): Promise<void> {
-  await tx.payment.updateMany({
-    where: { tenancyId, forMonth, status: "PAID" },
-    data: { status, paidAt: null },
-  });
+  return payment.id;
 }

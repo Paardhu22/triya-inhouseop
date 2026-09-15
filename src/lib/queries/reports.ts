@@ -3,7 +3,13 @@ import "server-only";
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
-import { balancePaise, monthlyDuePaise, paymentSplit, resolvePaymentStatus } from "@/lib/rent";
+import {
+  balancePaise,
+  monthlyDuePaise,
+  paymentSplit,
+  resolveCollectionState,
+  resolvePaymentStatus,
+} from "@/lib/rent";
 import type { PaymentStatus } from "@/generated/prisma/client";
 
 /**
@@ -244,6 +250,7 @@ export async function getRentReport(propertyId: string, month?: string) {
         collectionCount: collected?.count ?? 0,
         lastPaidAt: collected?.lastPaidAt ?? null,
         status,
+        state: resolveCollectionState(expected, collectedPaise),
         isActive: t.status === "ACTIVE",
       };
     })

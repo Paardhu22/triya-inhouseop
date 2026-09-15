@@ -27,7 +27,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatINR, paiseToRupees } from "@/lib/money";
 import type { RentReport } from "@/lib/queries/reports";
-import { PAYMENT_STATUS_META } from "@/lib/status";
+import { matchesPaymentFilter, PAYMENT_FILTER_OPTIONS, type PaymentFilter } from "@/lib/rent";
+import { COLLECTION_STATE_META } from "@/lib/status";
 
 type Tab = "floor" | "room" | "tenant";
 
@@ -64,6 +65,7 @@ export function ReportsClient({ report, isFlat }: { report: RentReport; isFlat: 
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("floor");
   const [q, setQ] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("ALL");
   const [navigating, startNavigating] = useTransition();
 
   const roomNoun = isFlat ? "Flat" : "Room";
@@ -86,10 +88,11 @@ export function ReportsClient({ report, isFlat }: { report: RentReport; isFlat: 
     () =>
       report.byTenant.filter(
         (r) =>
-          !query ||
-          `${r.tenantName} ${r.roomNumber} ${r.bedLabel}`.toLowerCase().includes(query),
+          matchesPaymentFilter(paymentFilter, r) &&
+          (!query ||
+            `${r.tenantName} ${r.roomNumber} ${r.bedLabel}`.toLowerCase().includes(query)),
       ),
-    [report.byTenant, query],
+    [report.byTenant, query, paymentFilter],
   );
 
   function onMonthChange(month: string) {
@@ -143,7 +146,7 @@ export function ReportsClient({ report, isFlat }: { report: RentReport; isFlat: 
         csvAmount(r.onlinePaise),
         csvAmount(r.balancePaise),
         r.lastPaidAt ? format(new Date(r.lastPaidAt), "yyyy-MM-dd HH:mm") : "",
-        PAYMENT_STATUS_META[r.status].label,
+        `${COLLECTION_STATE_META[r.state].label}${r.status === "OVERDUE" ? " (overdue)" : ""}`,
       ]),
     ]);
   }
@@ -174,6 +177,21 @@ export function ReportsClient({ report, isFlat }: { report: RentReport; isFlat: 
             className="pl-8"
           />
         </div>
+
+        {tab === "tenant" ? (
+          <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v as PaymentFilter)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAYMENT_FILTER_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
 
         <Button variant="outline" className="sm:ml-auto" onClick={onExport}>
           <Download className="size-4" />
@@ -303,7 +321,10 @@ export function ReportsClient({ report, isFlat }: { report: RentReport; isFlat: 
                       : "Not collected"}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge meta={PAYMENT_STATUS_META[r.status]} />
+                    <StatusBadge meta={COLLECTION_STATE_META[r.state]} />
+                    {r.status === "OVERDUE" ? (
+                      <p className="text-xs font-medium text-destructive">Overdue</p>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}

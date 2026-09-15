@@ -18,11 +18,15 @@ export const collectRentSchema = z
     method: z.enum(["CASH", "ONLINE", "SPLIT"]),
     cashAmount: rupees.optional(),
     onlineAmount: rupees.optional(),
-    /** Local `datetime-local` value (YYYY-MM-DDTHH:mm) — when the money changed hands. */
-    collectedAt: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Select when the payment was collected"),
+    /**
+     * When the money changed hands, as a full ISO timestamp. The browser converts its
+     * local `datetime-local` value first — a bare "YYYY-MM-DDTHH:mm" would be read in
+     * the SERVER's timezone and shift the receipt by hours.
+     */
+    collectedAt: z.iso.datetime({ offset: true, error: "Select when the payment was collected" }),
     notes: z.string().trim().max(300).optional(),
+    /** Issue the invoice for this collection and send it to the tenant on WhatsApp. */
+    sendInvoice: z.boolean().default(true),
   })
   .superRefine((val, ctx) => {
     if (val.method === "SPLIT") {
@@ -40,13 +44,7 @@ export const collectRentSchema = z
     // A collection cannot be recorded in the future. One day of slack absorbs clock
     // skew between the staff device and the server.
     const at = new Date(val.collectedAt);
-    if (Number.isNaN(at.getTime())) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["collectedAt"],
-        message: "Select when the payment was collected",
-      });
-    } else if (at.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+    if (!Number.isNaN(at.getTime()) && at.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
       ctx.addIssue({
         code: "custom",
         path: ["collectedAt"],
@@ -55,4 +53,4 @@ export const collectRentSchema = z
     }
   });
 
-export type CollectRentInput = z.infer<typeof collectRentSchema>;
+export type CollectRentInput = z.input<typeof collectRentSchema>;

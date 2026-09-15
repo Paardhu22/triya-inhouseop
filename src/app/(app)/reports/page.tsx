@@ -61,7 +61,7 @@ export default async function ReportsPage({
       </div>
 
       <section className="space-y-4 rounded-xl border border-border bg-card p-6">
-        <h2 className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+        <h2 className="text-[0.8rem] font-bold tracking-[0.08em] text-muted-foreground uppercase">
           Rent collected · trailing 12 months
         </h2>
         <RentTrendChart series={report.trend} />
