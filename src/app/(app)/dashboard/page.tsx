@@ -27,9 +27,6 @@ export const metadata: Metadata = {
   title: "Dashboard",
 };
 
-const panel = "space-y-4 rounded-xl border border-border bg-card p-6";
-const heading = "text-[0.8rem] font-bold tracking-[0.08em] text-muted-foreground uppercase";
-
 export default async function DashboardPage() {
   const property = await getActiveProperty();
   if (!property) redirect("/select-property");
@@ -53,14 +50,14 @@ export default async function DashboardPage() {
       {/* 01 / Capacity Overview */}
       <section className="space-y-2.5">
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-xs font-mono font-bold tracking-widest text-muted-foreground uppercase">
-            01 / Capacity Overview
+          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            Capacity Overview
           </h2>
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {data.totalRooms} {isFlat ? "Units" : "Rooms"} Total
           </span>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-y border border-border bg-card rounded-lg overflow-hidden lg:grid-cols-4 lg:divide-y-0">
+        <div className="grid grid-cols-2 divide-x divide-y border border-border bg-card lg:grid-cols-4 lg:divide-y-0">
           <StatCard
             label={isFlat ? "Total Flats" : "Total Beds"}
             value={data.totalBeds}
@@ -87,14 +84,14 @@ export default async function DashboardPage() {
       {/* 02 / Rent & Financial Ledger */}
       <section className="space-y-2.5">
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-xs font-mono font-bold tracking-widest text-muted-foreground uppercase">
-            02 / Financial Ledger · {format(data.monthStart, "MMMM yyyy")}
+          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            Financial Ledger · {format(data.monthStart, "MMMM yyyy")}
           </h2>
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {collectionRate}% Realization Rate
           </span>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-y border border-border bg-card rounded-lg overflow-hidden lg:grid-cols-4 lg:divide-y-0">
+        <div className="grid grid-cols-2 divide-x divide-y border border-border bg-card lg:grid-cols-4 lg:divide-y-0">
           <StatCard
             label="Expected Rent"
             value={formatINRCompact(data.expectedPaise)}
@@ -130,12 +127,12 @@ export default async function DashboardPage() {
       ) : null}
 
       {/* 05 / Floor Directory */}
-      <section className="rounded-lg border border-border bg-card overflow-hidden">
+      <section className="border border-border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
-          <h2 className="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">
-            05 / Floor Occupancy Directory
+          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            Floor Occupancy Directory
           </h2>
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {data.floorBreakdown.length} Floors Configured
           </span>
         </div>
@@ -147,7 +144,7 @@ export default async function DashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[32rem] text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/15 text-left text-[0.7rem] font-mono font-bold tracking-wider text-muted-foreground uppercase">
+                <tr className="border-b border-border bg-muted/15 text-left text-[0.725rem] font-semibold tracking-wider text-muted-foreground uppercase">
                   <th className="px-5 py-2.5">Floor</th>
                   <th className="px-5 py-2.5 text-right">
                     {isFlat ? "Flats" : "Rooms"}
@@ -178,9 +175,9 @@ export default async function DashboardPage() {
                       <td className="px-5 py-2.5 text-right tabular-nums text-muted-foreground">
                         <span className="inline-flex items-center gap-2">
                           <span className="w-10 text-right">{fill}%</span>
-                          <span className="inline-block h-1.5 w-12 rounded-full bg-muted overflow-hidden">
+                          <span className="inline-block h-1.5 w-12 bg-muted overflow-hidden">
                             <span
-                              className="block h-full bg-foreground/60 rounded-full"
+                              className="block h-full bg-foreground/60"
                               style={{ width: `${Math.min(fill, 100)}%` }}
                             />
                           </span>
@@ -196,15 +193,15 @@ export default async function DashboardPage() {
       </section>
 
       {/* 06 & 07 / Operations Matrix */}
-      <div className="grid lg:grid-cols-2 rounded-lg border border-border bg-card overflow-hidden divide-y lg:divide-y-0 lg:divide-x">
+      <div className="grid lg:grid-cols-2 border border-border bg-card divide-y lg:divide-y-0 lg:divide-x">
         {/* Rent status */}
         <section className="flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-3">
-              <h2 className="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">
-                06 / Rent Settlement Status
+              <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                Rent Settlement Status
               </h2>
-              <span className="text-xs font-mono text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {data.activeTenancies} Tenancies
               </span>
             </div>
@@ -227,7 +224,7 @@ export default async function DashboardPage() {
                     </dt>
                     <dd className="text-base font-bold tabular-nums text-foreground">
                       {count}{" "}
-                      <span className="text-xs font-normal text-muted-foreground font-mono">
+                      <span className="text-xs font-normal text-muted-foreground">
                         {count === 1 ? "tenancy" : "tenancies"}
                       </span>
                     </dd>
@@ -239,15 +236,15 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-3 divide-x border-t border-border bg-muted/10 text-center py-3.5 text-sm">
             <div>
               <div className="text-lg font-bold tabular-nums text-foreground">{data.moveInsThisMonth}</div>
-              <div className="text-[0.7rem] font-mono text-muted-foreground uppercase tracking-wider">Moved in</div>
+              <div className="text-[0.725rem] font-medium text-muted-foreground uppercase tracking-wider">Moved in</div>
             </div>
             <div>
               <div className="text-lg font-bold tabular-nums text-foreground">{data.moveOutsThisMonth}</div>
-              <div className="text-[0.7rem] font-mono text-muted-foreground uppercase tracking-wider">Moved out</div>
+              <div className="text-[0.725rem] font-medium text-muted-foreground uppercase tracking-wider">Moved out</div>
             </div>
             <div>
               <div className="text-lg font-bold tabular-nums text-foreground">{data.openComplaints}</div>
-              <div className="text-[0.7rem] font-mono text-muted-foreground uppercase tracking-wider">Complaints</div>
+              <div className="text-[0.725rem] font-medium text-muted-foreground uppercase tracking-wider">Complaints</div>
             </div>
           </div>
         </section>
@@ -255,10 +252,10 @@ export default async function DashboardPage() {
         {/* Vacating soon */}
         <section className="flex flex-col">
           <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-3">
-            <h2 className="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">
-              07 / Notice Register
+            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              Notice Register
             </h2>
-            <span className="text-xs font-mono text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {data.noticeTenancies.length} Scheduled
             </span>
           </div>
@@ -273,7 +270,7 @@ export default async function DashboardPage() {
                   <li key={t.id} className="flex items-center justify-between gap-3 py-3 hover:bg-muted/10 transition-colors px-1">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{t.name}</p>
-                      <p className="text-xs font-mono text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {isFlat
                           ? `Flat ${t.roomNumber}`
                           : `Room ${t.roomNumber} · Bed ${t.bedLabel}`}
@@ -283,7 +280,7 @@ export default async function DashboardPage() {
                       <p className="text-sm font-bold tabular-nums text-foreground">
                         {format(vacateByDate(t.noticeGivenDate), "d MMM yyyy")}
                       </p>
-                      <p className="text-[0.7rem] font-mono text-muted-foreground uppercase tracking-wider">Vacate by</p>
+                      <p className="text-[0.725rem] font-medium text-muted-foreground uppercase tracking-wider">Vacate by</p>
                     </div>
                   </li>
                 ))}
@@ -294,14 +291,14 @@ export default async function DashboardPage() {
       </div>
 
       {/* 08 & 09 / Live Activity Log */}
-      <div className="grid lg:grid-cols-2 rounded-lg border border-border bg-card overflow-hidden divide-y lg:divide-y-0 lg:divide-x">
+      <div className="grid lg:grid-cols-2 border border-border bg-card divide-y lg:divide-y-0 lg:divide-x">
         {/* Recent payments */}
         <section className="flex flex-col">
           <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-3">
-            <h2 className="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">
-              08 / Recent Collections
+            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              Recent Collections
             </h2>
-            <span className="text-xs font-mono text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               Latest 5 Transactions
             </span>
           </div>
@@ -318,7 +315,7 @@ export default async function DashboardPage() {
                       <p className="truncate text-sm font-medium text-foreground">
                         {p.tenant.fullName}
                       </p>
-                      <p className="text-xs font-mono text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {format(p.createdAt, "d MMM yyyy")} · {PAYMENT_METHOD_META[p.method].label}
                       </p>
                     </div>
@@ -338,10 +335,10 @@ export default async function DashboardPage() {
         {/* Recent complaints */}
         <section className="flex flex-col">
           <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-3">
-            <h2 className="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">
-              09 / Incident & Complaints Log
+            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              Incident & Complaints Log
             </h2>
-            <span className="text-xs font-mono text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               Latest 5 Tickets
             </span>
           </div>
@@ -356,7 +353,7 @@ export default async function DashboardPage() {
                   <li key={c.id} className="flex items-start justify-between gap-3 py-3 hover:bg-muted/10 transition-colors px-1">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{c.title}</p>
-                      <p className="text-xs font-mono text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {c.tenant?.fullName ?? "Staff"} · {format(c.createdAt, "d MMM yyyy")}
                       </p>
                     </div>

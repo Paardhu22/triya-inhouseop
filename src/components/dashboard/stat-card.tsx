@@ -22,22 +22,22 @@ export function StatCard({
       className={cn(
         "p-5 sm:p-6 bg-card transition-colors flex flex-col justify-between",
         variant === "standalone"
-          ? "rounded-lg border border-border"
-          : "hover:bg-muted/20",
+          ? "border border-border"
+          : "hover:bg-muted/15",
         className
       )}
     >
-      <div className="text-[0.7rem] font-bold tracking-[0.1em] text-muted-foreground uppercase font-mono">
+      <div className="text-[0.725rem] font-semibold tracking-wider text-muted-foreground uppercase">
         {label}
       </div>
       <div
-        className="mt-3 truncate text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground sm:text-[2rem]"
+        className="mt-3 truncate text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground sm:text-[1.85rem]"
         title={String(value)}
       >
         {value}
       </div>
       {hint ? (
-        <div className="mt-2.5 text-xs text-muted-foreground/80 leading-relaxed font-normal">{hint}</div>
+        <div className="mt-2 text-xs text-muted-foreground leading-relaxed font-normal">{hint}</div>
       ) : null}
     </div>
   );

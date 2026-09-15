@@ -21,11 +21,11 @@ export default function TextRoll({
       initial="initial"
       whileHover="hovered"
       className={cn(
-        "relative block overflow-hidden",
+        "relative block overflow-hidden py-0.5",
         className
       )}
       style={{
-        lineHeight: 0.85,
+        lineHeight: 1.25,
       }}
     >
       {/* Top Text (Slides up) */}

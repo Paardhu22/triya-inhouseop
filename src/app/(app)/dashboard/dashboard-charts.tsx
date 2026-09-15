@@ -30,9 +30,6 @@ const moneyConfig = {
   expenses: { label: "Expenses", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
-const panel = "space-y-4 rounded-xl border border-border bg-card p-6";
-const heading = "text-[0.8rem] font-bold tracking-[0.08em] text-muted-foreground uppercase";
-
 /**
  * Mark geometry, shared by every chart here.
  *
@@ -96,7 +93,6 @@ function OccupancyBars({ rows, labelWidth }: { rows: OccupancyRow[]; labelWidth:
           stackId="a"
           fill="var(--color-occupied)"
           maxBarSize={BAR_THICKNESS}
-          radius={[4, 0, 0, 4]}
           {...segmentGap}
         />
         <Bar
@@ -104,7 +100,6 @@ function OccupancyBars({ rows, labelWidth }: { rows: OccupancyRow[]; labelWidth:
           stackId="a"
           fill="var(--color-available)"
           maxBarSize={BAR_THICKNESS}
-          radius={[0, 4, 4, 0]}
           {...segmentGap}
         >
           <LabelList
@@ -134,12 +129,12 @@ export function SharingOccupancyPanel({
   const unit = isFlat ? "flats" : "beds";
 
   return (
-    <section className="rounded-lg border border-border bg-card overflow-hidden">
+    <section className="border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
-        <h2 className="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">
-          {isFlat ? "04 / Occupancy by Unit Type" : "04 / Occupancy by Sharing Type"}
+        <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+          {isFlat ? "Occupancy by Unit Type" : "Occupancy by Sharing Type"}
         </h2>
-        <span className="text-xs font-mono text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {rows.reduce((n, r) => n + r.available, 0)} {unit} available
         </span>
       </div>
@@ -162,10 +157,10 @@ export function SharingOccupancyPanel({
             />
           ) : null}
 
-          <div className="overflow-x-auto rounded-md border border-border/70">
+          <div className="overflow-x-auto border border-border/70">
             <table className="w-full min-w-[34rem] text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/15 text-left text-[0.7rem] font-mono font-bold tracking-wider text-muted-foreground uppercase">
+                <tr className="border-b border-border bg-muted/15 text-left text-[0.725rem] font-semibold tracking-wider text-muted-foreground uppercase">
                   <th className="px-4 py-2.5">Type</th>
                   <th className="px-4 py-2.5 text-right">
                     {isFlat ? "Flats" : "Rooms"}
@@ -214,12 +209,12 @@ export function SharingOccupancyPanel({
 /** Occupied against free beds per block, for properties laid out in blocks. */
 export function BlockOccupancyPanel({ rows }: { rows: DashboardData["blockBreakdown"] }) {
   return (
-    <section className="rounded-lg border border-border bg-card overflow-hidden">
+    <section className="border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
-        <h2 className="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">
+        <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           Block Occupancy Distribution
         </h2>
-        <span className="text-xs font-mono text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {rows.length} Blocks
         </span>
       </div>
@@ -253,12 +248,12 @@ export function MoneyTrendPanel({ trend }: { trend: DashboardData["trend"] }) {
   }));
 
   return (
-    <section className="rounded-lg border border-border bg-card overflow-hidden">
+    <section className="border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
-        <h2 className="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">
-          03 / Collections Against Expenses · Trailing 6 Months
+        <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+          Collections Against Expenses · Trailing 6 Months
         </h2>
-        <span className="text-xs font-mono text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Financial Trajectory
         </span>
       </div>
@@ -287,13 +282,11 @@ export function MoneyTrendPanel({ trend }: { trend: DashboardData["trend"] }) {
               dataKey="collected"
               fill="var(--color-collected)"
               maxBarSize={26}
-              radius={[2, 2, 0, 0]}
             />
             <Bar
               dataKey="expenses"
               fill="var(--color-expenses)"
               maxBarSize={26}
-              radius={[2, 2, 0, 0]}
             />
           </BarChart>
         </ChartContainer>
