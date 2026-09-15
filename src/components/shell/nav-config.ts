@@ -7,6 +7,7 @@ import {
   Receipt,
   Settings,
   ShieldCheck,
+  Upload,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -29,5 +30,6 @@ export const MAIN_NAV: NavItem[] = [
 
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Admin", icon: ShieldCheck },
+  { href: "/import", label: "Import Data", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
