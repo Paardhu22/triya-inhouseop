@@ -1,17 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { startOfMonth } from "date-fns";
 
-import { type PaymentMethod } from "@/generated/prisma/client";
 import { auth } from "@/auth";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import { refreshPaymentStatus, settleMonth, voidMonthCollections } from "@/lib/ledger";
-import { rupeesToPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { getActiveProperty, getSelectedPropertyId } from "@/lib/property";
 import { storage } from "@/lib/storage";
 import { sendWhatsAppText } from "@/lib/twilio";
+
+// Rent is recorded through Collect Rent (src/lib/actions/collections.ts `collectRent`),
+// which supports part payments and issues the invoice. The old blunt "Mark Paid /
+// Mark Unpaid" toggle was removed: marking unpaid silently voided real receipts, and a
+// wrongly entered collection is now corrected by deleting that one receipt.
 
 async function requireContext() {
   const session = await auth();
@@ -82,65 +83,6 @@ export async function deleteTenant(id: string): Promise<ActionResult> {
   revalidatePath("/reports");
   // Deleting a tenant frees their bed — the admin Room capacity dialog gates on that.
   revalidatePath("/admin");
-
-  return actionOk();
-}
-
-export async function togglePaymentStatus(
-  tenancyId: string,
-  newStatus: "PAID" | "PENDING" | "OVERDUE",
-  paymentMethod?: PaymentMethod,
-  /** Rupees, as entered in the dialog. Only used for a SPLIT collection. */
-  cashAmount?: number,
-  onlineAmount?: number,
-): Promise<ActionResult> {
-  const ctx = await requireContext();
-  if (!ctx) return actionError("Not authenticated");
-
-  const tenancy = await prisma.tenancy.findFirst({
-    where: { id: tenancyId, propertyId: ctx.propertyId, status: "ACTIVE" },
-    select: {
-      id: true,
-      tenantId: true,
-      monthlyRent: true,
-      maintenanceCharge: true,
-      paymentDueDay: true,
-    },
-  });
-
-  if (!tenancy) return actionError("Active tenancy not found");
-
-  const monthStart = startOfMonth(new Date());
-
-  await prisma.$transaction(async (tx) => {
-    if (newStatus === "PAID") {
-      await settleMonth(tx, {
-        propertyId: ctx.propertyId,
-        tenancy,
-        forMonth: monthStart,
-        method: paymentMethod ?? "CASH",
-        // The dialog collects rupees; the ledger stores paise.
-        cashPaise: rupeesToPaise(cashAmount ?? 0),
-        onlinePaise: rupeesToPaise(onlineAmount ?? 0),
-        recordedById: ctx.userId,
-        at: new Date(),
-      });
-    } else {
-      // Reversing the month: the receipts are kept but moved out of PAID so they stop
-      // counting towards the collected total.
-      await voidMonthCollections(tx, tenancy.id, monthStart, newStatus);
-    }
-    // The snapshot is always derived from the ledger, never written directly, so this
-    // screen, Collect Rent and the reports cannot drift apart.
-    await refreshPaymentStatus(tx, tenancy);
-  });
-
-  revalidatePath("/tenants");
-  revalidatePath("/collections");
-  revalidatePath("/reports");
-  revalidatePath("/dashboard");
-  revalidatePath("/floor-manager");
-  revalidatePath(`/tenants/${tenancy.tenantId}`);
 
   return actionOk();
 }

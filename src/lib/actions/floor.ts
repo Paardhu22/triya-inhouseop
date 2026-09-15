@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { startOfMonth } from "date-fns";
 
 import { auth } from "@/auth";
+import type { CollectRentResult } from "@/lib/actions/collections";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { issueInvoiceForPayment } from "@/lib/invoice-delivery";
 import { refreshPaymentStatus, settleMonth } from "@/lib/ledger";
 import { prisma } from "@/lib/prisma";
-import { getSelectedPropertyId } from "@/lib/property";
+import { getActiveProperty, getSelectedPropertyId } from "@/lib/property";
 import { rupeesToPaise } from "@/lib/money";
 import { storage } from "@/lib/storage";
 import { MAINTENANCE_RESERVE_PAISE, resolveDepositStatusOnVacate } from "@/lib/tenancy";
@@ -45,8 +47,13 @@ function field(formData: FormData, key: string): string | undefined {
  * Save a bed from the bed-details form. A single action covers every case:
  * marking a bed Available (vacating any occupant) or Occupied (assigning a new
  * tenant or editing the current one), plus the optional KYC photo.
+ *
+ * When "Paid" records a collection, its invoice is issued and sent to the tenant just
+ * like Collect Rent does; the outcome is returned so the form can report it.
  */
-export async function saveBed(formData: FormData): Promise<ActionResult> {
+export async function saveBed(
+  formData: FormData,
+): Promise<ActionResult<{ invoice: CollectRentResult["invoice"] }>> {
   const ctx = await requireContext();
   if (!ctx) return actionError("Not authenticated");
 
@@ -102,7 +109,7 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
       await tx.bed.update({ where: { id: bed.id }, data: { status: "AVAILABLE" } });
     });
     revalidateFloorViews();
-    return actionOk();
+    return actionOk({ invoice: null });
   }
 
   // --- Mark bed Occupied: tenant details are required. ---
@@ -134,6 +141,7 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
 
   let oldPhotoUrl: string | null = null;
   let oldDocKeys: string[] = [];
+  let collectedPaymentId: string | null = null;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -240,7 +248,7 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
         paymentDueDay: active?.paymentDueDay ?? null,
       };
       if (paymentStatus === "PAID") {
-        await settleMonth(tx, {
+        collectedPaymentId = await settleMonth(tx, {
           propertyId: ctx.propertyId,
           tenancy: ledgerTenancy,
           forMonth: startOfMonth(new Date()),
@@ -276,8 +284,28 @@ export async function saveBed(formData: FormData): Promise<ActionResult> {
     }
   }
 
+  // The collection is committed; its invoice is best-effort and never undoes the save.
+  let invoice: CollectRentResult["invoice"] = null;
+  if (collectedPaymentId) {
+    const property = await getActiveProperty();
+    try {
+      const issued = property
+        ? await issueInvoiceForPayment(property, collectedPaymentId)
+        : ({ ok: false, error: "No active property selected" } as const);
+      invoice = issued.ok
+        ? { number: issued.number, delivered: issued.delivered, error: issued.deliveryError }
+        : { number: null, delivered: false, error: issued.error };
+    } catch (e) {
+      invoice = {
+        number: null,
+        delivered: false,
+        error: e instanceof Error ? e.message : "Could not issue the invoice",
+      };
+    }
+  }
+
   revalidateFloorViews();
-  return actionOk();
+  return actionOk({ invoice });
 }
 
 /**

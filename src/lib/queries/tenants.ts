@@ -1,9 +1,36 @@
 import "server-only";
 
+import { startOfMonth } from "date-fns";
+
 import { prisma } from "@/lib/prisma";
+import { monthlyDuePaise, resolveCollectionState, resolvePaymentStatus } from "@/lib/rent";
+
+/** This month's position for an active tenancy, derived from the ledger. */
+function currentMonthPosition(
+  t: { monthlyRent: number; maintenanceCharge: number; paymentDueDay: number | null },
+  payments: { amount: number }[],
+  month: Date,
+) {
+  const duePaise = monthlyDuePaise(t);
+  const collectedPaise = payments.reduce((sum, p) => sum + p.amount, 0);
+  return {
+    duePaise,
+    collectedPaise,
+    state: resolveCollectionState(duePaise, collectedPaise),
+    // Derived rather than the stored snapshot, which only refreshes when money is
+    // recorded or the cron job runs and can be a cycle stale.
+    paymentStatus: resolvePaymentStatus({
+      duePaise,
+      collectedPaise,
+      paymentDueDay: t.paymentDueDay,
+      month,
+    }),
+  };
+}
 
 export async function getTenants(propertyId: string) {
-  return prisma.tenant.findMany({
+  const month = startOfMonth(new Date());
+  const tenants = await prisma.tenant.findMany({
     where: { propertyId },
     orderBy: { fullName: "asc" },
     select: {
@@ -19,18 +46,32 @@ export async function getTenants(propertyId: string) {
         where: { status: "ACTIVE" },
         take: 1,
         select: {
-          paymentStatus: true,
           monthlyRent: true,
+          maintenanceCharge: true,
+          paymentDueDay: true,
           checkInDate: true,
           bed: { select: { label: true, room: { select: { number: true } } } },
+          payments: {
+            where: { forMonth: month, status: "PAID" },
+            select: { amount: true },
+          },
         },
       },
     },
   });
+
+  return tenants.map(({ tenancies, ...tenant }) => ({
+    ...tenant,
+    tenancies: tenancies.map(({ payments, ...t }) => ({
+      ...t,
+      ...currentMonthPosition(t, payments, month),
+    })),
+  }));
 }
 
 export async function getTenantProfile(tenantId: string, propertyId: string) {
-  return prisma.tenant.findFirst({
+  const month = startOfMonth(new Date());
+  const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, propertyId },
     select: {
       id: true,
@@ -57,12 +98,15 @@ export async function getTenantProfile(tenantId: string, propertyId: string) {
           monthlyRent: true,
           maintenanceCharge: true,
           securityDeposit: true,
-          paymentStatus: true,
           paymentDueDay: true,
           checkInDate: true,
           expectedLeavingDate: true,
           checkOutDate: true,
           bed: { select: { label: true, room: { select: { number: true } } } },
+          payments: {
+            where: { forMonth: month, status: "PAID" },
+            select: { amount: true },
+          },
         },
       },
       documents: {
@@ -77,8 +121,8 @@ export async function getTenantProfile(tenantId: string, propertyId: string) {
         },
       },
       payments: {
-        orderBy: { forMonth: "desc" },
-        take: 12,
+        orderBy: [{ forMonth: "desc" }, { paidAt: "desc" }],
+        take: 24,
         select: {
           id: true,
           amount: true,
@@ -98,6 +142,15 @@ export async function getTenantProfile(tenantId: string, propertyId: string) {
       },
     },
   });
+  if (!tenant) return null;
+
+  return {
+    ...tenant,
+    tenancies: tenant.tenancies.map(({ payments, ...t }) => ({
+      ...t,
+      ...currentMonthPosition(t, payments, month),
+    })),
+  };
 }
 
 export type TenantListItem = Awaited<ReturnType<typeof getTenants>>[number];

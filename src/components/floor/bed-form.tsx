@@ -104,7 +104,22 @@ export function BedForm({
         toast.error(res.error);
         return;
       }
-      toast.success("Saved");
+      // Marking the bed Paid records a collection, which issues and sends its invoice.
+      const invoice = res.data.invoice;
+      if (!invoice) {
+        toast.success("Saved");
+      } else if (invoice.delivered) {
+        toast.success("Saved", {
+          description: `Rent recorded. Invoice ${invoice.number} sent to the tenant on WhatsApp.`,
+        });
+      } else {
+        toast.warning("Saved", {
+          description: invoice.number
+            ? `Rent recorded. Invoice ${invoice.number} was created but not sent: ${invoice.error ?? "delivery failed"}. Resend it from Collections → Invoice History.`
+            : `Rent recorded, but the invoice could not be created: ${invoice.error ?? "unknown error"}.`,
+          duration: 10_000,
+        });
+      }
       onClose();
       router.refresh();
     });

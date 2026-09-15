@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/table";
 import { formatINR, paiseToRupees } from "@/lib/money";
 import type { TenantListItem } from "@/lib/queries/tenants";
-import { PAYMENT_STATUS_META } from "@/lib/status";
+import { matchesPaymentFilter, PAYMENT_FILTER_OPTIONS, type PaymentFilter } from "@/lib/rent";
+import { COLLECTION_STATE_META } from "@/lib/status";
 
 import { SendRulesButton } from "./send-rules-button";
 
@@ -57,7 +58,9 @@ function exportCsv(rows: TenantListItem[]) {
         active?.bed.room.number ?? "",
         active?.bed.label ?? "",
         active ? String(paiseToRupees(active.monthlyRent)) : "",
-        active?.paymentStatus ?? "",
+        active
+          ? `${COLLECTION_STATE_META[active.state].label}${active.paymentStatus === "OVERDUE" ? " (overdue)" : ""}`
+          : "",
         t.occupation ?? "",
         format(t.createdAt, "yyyy-MM-dd"),
       ]
@@ -78,14 +81,24 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("ALL");
   const [sort, setSort] = useState<string>("name");
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     const list = tenants.filter((t) => {
-      const isCurrent = t.tenancies.length > 0;
+      const active = t.tenancies[0];
+      const isCurrent = Boolean(active);
       if (statusFilter === "CURRENT" && !isCurrent) return false;
       if (statusFilter === "PAST" && isCurrent) return false;
+      // A payment filter only makes sense for someone with rent due now.
+      if (
+        paymentFilter !== "ALL" &&
+        (!active ||
+          !matchesPaymentFilter(paymentFilter, { state: active.state, status: active.paymentStatus }))
+      ) {
+        return false;
+      }
       if (query && !`${t.fullName} ${t.phone}`.toLowerCase().includes(query)) return false;
       return true;
     });
@@ -95,7 +108,7 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
         : a.fullName.localeCompare(b.fullName),
     );
     return list;
-  }, [tenants, q, statusFilter, sort]);
+  }, [tenants, q, statusFilter, paymentFilter, sort]);
 
   return (
     <div className="space-y-6">
@@ -117,6 +130,18 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
             <SelectItem value="ALL">All tenants</SelectItem>
             <SelectItem value="CURRENT">Current</SelectItem>
             <SelectItem value="PAST">Past</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v as PaymentFilter)}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAYMENT_FILTER_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={setSort}>
@@ -180,7 +205,12 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
                     </TableCell>
                     <TableCell>
                       {active ? (
-                        <StatusBadge meta={PAYMENT_STATUS_META[active.paymentStatus]} />
+                        <div>
+                          <StatusBadge meta={COLLECTION_STATE_META[active.state]} />
+                          {active.paymentStatus === "OVERDUE" ? (
+                            <p className="text-xs font-medium text-destructive">Overdue</p>
+                          ) : null}
+                        </div>
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>
                       )}

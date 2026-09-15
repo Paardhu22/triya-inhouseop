@@ -24,7 +24,7 @@ function RoomCard({ room, propertySlug, onOpen }: { room: FloorRoom; propertySlu
           : "border border-[#EEF2F6]",
       )}
     >
-      <span className="text-base sm:text-xl font-semibold tabular-nums tracking-tight text-foreground">
+      <span className="text-lg sm:text-2xl font-bold tabular-nums tracking-[-0.02em] text-foreground">
         {room.number}
       </span>
       {!isFlat && room.beds.length > 0 ? (

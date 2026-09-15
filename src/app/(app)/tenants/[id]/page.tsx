@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { format, differenceInDays, startOfMonth, addMonths, setDate, startOfDay } from "date-fns";
+import { format, differenceInDays, startOfMonth, addMonths, startOfDay } from "date-fns";
 import { ArrowLeft, FileText, Mail, Phone, User } from "lucide-react";
 
+import { auth } from "@/auth";
+import { CollectRentButton } from "@/components/collections/collect-rent-button";
 import { StatusBadge } from "@/components/common/status-badge";
 import { formatINR } from "@/lib/money";
 import { getActiveProperty } from "@/lib/property";
 import { getTenantProfile, type TenantProfile } from "@/lib/queries/tenants";
-import { COMPLAINT_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
+import { rentDueDate } from "@/lib/rent";
+import { COLLECTION_STATE_META, COMPLAINT_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
 import { DeleteTenantButton } from "@/components/tenants/delete-tenant-button";
-import { TogglePaymentStatusButton } from "@/components/tenants/toggle-payment-status";
 
 export const metadata: Metadata = {
   title: "Tenant profile",
@@ -29,7 +31,7 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-border bg-card">
-      <div className="border-b border-border px-5 py-3.5 text-xs font-semibold tracking-[0.06em] text-foreground uppercase">
+      <div className="border-b border-border px-5 py-3.5 text-[0.8rem] font-bold tracking-[0.06em] text-foreground uppercase">
         {title}
       </div>
       <div className="p-5">{children}</div>
@@ -49,14 +51,12 @@ function tenancyPeriod(t: TenantProfile["tenancies"][number]) {
 
 function getRentDueText(tenancy: TenantProfile["tenancies"][number]) {
   const today = startOfDay(new Date());
-  const dueDay = tenancy.paymentDueDay || 5;
-  
-  let dueMonth = startOfMonth(today);
-  if (tenancy.paymentStatus === "PAID") {
-    dueMonth = addMonths(dueMonth, 1);
-  }
-  
-  const dueDate = setDate(dueMonth, dueDay);
+  // Once this month is fully paid, the next thing due is next month's rent.
+  const month = startOfMonth(today);
+  const dueDate = rentDueDate(
+    tenancy.paymentDueDay,
+    tenancy.state === "PAID" ? addMonths(month, 1) : month,
+  );
   const daysLeft = differenceInDays(dueDate, today);
   
   if (daysLeft === 0) return "Due today";
@@ -84,8 +84,9 @@ export default async function TenantProfilePage({
   const isFlat = property.isFlat;
 
   const { id } = await params;
-  const tenant = await getTenantProfile(id, propertyId);
+  const [tenant, session] = await Promise.all([getTenantProfile(id, propertyId), auth()]);
   if (!tenant) notFound();
+  const canDelete = session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
 
   const active = tenant.tenancies.find((t) => t.status === "ACTIVE");
   const hasKyc = Boolean(
@@ -118,7 +119,7 @@ export default async function TenantProfilePage({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2.5">
-              <h1 className="truncate text-xl font-bold tracking-tight">{tenant.fullName}</h1>
+              <h1 className="truncate text-2xl font-bold tracking-[-0.025em]">{tenant.fullName}</h1>
               {active ? (
                 <span className="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-foreground">
                   <span className="size-1.5 rounded-full bg-available" />
@@ -146,16 +147,22 @@ export default async function TenantProfilePage({
                 · {formatINR(active.monthlyRent)}/mo
               </p>
             ) : null}
+            {active ? (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <StatusBadge meta={COLLECTION_STATE_META[active.state]} />
+                {active.paymentStatus === "OVERDUE" ? (
+                  <StatusBadge meta={PAYMENT_STATUS_META.OVERDUE} />
+                ) : null}
+                <span className="text-muted-foreground">
+                  {formatINR(active.collectedPaise)} of {formatINR(active.duePaise)} collected for{" "}
+                  {format(new Date(), "MMMM")}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:self-center">
-          {active ? (
-            <TogglePaymentStatusButton
-              tenancyId={active.id}
-              currentStatus={active.paymentStatus}
-              duePaise={active.monthlyRent + active.maintenanceCharge}
-            />
-          ) : null}
+          {active ? <CollectRentButton tenancyId={active.id} canDelete={canDelete} /> : null}
           <DeleteTenantButton id={tenant.id} />
         </div>
       </div>
@@ -218,7 +225,7 @@ export default async function TenantProfilePage({
                   <span>
                     Deposit: {active.securityDeposit ? formatINR(active.securityDeposit) : "Not set"}
                   </span>
-                  <span>Rent cycle: {format(setDate(new Date(), active.paymentDueDay || 5), "do 'of month'")} · {getRentDueText(active)}</span>
+                  <span>Rent cycle: {format(rentDueDate(active.paymentDueDay, startOfMonth(new Date())), "do 'of month'")} · {getRentDueText(active)}</span>
                   <span>
                     Leaving: {active.expectedLeavingDate ? format(active.expectedLeavingDate, "dd MMM yyyy") : "Not set"}
                   </span>

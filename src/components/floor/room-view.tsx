@@ -25,20 +25,20 @@ function StatusChip({ bed }: { bed: FloorRoom["beds"][number] }) {
   const tenancy = bed.tenancies[0];
   if (!tenancy || bed.status !== "OCCUPIED") {
     return (
-      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
         Available
       </span>
     );
   }
   if (tenancy.paymentStatus === "PAID") {
     return (
-      <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-500">
+      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-500">
         Paid
       </span>
     );
   }
   return (
-    <span className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-500">
+    <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-rose-600 dark:text-rose-500">
       Pending
     </span>
   );
@@ -111,7 +111,7 @@ export function RoomView({
                 {/* Headboard & Pillow Area */}
                 <div className="flex w-full shrink-0 items-center justify-center py-4">
                   <div className="flex min-w-[5rem] items-center justify-center rounded-lg border border-black/5 bg-white px-3 py-1.5 dark:border-white/10 dark:bg-muted">
-                    <span className="text-sm font-bold tracking-tight text-foreground uppercase">
+                    <span className="text-base font-bold tracking-[0.02em] text-foreground uppercase">
                       Bed {bed.label}
                     </span>
                   </div>
