@@ -22,13 +22,12 @@ npm run dev            # Next dev server (http://localhost:3000)
 npm run build          # prisma generate + next build
 npm run lint           # eslint (flat config, eslint.config.mjs)
 
-# Database (Postgres via Docker)
+# Database (Neon Postgres via DATABASE_URL; docker compose for a local one)
 npm run db:up          # start the local Postgres container (docker compose, --wait)
 npm run db:down        # stop it
 npm run db:migrate     # prisma migrate dev (create/apply a migration)
 npm run db:generate    # regenerate the Prisma client into src/generated/prisma
-npm run db:seed        # seed staff + empty property structure (tsx prisma/seed.ts)
-npm run db:mock        # populate a full demo property with data (tsx prisma/mock-frieden.ts)
+npm run db:seed        # seed admin + empty property structure (empty DB only)
 npm run db:reset       # drop, re-migrate, re-seed (prisma migrate reset)
 npm run db:studio      # Prisma Studio
 ```
@@ -36,9 +35,10 @@ npm run db:studio      # Prisma Studio
 No test runner is configured — there is no test command. Verify changes with
 `npm run build` (runs `tsc`) and `npm run lint`.
 
-First-time setup: `cp .env.example .env`, `npm run db:up`, `npm run db:migrate`,
-`npm run db:seed`. Seeded login: `admin@triya.local` / `Admin@12345` (staff users
-use `Staff@12345`).
+First-time setup: `cp .env.example .env`, set `DATABASE_URL`, `SEED_ADMIN_EMAIL` and
+`SEED_ADMIN_PASSWORD`, then `npx prisma migrate deploy` and `npm run db:seed`. The
+seed creates only the admin and the empty property layouts, and refuses to run on a
+non-empty database. Property manager accounts are created from the Admin page.
 
 ## Architecture
 

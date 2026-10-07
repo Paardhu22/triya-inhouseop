@@ -10,10 +10,16 @@ const prisma = new PrismaClient({
 });
 
 // ---------------------------------------------------------------------------
-// This seed creates ONLY the staff accounts and the empty property structure
+// This seed creates ONLY the admin account and the empty property structure
 // (floors, rooms and beds — all available). No tenants, occupancy, payments,
 // complaints or expenses are created: the app starts from a clean, empty state
 // and staff add tenants by clicking a bed in the Floor Manager.
+//
+// The admin's credentials come from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (.env).
+// Property manager accounts are created afterwards from the Admin page.
+//
+// It refuses to run against a database that already holds properties, so it can
+// never wipe real data. Use `npm run db:reset` to deliberately start over.
 // ---------------------------------------------------------------------------
 
 function bedLabels(n: number): string[] {
@@ -26,16 +32,12 @@ function bedLabels(n: number): string[] {
 type TemplateDef = { name: string; description: string; rooms: number[] };
 type FloorDef = { number: number; name?: string };
 type BlockDef = { name: string; template: TemplateDef; floors: FloorDef[] };
-// Each property ships with one non-admin MANAGER account, scoped to that property
-// (User.propertyId). These sign in from the login-page user dropdown.
-type AccountDef = { email: string; password: string };
 type PropertyConfig = {
   name: string;
   slug: string;
   address: string;
   city: string;
   isFlat?: boolean;
-  account: AccountDef;
 } & (
   | { hasBlocks: false; template: TemplateDef; floors: FloorDef[] }
   | { hasBlocks: true; blocks: BlockDef[] }
@@ -53,7 +55,6 @@ const PROPERTIES: PropertyConfig[] = [
     slug: "joystayz",
     address: "Plot 42, Gachibowli",
     city: "Hyderabad",
-    account: { email: "joystayz@triya.local", password: "joystayz@12345" },
     hasBlocks: false,
     template: JOYSTAYZ_FLOOR,
     floors: [3, 4, 5, 6, 7].map((number) => ({ number, name: `Floor ${number}` })),
@@ -63,7 +64,6 @@ const PROPERTIES: PropertyConfig[] = [
     slug: "frieden",
     address: "Road No. 12, Banjara Hills",
     city: "Hyderabad",
-    account: { email: "frieden@triya.local", password: "frieden@12345" },
     hasBlocks: true,
     blocks: [
       {
@@ -91,7 +91,6 @@ const PROPERTIES: PropertyConfig[] = [
     slug: "cozy-gowlidoddy",
     address: "Survey 88, Gowlidoddy",
     city: "Hyderabad",
-    account: { email: "cozy@triya.local", password: "cozy@12345" },
     isFlat: true,
     hasBlocks: true,
     blocks: [
@@ -129,27 +128,16 @@ const PROPERTIES: PropertyConfig[] = [
 // ---------------------------------------------------------------------------
 // Seeding
 // ---------------------------------------------------------------------------
-async function clearAll() {
-  // FK-safe order (cascades would cover most, but be explicit and idempotent).
-  await prisma.payment.deleteMany();
-  await prisma.document.deleteMany();
-  await prisma.complaint.deleteMany();
-  await prisma.expense.deleteMany();
-  await prisma.expenseSubcategory.deleteMany();
-  await prisma.expenseCategory.deleteMany();
-  await prisma.tenancy.deleteMany();
-  await prisma.tenant.deleteMany();
-  await prisma.bed.deleteMany();
-  await prisma.room.deleteMany();
-  await prisma.roomTemplate.deleteMany();
-  await prisma.floor.deleteMany();
-  await prisma.floorTemplate.deleteMany();
-  await prisma.block.deleteMany();
-  await prisma.property.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.account.deleteMany();
-  await prisma.verificationToken.deleteMany();
-  await prisma.user.deleteMany();
+function adminCredentials() {
+  const email = process.env.SEED_ADMIN_EMAIL?.trim();
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  if (!email || !password) {
+    throw new Error("Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD in .env before seeding.");
+  }
+  if (password.length < 10) {
+    throw new Error("SEED_ADMIN_PASSWORD must be at least 10 characters.");
+  }
+  return { email, password };
 }
 
 // A sensible, fully-editable starter set so the Expense Tracker isn't empty on
@@ -179,12 +167,10 @@ async function seedExpenseCategories() {
   }
 }
 
-// The global ADMIN account (propertyId null → access to every property). Each
-// property's own MANAGER account is created alongside the property in seedProperties.
-async function seedUsers() {
-  const passwordHash = bcrypt.hashSync("Admin@12345", 10);
+// The global ADMIN account (propertyId null → access to every property).
+async function seedAdmin(email: string, password: string) {
   await prisma.user.create({
-    data: { name: "Triya Admin", email: "admin@triya.local", passwordHash, role: "ADMIN" },
+    data: { name: "Triya Admin", email, passwordHash: bcrypt.hashSync(password, 10), role: "ADMIN" },
   });
 }
 
@@ -228,17 +214,6 @@ async function seedProperties() {
         city: config.city,
         isFlat: config.isFlat ?? false,
         hasBlocks: config.hasBlocks,
-      },
-    });
-
-    // The property's scoped MANAGER account.
-    await prisma.user.create({
-      data: {
-        name: config.name,
-        email: config.account.email,
-        passwordHash: bcrypt.hashSync(config.account.password, 10),
-        role: "MANAGER",
-        propertyId: property.id,
       },
     });
 
@@ -310,11 +285,13 @@ async function seedProperties() {
 }
 
 async function main() {
-  console.log("Clearing existing data...");
-  await clearAll();
+  const admin = adminCredentials();
+  if ((await prisma.property.count()) > 0 || (await prisma.user.count()) > 0) {
+    throw new Error("Database is not empty — refusing to seed over existing data.");
+  }
 
-  console.log("Seeding users...");
-  await seedUsers();
+  console.log("Seeding admin...");
+  await seedAdmin(admin.email, admin.password);
 
   console.log("Seeding properties, floors, rooms and beds (all available)...");
   await seedProperties();
@@ -332,11 +309,7 @@ async function main() {
   console.log(`  Properties: ${propertyCount}`);
   console.log(`  Rooms:      ${roomCount}`);
   console.log(`  Beds:       ${bedCount}`);
-  console.log("\nAccounts:");
-  console.log("  admin@triya.local / Admin@12345      (ADMIN — all properties)");
-  for (const config of PROPERTIES) {
-    console.log(`  ${config.account.email} / ${config.account.password}   (MANAGER — ${config.name})`);
-  }
+  console.log(`\nAdmin login: ${admin.email} (password from SEED_ADMIN_PASSWORD)`);
 }
 
 main()
