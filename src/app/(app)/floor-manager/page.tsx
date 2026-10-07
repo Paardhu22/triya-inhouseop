@@ -2,32 +2,39 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import {
+  BED_VISUAL_STATUS_META,
+  type BedVisualStatus,
+} from "@/components/floor/bed-status";
 import { FloorBoard } from "@/components/floor/floor-board";
 import { FloorSelectors } from "@/components/floor/floor-selectors";
 import { FloorBanner } from "@/components/floor/floor-banner";
 import { PageHeader } from "@/components/shell/page-header";
 import { getFloorLayout, getFloorNavigation } from "@/lib/queries/floor";
 import { getActiveProperty } from "@/lib/property";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Floor Manager",
 };
 
+/**
+ * The dots on a room tile are per-BED and carry that bed's payment state, not the
+ * room's occupancy — so the legend is generated from BED_VISUAL_STATUS_META, the
+ * very map `RoomCard` colours those dots with. Add a state there and it shows up
+ * here on its own; the two can never drift apart.
+ */
+const LEGEND_ORDER: BedVisualStatus[] = ["paid", "pending", "overdue", "vacant"];
+
 function Legend() {
   return (
-    <div className="flex items-center gap-5 text-sm text-muted-foreground">
-      <span className="flex items-center gap-2">
-        <span className="size-3 rounded-full bg-available" />
-        Beds available
-      </span>
-      <span className="flex items-center gap-2">
-        <span className="size-3 rounded-full bg-[#f59e0b]" />
-        Partially occupied
-      </span>
-      <span className="flex items-center gap-2">
-        <span className="size-3 rounded-full bg-occupied" />
-        Fully occupied
-      </span>
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+      {LEGEND_ORDER.map((status) => (
+        <span key={status} className="flex items-center gap-2">
+          <span className={cn("size-3 rounded-full", BED_VISUAL_STATUS_META[status].dot)} />
+          {BED_VISUAL_STATUS_META[status].label}
+        </span>
+      ))}
     </div>
   );
 }
@@ -71,13 +78,6 @@ export default async function FloorManagerPage({
 
   return (
     <div className="relative space-y-6">
-      {/* Extremely subtle premium gradient, scoped to this page only. */}
-      <div
-        className="fixed inset-0 -z-10"
-        style={{
-          background: "radial-gradient(circle at top, #ffffff, #f6fff9 45%, #edf8ff 100%)",
-        }}
-      />
       <PageHeader title="Floor Manager" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <FloorSelectors

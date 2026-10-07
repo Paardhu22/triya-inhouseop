@@ -69,7 +69,7 @@ export function InvoiceHistory({ invoices }: { invoices: InvoiceHistoryRow[] }) 
         ))}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <div className="overflow-x-auto border-y border-border">
         <Table>
           <TableHeader>
             <TableRow>

@@ -124,7 +124,7 @@ export function ComplaintsClient({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden border-y border-border">
         <Table>
           <TableHeader>
             <TableRow>

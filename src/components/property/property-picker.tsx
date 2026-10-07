@@ -39,7 +39,7 @@ export function PropertyPicker({ properties }: { properties: Item[] }) {
             onClick={() => choose(p.id)}
             disabled={pending}
             className={cn(
-              "group flex items-center gap-4 rounded-xl border border-border bg-card p-6 text-left transition-colors duration-150 hover:bg-hover/50 disabled:opacity-60",
+              "group flex items-center gap-4 rounded-xl border border-border bg-card p-6 text-left shadow-2xs transition-[background-color,border-color,box-shadow] duration-200 hover:border-primary/25 hover:bg-hover/50 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60",
               selectedId === p.id && "border-primary",
             )}
           >

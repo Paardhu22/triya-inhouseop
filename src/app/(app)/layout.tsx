@@ -41,7 +41,7 @@ export default async function AppLayout({
             role: session.user.role,
           }}
         />
-        <main className="mx-auto w-full max-w-[1180px] flex-1 px-6 py-10 sm:px-8 lg:px-12 lg:py-14">
+        <main className="mx-auto w-full min-w-0 max-w-[1180px] flex-1 px-5 py-10 sm:px-8 lg:px-12 lg:py-12">
           {children}
         </main>
       </div>

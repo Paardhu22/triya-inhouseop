@@ -55,7 +55,7 @@ export function Topbar({ property, properties, user }: Props) {
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background px-4">
+    <header className="sticky top-0 z-20 mx-5 flex h-[4.5rem] shrink-0 items-center gap-2 border-b border-border bg-background/95 backdrop-blur-md sm:mx-8 lg:mx-12">
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
@@ -72,8 +72,8 @@ export function Topbar({ property, properties, user }: Props) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="outline"
-              className="flex min-w-[160px] sm:min-w-[200px] h-10 items-center justify-between gap-2 px-3 py-1.5 rounded-lg border border-border bg-card shadow-2xs hover:bg-muted/50"
+              variant="ghost"
+              className="flex h-10 min-w-0 max-w-[min(16rem,calc(100vw-10rem))] items-center justify-between gap-2 px-2 py-1.5 sm:min-w-[200px]"
               disabled={isPending}
             >
               <PropertyLogo
@@ -121,7 +121,7 @@ export function Topbar({ property, properties, user }: Props) {
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <div className="flex min-w-[160px] sm:min-w-[200px] h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 shadow-2xs">
+        <div className="flex h-10 min-w-0 max-w-[min(16rem,calc(100vw-10rem))] items-center gap-2 px-2 py-1.5 sm:min-w-[200px]">
           <PropertyLogo
             logoKey={property.logoKey}
             name={property.name}

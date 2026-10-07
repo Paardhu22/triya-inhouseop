@@ -31,7 +31,7 @@ export default async function ReportsPage({
         } and tenant.`}
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-x-6 border-y border-border sm:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="Expected"
           value={formatINRCompact(summary.expectedPaise)}
@@ -60,8 +60,8 @@ export default async function ReportsPage({
         />
       </div>
 
-      <section className="space-y-4 rounded-xl border border-border bg-card p-6">
-        <h2 className="text-[0.8rem] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+      <section className="space-y-5 border-t border-border pt-6">
+        <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
           Rent collected · trailing 12 months
         </h2>
         <RentTrendChart series={report.trend} />

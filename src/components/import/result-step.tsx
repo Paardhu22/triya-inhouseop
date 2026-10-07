@@ -44,7 +44,7 @@ export function ResultStep({
 
   return (
     <div className="space-y-5">
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-2">
             <CircleCheck className="size-5 text-emerald-700" />
@@ -86,7 +86,7 @@ export function ResultStep({
       </Card>
 
       {summary.problems.length > 0 ? (
-        <Card>
+        <Card variant="section">
           <CardHeader className="border-b">
             <CardTitle>Rows that were left out</CardTitle>
             <CardDescription>

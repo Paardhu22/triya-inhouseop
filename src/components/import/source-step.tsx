@@ -50,7 +50,7 @@ export function SourceStep({ onParsed }: { onParsed: (upload: ParsedUpload) => v
 
   return (
     <div className="space-y-5">
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b">
           <CardTitle>Where is the data?</CardTitle>
           <CardDescription>
@@ -140,7 +140,7 @@ export function SourceStep({ onParsed }: { onParsed: (upload: ParsedUpload) => v
         </CardContent>
       </Card>
 
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b">
           <CardTitle>What can be imported</CardTitle>
           <CardDescription>

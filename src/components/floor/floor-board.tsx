@@ -16,15 +16,16 @@ function RoomCard({ room, propertySlug, onOpen }: { room: FloorRoom; propertySlu
 
   return (
     <button
+      type="button"
       onClick={onOpen}
       className={cn(
-        "group flex flex-col items-center justify-center gap-2 sm:gap-2.5 rounded-2xl bg-white px-3 py-4 sm:px-4 sm:py-5 text-center shadow-[0_1px_2px_rgba(15,23,42,.04),0_1px_3px_rgba(15,23,42,.04)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(15,23,42,.08)] active:scale-[0.97]",
+        "group flex flex-col items-center justify-center gap-2 sm:gap-2.5 rounded-xl bg-card px-3 py-4 sm:px-4 sm:py-5 text-center shadow-2xs transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transform-none",
         flatStatus
-          ? cn("border-t border-r border-b border-t-[#EEF2F6] border-r-[#EEF2F6] border-b-[#EEF2F6] border-l-4", flatStatus.borderLeft)
-          : "border border-[#EEF2F6]",
+          ? cn("border-t border-r border-b border-t-border border-r-border border-b-border border-l-4", flatStatus.borderLeft)
+          : "border border-border hover:border-primary/25",
       )}
     >
-      <span className="text-lg sm:text-2xl font-bold tabular-nums tracking-[-0.02em] text-foreground">
+      <span className="text-lg sm:text-2xl font-semibold tabular-nums tracking-[-0.035em] text-foreground">
         {room.number}
       </span>
       {!isFlat && room.beds.length > 0 ? (
@@ -62,7 +63,7 @@ export function FloorBoard({
 
   if (rooms.length === 0) {
     return (
-      <div className="rounded-[24px] border border-[#E8EEF3] bg-white px-6 py-24 text-center text-sm text-muted-foreground">
+      <div className="border-y border-border px-6 py-20 text-center text-sm text-muted-foreground">
         No rooms on this floor yet.
       </div>
     );
@@ -90,15 +91,18 @@ export function FloorBoard({
   return (
     <>
       <div
-        className="rounded-[24px] border border-[#E8EEF3] bg-white px-5 sm:px-8 lg:px-12"
+        className="overflow-x-auto border-y border-border"
         style={{
           paddingTop: "var(--board-padding-y)",
           paddingBottom: "var(--board-padding-y)"
         }}
       >
-        <div className="flex flex-col gap-4 sm:gap-6">
+        <div
+          className="flex flex-col gap-4"
+          style={{ minWidth: `calc(${cols} * 4.5rem + ${cols - 1} * 1rem)` }}
+        >
           <div
-            className="grid gap-4 sm:gap-6 mx-auto"
+            className="grid gap-4 mx-auto"
             style={{
               gridTemplateColumns: `repeat(${firstRowSize}, minmax(0, 1fr))`,
               width: `${(firstRowSize / cols) * 100}%`
@@ -121,7 +125,7 @@ export function FloorBoard({
 
           {secondRowSize > 0 && (
             <div
-              className="grid gap-4 sm:gap-6 mx-auto"
+              className="grid gap-4 mx-auto"
               style={{
                 gridTemplateColumns: `repeat(${secondRowSize}, minmax(0, 1fr))`,
                 width: `${(secondRowSize / cols) * 100}%`

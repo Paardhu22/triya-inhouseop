@@ -70,7 +70,7 @@ export function PreviewStep({
 
   return (
     <div className="space-y-5">
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b">
           <CardTitle>What will happen</CardTitle>
           <CardDescription>
@@ -86,7 +86,7 @@ export function PreviewStep({
       </Card>
 
       {kind === "tenants" || kind === "expenses" ? (
-        <Card>
+        <Card variant="section">
           <CardHeader className="border-b">
             <CardTitle>Options</CardTitle>
             <CardDescription>Changing one of these re-checks the sheet.</CardDescription>
@@ -149,7 +149,7 @@ export function PreviewStep({
         </Card>
       ) : null}
 
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b sm:grid-cols-[1fr_auto]">
           <div>
             <CardTitle>Row by row</CardTitle>

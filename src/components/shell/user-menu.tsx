@@ -37,7 +37,7 @@ export function UserMenu({ user }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full">
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Open account menu">
           <Avatar className="size-8">
             <AvatarFallback className="text-xs">
               {getInitials(user.name, user.email).toUpperCase()}

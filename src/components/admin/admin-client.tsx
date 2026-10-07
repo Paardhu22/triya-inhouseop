@@ -46,7 +46,7 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
         ) : null}
       </div>
 
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b sm:grid-cols-[1fr_auto]">
           <div>
             <CardTitle>Property structure</CardTitle>
@@ -86,7 +86,7 @@ export function AdminClient({ config }: { config: AdminPropertyConfig }) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b sm:grid-cols-[1fr_auto]">
           <div>
             <CardTitle>{config.slug === "cozy-gowlidoddy" ? "Flat management" : "Room capacity"}</CardTitle>

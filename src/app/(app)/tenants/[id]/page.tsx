@@ -28,14 +28,14 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
   );
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ProfileSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <div className="border-b border-border px-5 py-3.5 text-[0.8rem] font-bold tracking-[0.06em] text-foreground uppercase">
+    <section className="border-t border-border pt-6">
+      <h2 className="pb-5 text-sm font-semibold tracking-[-0.015em] text-foreground">
         {title}
-      </div>
-      <div className="p-5">{children}</div>
-    </div>
+      </h2>
+      <div>{children}</div>
+    </section>
   );
 }
 
@@ -112,7 +112,7 @@ export default async function TenantProfilePage({
         Back to tenants
       </Link>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border bg-card p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border py-6">
         <div className="flex items-center gap-4 min-w-0">
           <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
             <User className="size-6" />
@@ -167,8 +167,8 @@ export default async function TenantProfilePage({
         </div>
       </div>
 
-      <div className="grid gap-4">
-        <SectionCard title="KYC & personal details">
+      <div className="grid gap-8">
+        <ProfileSection title="KYC & personal details">
           {hasKyc ? (
             <div className="divide-y">
               <InfoRow label="Father's name" value={tenant.fatherName} />
@@ -185,17 +185,17 @@ export default async function TenantProfilePage({
           ) : (
             <Empty label="No additional KYC details captured yet." />
           )}
-        </SectionCard>
+        </ProfileSection>
 
-        <SectionCard title="Stay history">
+        <ProfileSection title="Stay history">
           {tenant.tenancies.length === 0 ? (
             <Empty label="No stays recorded." />
           ) : (
-            <div className="space-y-2">
+            <div className="divide-y divide-border">
               {tenant.tenancies.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                  className="flex flex-wrap items-center justify-between gap-3 py-4"
                 >
                   <div>
                     <p className="text-sm font-medium">
@@ -233,9 +233,9 @@ export default async function TenantProfilePage({
               ) : null}
             </div>
           )}
-        </SectionCard>
+        </ProfileSection>
 
-        <SectionCard title="Payment history">
+        <ProfileSection title="Payment history">
           {tenant.payments.length === 0 ? (
             <Empty label="No payments recorded." />
           ) : (
@@ -263,9 +263,9 @@ export default async function TenantProfilePage({
               ))}
             </div>
           )}
-        </SectionCard>
+        </ProfileSection>
 
-        <SectionCard title="KYC Document">
+        <ProfileSection title="KYC Document">
           {tenant.photoUrl ? (
             <div className="space-y-3">
               <a
@@ -288,7 +288,7 @@ export default async function TenantProfilePage({
           ) : (
             <Empty label="No KYC document uploaded yet." />
           )}
-        </SectionCard>
+        </ProfileSection>
       </div>
     </div>
   );

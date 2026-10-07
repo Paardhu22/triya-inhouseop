@@ -43,6 +43,8 @@ export async function getDashboardData(propertyId: string) {
       where: { propertyId },
       select: {
         id: true,
+        number: true,
+        order: true,
         sharingType: true,
         floor: {
           select: {
@@ -53,7 +55,10 @@ export async function getDashboardData(propertyId: string) {
             block: { select: { id: true, name: true, order: true } },
           },
         },
-        beds: { select: { status: true } },
+        beds: {
+          orderBy: [{ order: "asc" }, { label: "asc" }],
+          select: { id: true, label: true, status: true },
+        },
       },
     }),
     prisma.tenancy.findMany({
@@ -64,9 +69,10 @@ export async function getDashboardData(propertyId: string) {
         maintenanceCharge: true,
         paymentDueDay: true,
         noticeGivenDate: true,
-        tenant: { select: { fullName: true } },
+        tenant: { select: { id: true, fullName: true } },
         bed: {
           select: {
+            id: true,
             label: true,
             room: { select: { number: true, sharingType: true } },
           },
@@ -209,6 +215,31 @@ export async function getDashboardData(propertyId: string) {
     .map(([id, { sort, ...fill }]) => ({ id, sort, ...fill }))
     .sort((a, b) => a.sort.localeCompare(b.sort));
 
+  // The directory uses the same beds as the capacity totals, including occupied
+  // beds without an active tenancy. Only active occupants are shown.
+  const tenancyByBed = new Map(activeTenancies.map((t) => [t.bed.id, t]));
+  const floorOrder = new Map(floorBreakdown.map((f, index) => [f.id, index]));
+  const occupancyEntries = [...rooms]
+    .sort((a, b) =>
+      (floorOrder.get(a.floor.id) ?? 0) - (floorOrder.get(b.floor.id) ?? 0) ||
+      a.order - b.order ||
+      a.number.localeCompare(b.number, undefined, { numeric: true }),
+    )
+    .flatMap((room) => room.beds.map((bed) => {
+      const tenancy = bed.status === "OCCUPIED" ? tenancyByBed.get(bed.id) : undefined;
+      return {
+        id: bed.id,
+        status: bed.status,
+        roomNumber: room.number,
+        bedLabel: bed.label,
+        floorId: room.floor.id,
+        floorName: room.floor.name ?? `Floor ${room.floor.number}`,
+        blockId: room.floor.block?.id ?? null,
+        blockName: room.floor.block?.name ?? null,
+        tenant: tenancy?.tenant ?? null,
+      };
+    }));
+
   // --- Rent roll-up -------------------------------------------------------------
 
   let expectedPaise = 0;
@@ -301,6 +332,7 @@ export async function getDashboardData(propertyId: string) {
     fullRooms,
     partialRooms,
     emptyRooms,
+    occupancyEntries,
 
     // Breakdowns
     sharingBreakdown: sharingBreakdown.map((s) => ({
@@ -336,3 +368,4 @@ export async function getDashboardData(propertyId: string) {
 }
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
+export type DashboardOccupancyEntry = DashboardData["occupancyEntries"][number];

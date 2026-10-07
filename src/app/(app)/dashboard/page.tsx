@@ -4,6 +4,7 @@ import { format } from "date-fns";
 
 import { StatusBadge } from "@/components/common/status-badge";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { OccupancyStatCard } from "@/components/dashboard/occupancy-stat-card";
 import { PageHeader } from "@/components/shell/page-header";
 import { formatINR, formatINRCompact } from "@/lib/money";
 import { getActiveProperty } from "@/lib/property";
@@ -41,37 +42,41 @@ export default async function DashboardPage() {
     data.expectedPaise > 0 ? Math.round((data.collectedPaise / data.expectedPaise) * 100) : 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <PageHeader
         title="Dashboard"
         description={`Occupancy and rent for ${property.name} as at ${format(new Date(), "d MMMM yyyy")}.`}
       />
 
       {/* 01 / Capacity Overview */}
-      <section className="space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+      <section className="space-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
             Capacity Overview
           </h2>
           <span className="text-xs text-muted-foreground">
             {data.totalRooms} {isFlat ? "Units" : "Rooms"} Total
           </span>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-y border border-border bg-card lg:grid-cols-4 lg:divide-y-0">
+        <div className="grid grid-cols-2 gap-x-6 border-t border-border sm:gap-x-8 lg:grid-cols-4">
           <StatCard
             label={isFlat ? "Total Flats" : "Total Beds"}
             value={data.totalBeds}
             hint={`Across ${data.totalRooms} ${isFlat ? "units" : "rooms"}`}
           />
-          <StatCard
+          <OccupancyStatCard
             label="Occupied"
             value={data.occupiedBeds}
             hint={`${occupancyRate}% of capacity filled`}
+            entries={data.occupancyEntries.filter((entry) => entry.status === "OCCUPIED")}
+            isFlat={isFlat}
           />
-          <StatCard
+          <OccupancyStatCard
             label="Available"
             value={data.availableBeds}
             hint={`${unitLabel} ready to move in`}
+            entries={data.occupancyEntries.filter((entry) => entry.status === "AVAILABLE")}
+            isFlat={isFlat}
           />
           <StatCard
             label={isFlat ? "Units Let" : "Rooms Full"}
@@ -82,16 +87,16 @@ export default async function DashboardPage() {
       </section>
 
       {/* 02 / Rent & Financial Ledger */}
-      <section className="space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+      <section className="space-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
             Financial Ledger · {format(data.monthStart, "MMMM yyyy")}
           </h2>
           <span className="text-xs text-muted-foreground">
             {collectionRate}% Realization Rate
           </span>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-y border border-border bg-card lg:grid-cols-4 lg:divide-y-0">
+        <div className="grid grid-cols-2 gap-x-6 border-t border-border sm:gap-x-8 lg:grid-cols-4">
           <StatCard
             label="Expected Rent"
             value={formatINRCompact(data.expectedPaise)}
@@ -127,9 +132,9 @@ export default async function DashboardPage() {
       ) : null}
 
       {/* 05 / Floor Directory */}
-      <section className="border border-border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
-          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+      <section className="min-w-0 overflow-hidden border-t border-border pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-5">
+          <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
             Floor Occupancy Directory
           </h2>
           <span className="text-xs text-muted-foreground">
@@ -144,17 +149,17 @@ export default async function DashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[32rem] text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/15 text-left text-[0.725rem] font-semibold tracking-wider text-muted-foreground uppercase">
-                  <th className="px-5 py-2.5">Floor</th>
-                  <th className="px-5 py-2.5 text-right">
+                <tr className="border-b border-border text-left text-xs font-semibold text-muted-foreground">
+                  <th className="pr-5 py-3 first:pl-0 last:pr-0">Floor</th>
+                  <th className="pr-5 py-3 first:pl-0 last:pr-0 text-right">
                     {isFlat ? "Flats" : "Rooms"}
                   </th>
-                  <th className="px-5 py-2.5 text-right">
+                  <th className="pr-5 py-3 first:pl-0 last:pr-0 text-right">
                     {isFlat ? "Units" : "Beds"}
                   </th>
-                  <th className="px-5 py-2.5 text-right">Occupied</th>
-                  <th className="px-5 py-2.5 text-right">Available</th>
-                  <th className="px-5 py-2.5 text-right">Fill Rate</th>
+                  <th className="pr-5 py-3 first:pl-0 last:pr-0 text-right">Occupied</th>
+                  <th className="pr-5 py-3 first:pl-0 last:pr-0 text-right">Available</th>
+                  <th className="pr-5 py-3 first:pl-0 last:pr-0 text-right">Fill Rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -162,22 +167,22 @@ export default async function DashboardPage() {
                   const fill = f.beds > 0 ? Math.round((f.occupied / f.beds) * 100) : 0;
                   return (
                     <tr key={f.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-5 py-2.5 font-medium text-foreground">
+                      <td className="pr-5 py-3 first:pl-0 last:pr-0 font-medium text-foreground">
                         {f.blockName ? `Block ${f.blockName} · ` : ""}
                         {f.name ?? `Floor ${f.number}`}
                       </td>
-                      <td className="px-5 py-2.5 text-right tabular-nums text-muted-foreground">{f.rooms}</td>
-                      <td className="px-5 py-2.5 text-right tabular-nums text-muted-foreground">{f.beds}</td>
-                      <td className="px-5 py-2.5 text-right tabular-nums font-medium text-foreground">{f.occupied}</td>
-                      <td className="px-5 py-2.5 text-right tabular-nums font-medium text-foreground">
+                      <td className="pr-5 py-3 first:pl-0 last:pr-0 text-right tabular-nums text-muted-foreground">{f.rooms}</td>
+                      <td className="pr-5 py-3 first:pl-0 last:pr-0 text-right tabular-nums text-muted-foreground">{f.beds}</td>
+                      <td className="pr-5 py-3 first:pl-0 last:pr-0 text-right tabular-nums font-medium text-foreground">{f.occupied}</td>
+                      <td className="pr-5 py-3 first:pl-0 last:pr-0 text-right tabular-nums font-medium text-foreground">
                         {f.available}
                       </td>
-                      <td className="px-5 py-2.5 text-right tabular-nums text-muted-foreground">
+                      <td className="pr-5 py-3 first:pl-0 last:pr-0 text-right tabular-nums text-muted-foreground">
                         <span className="inline-flex items-center gap-2">
                           <span className="w-10 text-right">{fill}%</span>
-                          <span className="inline-block h-1.5 w-12 bg-muted overflow-hidden">
+                          <span className="inline-block h-1.5 w-12 rounded-full bg-muted overflow-hidden">
                             <span
-                              className="block h-full bg-foreground/60"
+                              className="block h-full rounded-full bg-primary/70"
                               style={{ width: `${Math.min(fill, 100)}%` }}
                             />
                           </span>
@@ -193,19 +198,19 @@ export default async function DashboardPage() {
       </section>
 
       {/* 06 & 07 / Operations Matrix */}
-      <div className="grid lg:grid-cols-2 border border-border bg-card divide-y lg:divide-y-0 lg:divide-x">
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-8">
         {/* Rent status */}
-        <section className="flex flex-col justify-between">
+        <section className="flex flex-col justify-between border-t border-border pt-6">
           <div>
-            <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-3">
-              <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-5">
+              <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
                 Rent Settlement Status
               </h2>
               <span className="text-xs text-muted-foreground">
                 {data.activeTenancies} Tenancies
               </span>
             </div>
-            <div className="p-5">
+            <div className="pb-5">
               <dl className="divide-y divide-border/60">
                 {(
                   [
@@ -233,7 +238,7 @@ export default async function DashboardPage() {
               </dl>
             </div>
           </div>
-          <div className="grid grid-cols-3 divide-x border-t border-border bg-muted/10 text-center py-3.5 text-sm">
+          <div className="grid grid-cols-3 gap-3 border-t border-border py-3.5 text-sm">
             <div>
               <div className="text-lg font-bold tabular-nums text-foreground">{data.moveInsThisMonth}</div>
               <div className="text-[0.725rem] font-medium text-muted-foreground uppercase tracking-wider">Moved in</div>
@@ -250,16 +255,16 @@ export default async function DashboardPage() {
         </section>
 
         {/* Vacating soon */}
-        <section className="flex flex-col">
-          <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-3">
-            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+        <section className="flex min-w-0 flex-col border-t border-border pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-5">
+            <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
               Notice Register
             </h2>
             <span className="text-xs text-muted-foreground">
               {data.noticeTenancies.length} Scheduled
             </span>
           </div>
-          <div className="p-5 flex-1">
+          <div className="flex-1">
             {data.noticeTenancies.length === 0 ? (
               <p className="py-12 text-center text-sm text-muted-foreground">
                 No active move-out notices on file.
@@ -291,18 +296,18 @@ export default async function DashboardPage() {
       </div>
 
       {/* 08 & 09 / Live Activity Log */}
-      <div className="grid lg:grid-cols-2 border border-border bg-card divide-y lg:divide-y-0 lg:divide-x">
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-8">
         {/* Recent payments */}
-        <section className="flex flex-col">
-          <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-3">
-            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+        <section className="flex min-w-0 flex-col border-t border-border pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-5">
+            <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
               Recent Collections
             </h2>
             <span className="text-xs text-muted-foreground">
               Latest 5 Transactions
             </span>
           </div>
-          <div className="p-5 flex-1">
+          <div className="flex-1">
             {data.recentPayments.length === 0 ? (
               <p className="py-12 text-center text-sm text-muted-foreground">
                 No payment transactions recorded yet.
@@ -333,16 +338,16 @@ export default async function DashboardPage() {
         </section>
 
         {/* Recent complaints */}
-        <section className="flex flex-col">
-          <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-3">
-            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+        <section className="flex min-w-0 flex-col border-t border-border pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-5">
+            <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
               Incident & Complaints Log
             </h2>
             <span className="text-xs text-muted-foreground">
               Latest 5 Tickets
             </span>
           </div>
-          <div className="p-5 flex-1">
+          <div className="flex-1">
             {data.recentComplaints.length === 0 ? (
               <p className="py-12 text-center text-sm text-muted-foreground">
                 No tickets or complaints raised yet.

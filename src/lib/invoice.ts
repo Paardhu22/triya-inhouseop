@@ -25,7 +25,7 @@ let logoBytesPromise: Promise<Uint8Array | null> | null = null;
 function loadLogoBytes(): Promise<Uint8Array | null> {
   if (!logoBytesPromise) {
     logoBytesPromise = fs
-      .readFile(path.join(process.cwd(), "public", "logo.png"))
+      .readFile(path.join(process.cwd(), "public", "logo-removebg-preview.png"))
       .then((b) => new Uint8Array(b))
       .catch(() => null);
   }

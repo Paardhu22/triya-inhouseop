@@ -45,7 +45,7 @@ export default async function ExpensesPage() {
       />
 
       {/* Stat tiles */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-6 border-y border-border lg:grid-cols-5">
         <StatCard
           label="This month"
           value={formatINRCompact(analytics.thisMonthTotal)}
@@ -71,13 +71,13 @@ export default async function ExpensesPage() {
 
       {/* Trend + distribution */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="space-y-4 rounded-xl border border-border bg-card p-6">
-          <h2 className="text-[0.8rem] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+        <section className="space-y-5 border-t border-border pt-6">
+          <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
             Monthly trend
           </h2>
           <ExpenseChart series={analytics.series} />
         </section>
-        <section className="rounded-xl border border-border bg-card p-6">
+        <section className="border-t border-border pt-6">
           <ExpenseDistribution
             categories={analytics.categoryDistribution}
             subcategories={analytics.subcategoryDistribution}

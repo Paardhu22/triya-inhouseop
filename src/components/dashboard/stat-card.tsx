@@ -20,18 +20,18 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "p-5 sm:p-6 bg-card transition-colors flex flex-col justify-between",
+        "min-w-0 flex flex-col justify-start py-5",
         variant === "standalone"
-          ? "border border-border"
-          : "hover:bg-muted/15",
+          ? "border-t border-border"
+          : "",
         className
       )}
     >
-      <div className="text-[0.725rem] font-semibold tracking-wider text-muted-foreground uppercase">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
       <div
-        className="mt-3 truncate text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground sm:text-[1.85rem]"
+        className="mt-3 truncate text-2xl font-semibold leading-none tracking-[-0.04em] tabular-nums text-foreground sm:text-[2rem]"
         title={String(value)}
       >
         {value}

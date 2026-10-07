@@ -71,7 +71,7 @@ export function MappingStep({
 
   return (
     <div className="space-y-5">
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b sm:grid-cols-[1fr_auto]">
           <div>
             <CardTitle>What is in this sheet?</CardTitle>
@@ -115,7 +115,7 @@ export function MappingStep({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card variant="section">
         <CardHeader className="border-b">
           <CardTitle>Match your columns</CardTitle>
           <CardDescription>

@@ -31,7 +31,7 @@ export function SettingsClient({ user, property, canManageProperty }: Props) {
 
 function AccountCard({ user }: Pick<Props, "user">) {
   return (
-    <Card>
+    <Card variant="section">
       <CardHeader><CardTitle>Account</CardTitle><CardDescription>Your authenticated staff identity and access level.</CardDescription></CardHeader>
       <CardContent className="space-y-3">
         <ReadOnlyField label="Name" value={user.name ?? "Not set"} />
@@ -43,7 +43,7 @@ function AccountCard({ user }: Pick<Props, "user">) {
 }
 
 function ReadOnlyField({ label, value, capitalize = false }: { label: string; value: string; capitalize?: boolean }) {
-  return <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2.5"><span className="text-sm text-muted-foreground">{label}</span><span className={cn("text-sm font-medium", capitalize && "capitalize")}>{value}</span></div>;
+  return <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5"><span className="text-sm text-muted-foreground">{label}</span><span className={cn("text-sm font-medium", capitalize && "capitalize")}>{value}</span></div>;
 }
 
 function PasswordCard() {
@@ -63,7 +63,7 @@ function PasswordCard() {
     });
   }
   return (
-    <Card>
+    <Card variant="section">
       <CardHeader><CardTitle>Security</CardTitle><CardDescription>Change the password used for credentials login.</CardDescription></CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-3">
@@ -93,7 +93,7 @@ function PropertyCard({ property, canManage }: { property: Props["property"]; ca
     });
   }
   return (
-    <Card>
+    <Card variant="section">
       <CardHeader><CardTitle>Current property</CardTitle><CardDescription>{canManage ? "Update the identity shown across the app." : "Property details are managed by administrators."}</CardDescription></CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-3">

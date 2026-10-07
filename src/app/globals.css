@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @theme {
@@ -32,12 +33,13 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* Swiss / International Typographic semantic surfaces */
+  /* Portfolio2-inspired surfaces and accents. */
   --color-main-surface: var(--main-surface);
   --color-secondary-surface: var(--secondary-surface);
   --color-hover: var(--hover);
@@ -63,7 +65,7 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* Very soft, barely-visible elevation (warm slate tint) */
+  /* Quiet elevation, matching Portfolio2's floating navigation. */
   --shadow-2xs: 0 1px 2px 0 color-mix(in oklch, var(--foreground) 5%, transparent);
   --shadow-xs: 0 1px 2px 0 color-mix(in oklch, var(--foreground) 6%, transparent);
   --shadow-sm:
@@ -78,34 +80,37 @@
 }
 
 :root {
-  --app-font-sans: var(--font-inter, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
-  --app-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --app-font-sans: var(--font-manrope, "Manrope", "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+  --app-font-mono: var(--app-font-sans);
 
-  /* Core palette — strict, warm, neutral. */
-  --background: #ffffff;
-  --foreground: #2c3040;
+  /* Portfolio2's near-white canvas, cool panels, and restrained blue accent. */
+  color-scheme: light;
+  --background: #fcfcfd;
+  --foreground: #282b30;
   --card: #ffffff;
-  --card-foreground: #2c3040;
+  --card-foreground: #282b30;
   --popover: #ffffff;
-  --popover-foreground: #2c3040;
-  --primary: #2c3040;
+  --popover-foreground: #282b30;
+  --primary: #3f5dc6;
+  --primary-hover: #2a439c;
   --primary-foreground: #ffffff;
-  --secondary: #f5f5f3;
-  --secondary-foreground: #2c3040;
-  --muted: #f5f5f3;
-  --muted-foreground: #6b7280;
-  --accent: #efeae2;
-  --accent-foreground: #2c3040;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #282b30;
+  --muted: #f3f4f6;
+  --muted-foreground: #666b75;
+  --accent: #eceef4;
+  --accent-foreground: #282b30;
   --destructive: #c84b4b;
-  --border: #e5ded4;
-  --input: #e5ded4;
-  --ring: #d8cebf;
+  --border: #e7e8ec;
+  --input: #d4d6dd;
+  --ring: #3f5dc6;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Semantic surfaces / status */
-  --main-surface: #f5f5f3;
-  --secondary-surface: #d8cebf;
-  --hover: #efeae2;
-  --grid-accent: #e8c9bf;
+  --main-surface: #f3f4f6;
+  --secondary-surface: #eceef4;
+  --hover: #eceef4;
+  --grid-accent: #dfe6ff;
   --available: #4d8a4c;
   --available-soft: #e6efe5;
   --partial: #f59e0b;
@@ -121,24 +126,24 @@
   --bed-vacant: #94a3b8;
   --bed-overdue: #ef4444;
 
-  /* Muted, on-brand data colours */
-  --chart-1: #2c3040;
-  --chart-2: #6b7280;
-  --chart-3: #8a8f9c;
-  --chart-4: #d8cebf;
-  --chart-5: #c84b4b;
+  /* Blue carries the main series; secondary data stays quiet. */
+  --chart-1: #3f5dc6;
+  --chart-2: #858b97;
+  --chart-3: #b4bac8;
+  --chart-4: #dfe6ff;
+  --chart-5: #c4777d;
 
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
-  /* Sidebar = light gray to separate from background */
-  --sidebar: #E4E4E4;
-  --sidebar-foreground: #1f2937;
-  --sidebar-primary: #2c3040;
+  /* Soft navigation tray with raised active pills. */
+  --sidebar: #f7f7f9;
+  --sidebar-foreground: #282b30;
+  --sidebar-primary: #3f5dc6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e5e7eb;
-  --sidebar-accent-foreground: #111827;
-  --sidebar-border: #e5e7eb;
-  --sidebar-ring: #d1d5db;
+  --sidebar-accent: #fcfcfd;
+  --sidebar-accent-foreground: #282b30;
+  --sidebar-border: #e7e8ec;
+  --sidebar-ring: #3f5dc6;
 
   /* Floor Banner responsive scaling variables */
   --banner-height: 224px;
@@ -158,7 +163,7 @@
     --semicircle-bottom: -40px;
     --semicircle-border: 20px;
     --floor-text-size: 14rem;
-    --board-padding-y: 2rem;
+    --board-padding-y: 1.5rem;
   }
 }
 
@@ -170,7 +175,7 @@
     --semicircle-bottom: -60px;
     --semicircle-border: 28px;
     --floor-text-size: 20rem;
-    --board-padding-y: 2rem;
+    --board-padding-y: 1.75rem;
   }
 }
 
@@ -182,7 +187,7 @@
     --semicircle-bottom: -80px;
     --semicircle-border: 36px;
     --floor-text-size: 24rem;
-    --board-padding-y: 3rem;
+    --board-padding-y: 2rem;
   }
 }
 
@@ -207,7 +212,7 @@
     --semicircle-bottom: -60px;
     --semicircle-border: 14px;
     --floor-text-size: 7rem;
-    --board-padding-y: 1rem;
+    --board-padding-y: 1.25rem;
   }
 }
 
@@ -219,7 +224,7 @@
     --semicircle-bottom: -50px;
     --semicircle-border: 10px;
     --floor-text-size: 5rem;
-    --board-padding-y: 0.75rem;
+    --board-padding-y: 1rem;
   }
 }
 
@@ -233,19 +238,20 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* Inter: contextual alternates, and a tailed lowercase "l" (cv05) so l / I / 1 stay
-       distinct in names and room codes. Optical sizing picks the cut per text size. */
-    font-feature-settings: "calt", "cv05";
-    font-optical-sizing: auto;
+    letter-spacing: -0.012em;
   }
   h1,
   h2,
   h3 {
-    /* Inter reads best slightly tightened at display sizes. */
+    /* Keep display typography slightly tightened. */
     letter-spacing: -0.011em;
   }
   html {
     @apply font-sans;
+  }
+  ::selection {
+    background: #dfe6ff;
+    color: #243970;
   }
   /* Remove native up/down arrows (spinners) from number inputs */
   input[type="number"]::-webkit-inner-spin-button,
@@ -259,7 +265,7 @@
   }
 }
 
-/* Enforce the app font (Inter) on Recharts SVGs so they don't fall back to serif */
+/* Keep Recharts SVG labels consistent with the app font. */
 .recharts-wrapper,
 .recharts-surface text {
   font-family: var(--app-font-sans) !important;

@@ -319,7 +319,7 @@ export function ExpensesClient({
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden border-y border-border">
         <Table>
           <TableHeader>
             <TableRow>

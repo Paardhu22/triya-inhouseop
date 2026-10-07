@@ -60,7 +60,7 @@ import { slugify } from "@/lib/slug";
 
 export function PropertiesManager({ properties }: { properties: AdminPropertyRow[] }) {
   return (
-    <Card>
+    <Card variant="section">
       <CardHeader className="border-b sm:grid-cols-[1fr_auto]">
         <div>
           <CardTitle>Properties &amp; accounts</CardTitle>

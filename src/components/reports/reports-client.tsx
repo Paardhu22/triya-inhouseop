@@ -382,14 +382,14 @@ function TableShell({
 }) {
   if (empty) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card py-20 text-center">
+      <div className="flex flex-col items-center justify-center gap-3 border-y border-border py-20 text-center">
         <Inbox className="size-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">No {label} to report for this month.</p>
       </div>
     );
   }
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+    <div className="overflow-x-auto border-y border-border">
       <Table>{children}</Table>
     </div>
   );

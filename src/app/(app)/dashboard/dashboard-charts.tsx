@@ -44,7 +44,7 @@ const ROW_HEIGHT = 40;
 const AXIS_BAND = 56;
 
 /** Touching marks are separated by a 2px gap in the surface colour, not by a border. */
-const segmentGap = { stroke: "var(--card)", strokeWidth: 2 } as const;
+const segmentGap = { stroke: "var(--background)", strokeWidth: 2 } as const;
 
 const axisProps = {
   tickLine: false,
@@ -129,9 +129,9 @@ export function SharingOccupancyPanel({
   const unit = isFlat ? "flats" : "beds";
 
   return (
-    <section className="border border-border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
-        <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+    <section className="min-w-0 overflow-hidden border-t border-border pt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-5">
+        <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
           {isFlat ? "Occupancy by Unit Type" : "Occupancy by Sharing Type"}
         </h2>
         <span className="text-xs text-muted-foreground">
@@ -144,7 +144,7 @@ export function SharingOccupancyPanel({
           No rooms configured for this property yet.
         </p>
       ) : (
-        <div className="p-5 sm:p-6 space-y-6">
+        <div className="space-y-6">
           {/* One row is a one-bar chart — the table below already says it better. */}
           {rows.length > 1 ? (
             <OccupancyBars
@@ -157,21 +157,21 @@ export function SharingOccupancyPanel({
             />
           ) : null}
 
-          <div className="overflow-x-auto border border-border/70">
+          <div className="overflow-x-auto border-t border-border">
             <table className="w-full min-w-[34rem] text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/15 text-left text-[0.725rem] font-semibold tracking-wider text-muted-foreground uppercase">
-                  <th className="px-4 py-2.5">Type</th>
-                  <th className="px-4 py-2.5 text-right">
+                <tr className="border-b border-border text-left text-xs font-semibold text-muted-foreground">
+                  <th className="pr-4 py-3 first:pl-0 last:pr-0">Type</th>
+                  <th className="pr-4 py-3 first:pl-0 last:pr-0 text-right">
                     {isFlat ? "Flats" : "Rooms"}
                   </th>
-                  <th className="px-4 py-2.5 text-right">
+                  <th className="pr-4 py-3 first:pl-0 last:pr-0 text-right">
                     {isFlat ? "Units" : "Beds"}
                   </th>
-                  <th className="px-4 py-2.5 text-right">Occupied</th>
-                  <th className="px-4 py-2.5 text-right">Available</th>
-                  <th className="px-4 py-2.5 text-right">Fill</th>
-                  <th className="px-4 py-2.5 text-right">Rent / month</th>
+                  <th className="pr-4 py-3 first:pl-0 last:pr-0 text-right">Occupied</th>
+                  <th className="pr-4 py-3 first:pl-0 last:pr-0 text-right">Available</th>
+                  <th className="pr-4 py-3 first:pl-0 last:pr-0 text-right">Fill</th>
+                  <th className="pr-4 py-3 first:pl-0 last:pr-0 text-right">Rent / month</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -179,19 +179,19 @@ export function SharingOccupancyPanel({
                   const fill = r.beds > 0 ? Math.round((r.occupied / r.beds) * 100) : 0;
                   return (
                     <tr key={r.sharingType} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-2.5 font-medium text-foreground">
+                      <td className="pr-4 py-3 first:pl-0 last:pr-0 font-medium text-foreground">
                         {sharingLabel(r.sharingType, isFlat)}
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{r.rooms}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{r.beds}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium text-foreground">{r.occupied}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium text-foreground">
+                      <td className="pr-4 py-3 first:pl-0 last:pr-0 text-right tabular-nums text-muted-foreground">{r.rooms}</td>
+                      <td className="pr-4 py-3 first:pl-0 last:pr-0 text-right tabular-nums text-muted-foreground">{r.beds}</td>
+                      <td className="pr-4 py-3 first:pl-0 last:pr-0 text-right tabular-nums font-medium text-foreground">{r.occupied}</td>
+                      <td className="pr-4 py-3 first:pl-0 last:pr-0 text-right tabular-nums font-medium text-foreground">
                         {r.available}
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                      <td className="pr-4 py-3 first:pl-0 last:pr-0 text-right tabular-nums text-muted-foreground">
                         {fill}%
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium text-foreground">
+                      <td className="pr-4 py-3 first:pl-0 last:pr-0 text-right tabular-nums font-medium text-foreground">
                         {formatINRCompact(r.expectedPaise)}
                       </td>
                     </tr>
@@ -209,16 +209,16 @@ export function SharingOccupancyPanel({
 /** Occupied against free beds per block, for properties laid out in blocks. */
 export function BlockOccupancyPanel({ rows }: { rows: DashboardData["blockBreakdown"] }) {
   return (
-    <section className="border border-border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
-        <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+    <section className="min-w-0 overflow-hidden border-t border-border pt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-5">
+        <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
           Block Occupancy Distribution
         </h2>
         <span className="text-xs text-muted-foreground">
           {rows.length} Blocks
         </span>
       </div>
-      <div className="p-5 sm:p-6">
+      <div className="min-w-0">
         <OccupancyBars
           rows={rows.map((r) => ({
             label: `Block ${r.name}`,
@@ -248,16 +248,16 @@ export function MoneyTrendPanel({ trend }: { trend: DashboardData["trend"] }) {
   }));
 
   return (
-    <section className="border border-border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
-        <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+    <section className="min-w-0 overflow-hidden border-t border-border pt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-5">
+        <h2 className="text-sm font-semibold tracking-[-0.015em] text-foreground">
           Collections Against Expenses · Trailing 6 Months
         </h2>
         <span className="text-xs text-muted-foreground">
           Financial Trajectory
         </span>
       </div>
-      <div className="p-5 sm:p-6">
+      <div className="min-w-0">
         <ChartContainer config={moneyConfig} className="aspect-auto h-[260px] w-full">
           <BarChart
             accessibilityLayer

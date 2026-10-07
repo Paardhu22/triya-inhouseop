@@ -53,7 +53,7 @@ export function InvoiceDocument({
               className="h-8 w-auto max-w-[160px] object-contain"
             />
           ) : (
-            <Image src="/logo.png" alt="Triya" width={120} height={40} className="h-8 w-auto" priority />
+            <Image src="/logo-removebg-preview.png" alt="Triya" width={120} height={40} className="h-8 w-auto" priority />
           )}
           <p className="pt-1 text-sm font-semibold">{data.propertyName}</p>
           {data.propertyAddress ? (
