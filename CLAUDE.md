@@ -35,10 +35,10 @@ npm run db:studio      # Prisma Studio
 No test runner is configured — there is no test command. Verify changes with
 `npm run build` (runs `tsc`) and `npm run lint`.
 
-First-time setup: `cp .env.example .env`, set `DATABASE_URL`, `SEED_ADMIN_EMAIL` and
-`SEED_ADMIN_PASSWORD`, then `npx prisma migrate deploy` and `npm run db:seed`. The
-seed creates only the admin and the empty property layouts, and refuses to run on a
-non-empty database. Property manager accounts are created from the Admin page.
+First-time setup: `cp .env.example .env`, set `DATABASE_URL`, then
+`npx prisma migrate deploy` and `npm run db:seed`. The seed creates the admin
+(`admin@triya.local` / `Admin@12345`) and the empty property layouts, and refuses to
+run on a non-empty database. Property manager accounts are created from the Admin page.
 
 ## Architecture
 

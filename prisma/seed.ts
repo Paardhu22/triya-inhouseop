@@ -15,7 +15,6 @@ const prisma = new PrismaClient({
 // complaints or expenses are created: the app starts from a clean, empty state
 // and staff add tenants by clicking a bed in the Floor Manager.
 //
-// The admin's credentials come from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (.env).
 // Property manager accounts are created afterwards from the Admin page.
 //
 // It refuses to run against a database that already holds properties, so it can
@@ -128,17 +127,6 @@ const PROPERTIES: PropertyConfig[] = [
 // ---------------------------------------------------------------------------
 // Seeding
 // ---------------------------------------------------------------------------
-function adminCredentials() {
-  const email = process.env.SEED_ADMIN_EMAIL?.trim();
-  const password = process.env.SEED_ADMIN_PASSWORD;
-  if (!email || !password) {
-    throw new Error("Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD in .env before seeding.");
-  }
-  if (password.length < 10) {
-    throw new Error("SEED_ADMIN_PASSWORD must be at least 10 characters.");
-  }
-  return { email, password };
-}
 
 // A sensible, fully-editable starter set so the Expense Tracker isn't empty on
 // first run. These are DB rows (managed via the in-app Category Manager), not
@@ -168,9 +156,10 @@ async function seedExpenseCategories() {
 }
 
 // The global ADMIN account (propertyId null → access to every property).
-async function seedAdmin(email: string, password: string) {
+async function seedAdmin() {
+  const passwordHash = bcrypt.hashSync("Admin@12345", 10);
   await prisma.user.create({
-    data: { name: "Triya Admin", email, passwordHash: bcrypt.hashSync(password, 10), role: "ADMIN" },
+    data: { name: "Triya Admin", email: "admin@triya.local", passwordHash, role: "ADMIN" },
   });
 }
 
@@ -285,13 +274,12 @@ async function seedProperties() {
 }
 
 async function main() {
-  const admin = adminCredentials();
   if ((await prisma.property.count()) > 0 || (await prisma.user.count()) > 0) {
     throw new Error("Database is not empty — refusing to seed over existing data.");
   }
 
   console.log("Seeding admin...");
-  await seedAdmin(admin.email, admin.password);
+  await seedAdmin();
 
   console.log("Seeding properties, floors, rooms and beds (all available)...");
   await seedProperties();
@@ -309,7 +297,7 @@ async function main() {
   console.log(`  Properties: ${propertyCount}`);
   console.log(`  Rooms:      ${roomCount}`);
   console.log(`  Beds:       ${bedCount}`);
-  console.log(`\nAdmin login: ${admin.email} (password from SEED_ADMIN_PASSWORD)`);
+  console.log("\nAdmin login: admin@triya.local / Admin@12345");
 }
 
 main()
