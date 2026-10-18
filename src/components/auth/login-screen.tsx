@@ -88,21 +88,6 @@ export function LoginScreen({
                   className="h-20 w-auto sm:h-28 md:h-32 object-contain drop-shadow-sm"
                 />
               </div>
-
-              {/* Sub-label with luxury tracking */}
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.45, duration: 0.8 }}
-                className="mt-6 flex flex-col items-center gap-2 text-center"
-              >
-                <span className="text-xs sm:text-sm font-semibold tracking-[0.35em] text-amber-200/90 uppercase">
-                  Operations &amp; Management Portal
-                </span>
-                <span className="text-[11px] tracking-widest text-stone-400">
-                  Tap anywhere to enter
-                </span>
-              </motion.div>
             </motion.div>
           </motion.div>
         )}
