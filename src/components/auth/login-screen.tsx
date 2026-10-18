@@ -163,12 +163,6 @@ export function LoginScreen({
             </div>
 
             <LoginForm callbackUrl={callbackUrl} users={users} />
-
-            <div className="mt-8 rounded-xl bg-muted/60 p-3 text-center border border-border/60">
-              <p className="text-xs text-muted-foreground">
-                Admin &amp; Property Staff access only. Sessions are encrypted and verified.
-              </p>
-            </div>
           </div>
         </motion.div>
       </div>
