@@ -3,25 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { startOfMonth } from "date-fns";
 
-import { auth } from "@/auth";
+import { getActionContext } from "@/lib/action-context";
 import type { CollectRentResult } from "@/lib/actions/collections";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { issueInvoiceForPayment } from "@/lib/invoice-delivery";
 import { refreshPaymentStatus, settleMonth } from "@/lib/ledger";
 import { prisma } from "@/lib/prisma";
-import { getActiveProperty, getSelectedPropertyId } from "@/lib/property";
 import { rupeesToPaise } from "@/lib/money";
 import { storage } from "@/lib/storage";
 import { MAINTENANCE_RESERVE_PAISE, resolveDepositStatusOnVacate } from "@/lib/tenancy";
 import { saveBedSchema } from "@/lib/validations/tenant";
-
-async function requireContext() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  const propertyId = await getSelectedPropertyId();
-  if (!propertyId) return null;
-  return { propertyId, userId: session.user.id };
-}
 
 function revalidateFloorViews() {
   revalidatePath("/floor-manager");
@@ -54,8 +45,9 @@ function field(formData: FormData, key: string): string | undefined {
 export async function saveBed(
   formData: FormData,
 ): Promise<ActionResult<{ invoice: CollectRentResult["invoice"] }>> {
-  const ctx = await requireContext();
-  if (!ctx) return actionError("Not authenticated");
+  const context = await getActionContext();
+  if (!context.ok) return actionError(context.error);
+  const ctx = context.data;
 
   const parsed = saveBedSchema.safeParse({
     bedId: field(formData, "bedId"),
@@ -92,8 +84,11 @@ export async function saveBed(
   if (!bed) return actionError("Bed not found");
   const active = bed.tenancies[0] ?? null;
 
-  // --- Mark bed Available: end the current tenancy (kept as history). ---
+  // --- Mark bed Available: end the current tenancy (kept as history) and free KYC files. ---
   if (data.occupancyStatus === "AVAILABLE") {
+    let vacatedPhotoKey: string | null = null;
+    let vacatedDocKeys: string[] = [];
+
     await prisma.$transaction(async (tx) => {
       if (active) {
         const checkOutDate = new Date();
@@ -105,9 +100,47 @@ export async function saveBed(
           where: { id: active.id },
           data: { status: "ENDED", checkOutDate, depositStatus },
         });
+
+        const [tenantRecord, docs] = await Promise.all([
+          tx.tenant.findUnique({
+            where: { id: active.tenantId },
+            select: { photoUrl: true },
+          }),
+          tx.document.findMany({
+            where: { tenantId: active.tenantId },
+            select: { storageKey: true },
+          }),
+        ]);
+        vacatedPhotoKey = tenantRecord?.photoUrl ?? null;
+        vacatedDocKeys = docs.map((d) => d.storageKey);
+
+        if (vacatedPhotoKey) {
+          await tx.tenant.update({
+            where: { id: active.tenantId },
+            data: { photoUrl: null },
+          });
+        }
+        if (vacatedDocKeys.length > 0) {
+          await tx.document.deleteMany({
+            where: { tenantId: active.tenantId },
+          });
+        }
       }
       await tx.bed.update({ where: { id: bed.id }, data: { status: "AVAILABLE" } });
     });
+
+    const keysToRemove = new Set<string>([
+      ...(vacatedPhotoKey ? [vacatedPhotoKey] : []),
+      ...vacatedDocKeys,
+    ]);
+    await Promise.all(
+      Array.from(keysToRemove).map((key) =>
+        storage.remove(key).catch((e) => {
+          console.error(`Failed to remove vacated tenant file ${key}:`, e);
+        }),
+      ),
+    );
+
     revalidateFloorViews();
     return actionOk({ invoice: null });
   }
@@ -287,11 +320,8 @@ export async function saveBed(
   // The collection is committed; its invoice is best-effort and never undoes the save.
   let invoice: CollectRentResult["invoice"] = null;
   if (collectedPaymentId) {
-    const property = await getActiveProperty();
     try {
-      const issued = property
-        ? await issueInvoiceForPayment(property, collectedPaymentId)
-        : ({ ok: false, error: "No active property selected" } as const);
+      const issued = await issueInvoiceForPayment(ctx.property, collectedPaymentId);
       invoice = issued.ok
         ? { number: issued.number, delivered: issued.delivered, error: issued.deliveryError }
         : { number: null, delivered: false, error: issued.error };
@@ -314,8 +344,9 @@ export async function saveBed(
  * already given the existing date is kept.
  */
 export async function giveNotice(tenancyId: string): Promise<ActionResult> {
-  const ctx = await requireContext();
-  if (!ctx) return actionError("Not authenticated");
+  const context = await getActionContext();
+  if (!context.ok) return actionError(context.error);
+  const ctx = context.data;
 
   const tenancy = await prisma.tenancy.findFirst({
     where: { id: tenancyId, propertyId: ctx.propertyId, status: "ACTIVE" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BedDouble, Loader2, Settings2 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 
 type Room = AdminPropertyConfig["floors"][number]["rooms"][number];
 
-export function RoomCapacityDialog({ room }: { room: Room }) {
+export function RoomCapacityDialog({ room, trigger }: { room: Room; trigger?: ReactNode }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -81,10 +81,12 @@ export function RoomCapacityDialog({ room }: { room: Room }) {
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Settings2 className="size-3.5" />
-          Configure
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" size="sm">
+            <Settings2 className="size-3.5" />
+            Configure
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

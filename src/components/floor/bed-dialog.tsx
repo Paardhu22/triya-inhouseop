@@ -1,6 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
+import { BedDouble, Building2 } from "lucide-react";
 
 import {
   Dialog,
@@ -81,13 +82,14 @@ export function BedDialog({
 }) {
   return (
     <Dialog open={Boolean(bed)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 pr-14">
+          <span className="flex items-center gap-2 text-[11px] font-medium text-primary/80">{isFlat ? <Building2 aria-hidden="true" className="size-3.5" /> : <BedDouble aria-hidden="true" className="size-3.5" />}Tenant management</span>
+          <DialogTitle className="text-xl leading-snug">
             {isFlat ? `Flat ${roomNumber}` : `Room ${roomNumber} · Bed ${bed?.label}`}
           </DialogTitle>
-          <DialogDescription className="sr-only">
-            Edit this {isFlat ? "flat" : "bed"}&apos;s occupancy and tenant details.
+          <DialogDescription className="text-xs leading-relaxed">
+            {bed?.tenancies[0] ? "Update tenant details, charges, and payment status." : "Assign a tenant and set up their monthly charges."}
           </DialogDescription>
         </DialogHeader>
 
@@ -95,6 +97,7 @@ export function BedDialog({
           <BedForm
             key={bed.id}
             bedId={bed.id}
+            isFlat={isFlat}
             defaults={buildDefaults(bed, room ?? null)}
             existingPhotoKey={bed.tenancies[0]?.tenant.photoUrl ?? null}
             tenancyId={bed.tenancies[0]?.id ?? null}

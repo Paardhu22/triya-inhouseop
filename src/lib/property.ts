@@ -1,6 +1,7 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cache } from "react";
+import { cookies, headers } from "next/headers";
 
 import { auth } from "@/auth";
 import type { Prisma } from "@/generated/prisma/client";
@@ -10,6 +11,15 @@ export const PROPERTY_COOKIE = "triya.property";
 
 /** The currently selected property id from the cookie (no validation). */
 export async function getSelectedPropertyId(): Promise<string | null> {
+  const requestHeaders = await headers();
+  if (requestHeaders.has("authorization")) {
+    const { getMobileSession } = await import("@/lib/mobile/session");
+    const session = await getMobileSession();
+    const id = requestHeaders.get("x-triya-property");
+    if (!session || !id || (session.user.role !== "ADMIN" && session.user.propertyId !== id)) return null;
+    const property = await prisma.property.findFirst({ where: { id, isActive: true }, select: { id: true } });
+    return property?.id ?? null;
+  }
   const store = await cookies();
   return store.get(PROPERTY_COOKIE)?.value ?? null;
 }
@@ -27,14 +37,14 @@ export async function accessiblePropertyWhere(): Promise<Prisma.PropertyWhereInp
   return { users: { some: { id: session.user.id } } };
 }
 
-/** The selected property record, or null if none/invalid/not accessible to the user. */
-export async function getActiveProperty() {
+/** Request-scoped: layout and page share one authorized property lookup per render. */
+export const getActiveProperty = cache(async () => {
   const id = await getSelectedPropertyId();
   if (!id) return null;
   const scope = await accessiblePropertyWhere();
   if (!scope) return null;
   return prisma.property.findFirst({ where: { id, isActive: true, ...scope } });
-}
+});
 
 /** Like getActiveProperty but throws — for pages that are always inside a property. */
 export async function requireActiveProperty() {
@@ -46,7 +56,7 @@ export async function requireActiveProperty() {
 }
 
 /** The properties the signed-in user may access, for the switcher and selection screen. */
-export async function listProperties() {
+export const listProperties = cache(async () => {
   const scope = await accessiblePropertyWhere();
   if (!scope) return [];
   return prisma.property.findMany({
@@ -54,4 +64,4 @@ export async function listProperties() {
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true, city: true, hasBlocks: true, logoKey: true },
   });
-}
+});

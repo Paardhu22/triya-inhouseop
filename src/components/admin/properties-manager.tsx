@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
-  ImagePlus,
+  BedDouble,
+  Check,
+  DoorOpen,
+  Layers3,
   KeyRound,
   Loader2,
   Plus,
   Power,
   PowerOff,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -57,6 +59,9 @@ import {
 } from "@/lib/actions/properties";
 import type { AdminPropertyRow } from "@/lib/queries/properties";
 import { slugify } from "@/lib/slug";
+import { createPropertySchema } from "@/lib/validations/properties";
+import { PropertyStructureEditor } from "./property-structure-editor";
+import { newPropertySection, propertySectionPayload, propertyStructureTotals, type PropertySectionDraft } from "./property-structure";
 
 export function PropertiesManager({ properties }: { properties: AdminPropertyRow[] }) {
   return (
@@ -293,18 +298,6 @@ function ToggleActive({ property }: { property: AdminPropertyRow }) {
 // ---------------------------------------------------------------------------
 // Add-property wizard
 // ---------------------------------------------------------------------------
-type SectionInput = { name: string; rooms: string; floors: string };
-
-const emptySection = (): SectionInput => ({ name: "", rooms: "", floors: "" });
-
-function parseNumbers(value: string): number[] {
-  return value
-    .split(/[\s,]+/)
-    .filter(Boolean)
-    .map((token) => Math.trunc(Number(token)))
-    .filter((n) => Number.isFinite(n));
-}
-
 function AddPropertyWizard() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -320,31 +313,19 @@ function AddPropertyWizard() {
   const [email, setEmail] = useState("");
   const [emailEdited, setEmailEdited] = useState(false);
   const [password, setPassword] = useState("");
-  const [sections, setSections] = useState<SectionInput[]>([emptySection()]);
+  const [sections, setSections] = useState<PropertySectionDraft[]>([newPropertySection("section-1")]);
 
   const derivedEmail = name.trim() ? `${slugify(name) || "property"}@triya.local` : "";
   const effectiveEmail = emailEdited ? email : derivedEmail;
 
-  const roomsPerFloor = (section: SectionInput): number[] =>
-    isFlat
-      ? Array.from({ length: Math.max(0, Math.trunc(Number(section.rooms) || 0)) }, () => 1)
-      : parseNumbers(section.rooms);
-
-  const totals = useMemo(() => {
-    return sections.reduce(
-      (acc, section) => {
-        const floors = parseNumbers(section.floors).length;
-        const rooms = roomsPerFloor(section);
-        return {
-          floors: acc.floors + floors,
-          rooms: acc.rooms + rooms.length * floors,
-          beds: acc.beds + rooms.reduce((sum, n) => sum + n, 0) * floors,
-        };
-      },
-      { floors: 0, rooms: 0, beds: 0 },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections, isFlat]);
+  const totals = useMemo(() => propertyStructureTotals(sections, isFlat), [sections, isFlat]);
+  const payload = {
+    name, city, address, phone, isFlat, hasBlocks,
+    account: { email: effectiveEmail, password },
+    sections: sections.map((section) => propertySectionPayload(section, isFlat)),
+  };
+  const validation = createPropertySchema.safeParse(payload);
+  const structureError = !validation.success ? validation.error.issues[0]?.message : null;
 
   function resetAll() {
     setStep(1);
@@ -357,7 +338,7 @@ function AddPropertyWizard() {
     setEmail("");
     setEmailEdited(false);
     setPassword("");
-    setSections([emptySection()]);
+    setSections([newPropertySection("section-1")]);
   }
 
   function handleOpenChange(next: boolean) {
@@ -369,31 +350,19 @@ function AddPropertyWizard() {
     if (name.trim().length < 2) return toast.error("Enter a property name");
     if (!effectiveEmail) return toast.error("Enter an account email");
     if (password.length < 8) return toast.error("Account password must be at least 8 characters");
-    setSections((prev) => (hasBlocks ? (prev.length ? prev : [emptySection()]) : [{ ...(prev[0] ?? emptySection()), name: "" }]));
+    setSections((prev) => hasBlocks
+      ? prev.map((section, index) => ({ ...section, name: section.name || String.fromCharCode(65 + index) }))
+      : [{ ...(prev[0] ?? newPropertySection("section-1")), name: "" }]);
     setStep(2);
   }
 
-  function updateSection(index: number, patch: Partial<SectionInput>) {
-    setSections((prev) => prev.map((section, i) => (i === index ? { ...section, ...patch } : section)));
-  }
-
   function create() {
-    const payloadSections = sections.map((section) => ({
-      name: section.name,
-      roomsPerFloor: roomsPerFloor(section),
-      floors: parseNumbers(section.floors),
-    }));
+    if (!validation.success) {
+      toast.error(structureError ?? "Check your property details");
+      return;
+    }
     startTransition(async () => {
-      const res = await createProperty({
-        name,
-        city,
-        address,
-        phone,
-        isFlat,
-        hasBlocks,
-        account: { email: effectiveEmail, password },
-        sections: payloadSections,
-      });
+      const res = await createProperty(validation.data);
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -412,15 +381,16 @@ function AddPropertyWizard() {
           Add property
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{step === 1 ? "Guided property wizard" : "Structure"}</DialogTitle>
+      <DialogContent className={step === 2 ? "flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl" : "max-h-[85dvh] overflow-y-auto sm:max-w-lg"}>
+        <DialogHeader className={step === 2 ? "shrink-0 px-6 py-5 pr-14" : undefined}>
+          {step === 2 ? <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><Check aria-hidden="true" className="size-3.5 text-primary" />Property details<span aria-hidden="true">/</span><span className="font-medium text-primary">2. Structure</span></div> : null}
+          <DialogTitle>{step === 1 ? "Guided property wizard" : "Build your property"}</DialogTitle>
           <DialogDescription>
             {step === 1
               ? "Property details and the login account that manages it."
               : hasBlocks
-                ? "Define each block's floors and rooms."
-                : "Define the floors and rooms for this property."}
+                ? "Set up each block with sliders and a live layout preview."
+                : "Choose your floors and rooms. See your layout as you adjust it."}
           </DialogDescription>
         </DialogHeader>
 
@@ -429,6 +399,7 @@ function AddPropertyWizard() {
             <div className="space-y-1.5">
               <Label htmlFor="prop-name">Property name</Label>
               <Input
+                plain
                 id="prop-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -439,16 +410,16 @@ function AddPropertyWizard() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="prop-city">City</Label>
-                <Input id="prop-city" value={city} onChange={(event) => setCity(event.target.value)} maxLength={100} placeholder="Hyderabad" />
+                <Input plain id="prop-city" value={city} onChange={(event) => setCity(event.target.value)} maxLength={100} placeholder="Hyderabad" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="prop-phone">Phone</Label>
-                <Input id="prop-phone" value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={20} placeholder="Optional" />
+                <Input plain id="prop-phone" value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={20} placeholder="Optional" />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="prop-address">Address</Label>
-              <Input id="prop-address" value={address} onChange={(event) => setAddress(event.target.value)} maxLength={240} placeholder="Optional" />
+              <Input plain id="prop-address" value={address} onChange={(event) => setAddress(event.target.value)} maxLength={240} placeholder="Optional" />
             </div>
 
             <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
@@ -471,6 +442,7 @@ function AddPropertyWizard() {
               <div className="space-y-1.5">
                 <Label htmlFor="prop-email">User (email)</Label>
                 <Input
+                  plain
                   id="prop-email"
                   type="email"
                   value={effectiveEmail}
@@ -484,6 +456,7 @@ function AddPropertyWizard() {
               <div className="space-y-1.5">
                 <Label htmlFor="prop-password">Password</Label>
                 <Input
+                  plain
                   id="prop-password"
                   type="text"
                   value={password}
@@ -502,90 +475,43 @@ function AddPropertyWizard() {
             </DialogFooter>
           </div>
         ) : (
-          <div className="space-y-4">
-            {sections.map((section, index) => (
-              <div key={index} className="space-y-3 rounded-lg border p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">
-                    {hasBlocks ? `Block ${section.name || index + 1}` : "Floors & rooms"}
-                  </p>
-                  {hasBlocks && sections.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-7 text-muted-foreground"
-                      onClick={() => setSections((prev) => prev.filter((_, i) => i !== index))}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  ) : null}
-                </div>
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 sm:px-6">
+              <fieldset disabled={pending} className="space-y-4">
+                {sections.map((section) => (
+                  <PropertyStructureEditor
+                    key={section.id}
+                    section={section}
+                    hasBlocks={hasBlocks}
+                    isFlat={isFlat}
+                    canRemove={hasBlocks && sections.length > 1}
+                    onChange={(next) => setSections((prev) => prev.map((current) => current.id === section.id ? next : current))}
+                    onRemove={() => setSections((prev) => prev.filter((current) => current.id !== section.id))}
+                  />
+                ))}
                 {hasBlocks ? (
-                  <div className="space-y-1.5">
-                    <Label>Block name</Label>
-                    <Input
-                      value={section.name}
-                      onChange={(event) => updateSection(index, { name: event.target.value })}
-                      maxLength={30}
-                      placeholder="A"
-                    />
-                  </div>
+                  <Button type="button" variant="outline" size="sm" disabled={sections.length >= 12} onClick={() => setSections((prev) => {
+                    const name = Array.from({ length: 12 }, (_, index) => String.fromCharCode(65 + index)).find((letter) => !prev.some((section) => section.name.trim().toUpperCase() === letter)) ?? "";
+                    return [...prev, newPropertySection(crypto.randomUUID(), name)];
+                  })}>
+                    <Plus aria-hidden="true" className="size-4" />Add block
+                  </Button>
                 ) : null}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>{isFlat ? "Flats per floor" : "Rooms per floor"}</Label>
-                    <Input
-                      value={section.rooms}
-                      onChange={(event) => updateSection(index, { rooms: event.target.value })}
-                      placeholder={isFlat ? "5" : "2, 2, 3, 3, 1"}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {isFlat ? "How many flats on each floor." : "Bed-count per room, in order."}
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Floor numbers</Label>
-                    <Input
-                      value={section.floors}
-                      onChange={(event) => updateSection(index, { floors: event.target.value })}
-                      placeholder="3, 4, 5"
-                    />
-                    <p className="text-xs text-muted-foreground">Comma-separated.</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {hasBlocks ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => setSections((prev) => [...prev, emptySection()])}>
-                <Plus className="size-4" />
-                Add block
-              </Button>
-            ) : null}
-
-            <div className="rounded-lg border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
-              Will create <span className="font-medium text-foreground tabular-nums">{totals.floors}</span> floors ·{" "}
-              <span className="font-medium text-foreground tabular-nums">{totals.rooms}</span> {isFlat ? "flats" : "rooms"}
-              {isFlat ? null : (
-                <>
-                  {" "}·{" "}
-                  <span className="font-medium text-foreground tabular-nums">{totals.beds}</span> beds
-                </>
-              )}
+              </fieldset>
             </div>
-
-            <DialogFooter className="sm:justify-between">
-              <Button type="button" variant="ghost" onClick={() => setStep(1)} disabled={pending}>
-                <ArrowLeft className="size-4" />
-                Back
-              </Button>
-              <Button onClick={create} disabled={pending}>
-                {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-                Create property
-              </Button>
-            </DialogFooter>
-          </div>
+            <div className="shrink-0 space-y-3 border-t border-border bg-muted/30 px-4 py-4 sm:px-6">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2" aria-live="polite" aria-atomic="true" aria-label="Property structure totals">
+                <span className="inline-flex items-center gap-2 text-xs text-muted-foreground"><Layers3 aria-hidden="true" className="size-4 text-primary/70" /><strong className="text-base font-semibold text-foreground tabular-nums">{totals.floors}</strong> {totals.floors === 1 ? "floor" : "floors"}</span>
+                <span className="inline-flex items-center gap-2 text-xs text-muted-foreground"><DoorOpen aria-hidden="true" className="size-4 text-primary/70" /><strong className="text-base font-semibold text-foreground tabular-nums">{totals.rooms}</strong> {isFlat ? "flats" : "rooms"}</span>
+                {!isFlat ? <span className="inline-flex items-center gap-2 text-xs text-muted-foreground"><BedDouble aria-hidden="true" className="size-4 text-primary/70" /><strong className="text-base font-semibold text-foreground tabular-nums">{totals.beds}</strong> beds</span> : null}
+              </div>
+              {structureError ? <p role="alert" className="text-xs text-destructive">{structureError}</p> : null}
+              <div className="flex items-center justify-between gap-3">
+                <Button type="button" variant="ghost" onClick={() => setStep(1)} disabled={pending}><ArrowLeft aria-hidden="true" className="size-4" />Back</Button>
+                <Button onClick={create} disabled={pending || !validation.success}>{pending ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}Create property<ArrowRight aria-hidden="true" className="size-4" /></Button>
+              </div>
+            </div>
+          </>
         )}
       </DialogContent>
     </Dialog>

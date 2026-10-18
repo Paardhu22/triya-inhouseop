@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { CalendarClock, Loader2, Upload, X } from "lucide-react";
+import { BedDouble, CalendarClock, ImageIcon, IndianRupee, Loader2, Upload, UserRound, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -27,8 +26,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { giveNotice, saveBed } from "@/lib/actions/floor";
-import { vacateByDate } from "@/lib/tenancy";
+import { formatINR, rupeesToPaise } from "@/lib/money";
+import { MAINTENANCE_RESERVE_PAISE, vacateByDate } from "@/lib/tenancy";
 import { bedFormSchema, type BedFormValues } from "@/lib/validations/tenant";
+import styles from "./bed-form.module.css";
 
 type Props = {
   bedId: string;
@@ -38,6 +39,7 @@ type Props = {
   tenancyId?: string | null;
   /** When notice has already been served on the active tenancy. */
   noticeGivenDate?: Date | null;
+  isFlat?: boolean;
   onClose: () => void;
 };
 
@@ -48,6 +50,7 @@ export function BedForm({
   tenancyId,
   noticeGivenDate,
   onClose,
+  isFlat = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -57,25 +60,36 @@ export function BedForm({
     existingPhotoKey ? `/api/files/${existingPhotoKey}` : null,
   );
   const fileRef = useRef<HTMLInputElement>(null);
+  const id = useId();
 
   const form = useForm<BedFormValues>({
     resolver: zodResolver(bedFormSchema),
     defaultValues: defaults,
   });
 
-  const paymentStatus = form.watch("paymentStatus");
-  const paymentMethod = form.watch("paymentMethod");
-  const occupancyStatus = form.watch("occupancyStatus");
+  const [paymentStatus, paymentMethod, occupancyStatus, rentAmount, maintenanceCharge] = useWatch({
+    control: form.control,
+    name: ["paymentStatus", "paymentMethod", "occupancyStatus", "rentAmount", "maintenanceCharge"] as const,
+  });
+  const amount = (value: string) => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+  const monthlyTotal = formatINR(rupeesToPaise(amount(rentAmount) + amount(maintenanceCharge)));
+  const busy = pending || noticePending;
+  const noun = isFlat ? "flat" : "bed";
+
+  useEffect(() => () => {
+    if (photoPreview?.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
 
   function onPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
+    const file = e.target.files?.[0];
+    if (!file) return;
     setPhoto(file);
-    setPhotoPreview(file ? URL.createObjectURL(file) : null);
+    setPhotoPreview(URL.createObjectURL(file));
   }
 
   function clearPhoto() {
     setPhoto(null);
-    setPhotoPreview(null);
+    setPhotoPreview(existingPhotoKey ? `/api/files/${existingPhotoKey}` : null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -141,303 +155,118 @@ export function BedForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-        <FormField
-          control={form.control}
-          name="fullName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Tenant Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. Aarav Reddy" disabled={pending} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Phone Number</FormLabel>
-              <FormControl>
-                <Input type="tel" placeholder="9XXXXXXXXX" disabled={pending} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email Address (Optional)</FormLabel>
-              <FormControl>
-                <Input
-                  type="email"
-                  placeholder="tenant@example.com"
-                  disabled={pending}
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="rentAmount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Rent Amount (₹)</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} placeholder="9000" disabled={pending} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="checkInDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Check-in Date</FormLabel>
-                <FormControl>
-                  <Input type="date" disabled={pending} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="maintenanceCharge"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Maintenance Charge (₹/month)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={1}
-                    placeholder="0"
-                    disabled={pending}
-                    {...field}
-                  />
-                </FormControl>
-                <p className="text-xs text-muted-foreground">
-                  Additional monthly charge on top of rent (e.g. electricity, housekeeping)
-                </p>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="securityDeposit"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Security Deposit (₹)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={1}
-                    placeholder="0"
-                    disabled={pending}
-                    {...field}
-                  />
-                </FormControl>
-                <p className="text-xs text-muted-foreground">
-                  ₹1,000 is held back as a maintenance reserve on move-in.
-                </p>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="paymentStatus"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Payment Status</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={pending}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="PAID">Paid</SelectItem>
-                    <SelectItem value="PENDING">Not Paid</SelectItem>
-                  </SelectContent>
+      <form onSubmit={form.handleSubmit(onSubmit)} className={styles.form}>
+        <div className={styles.body}>
+          <div className="mb-4 rounded-xl border border-border bg-muted/25 px-3.5 py-3">
+            <FormField control={form.control} name="occupancyStatus" render={({ field }) => (
+              <FormItem className="grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3">
+                <FormLabel className="flex items-center gap-2"><BedDouble aria-hidden="true" className="size-4 text-primary/70" />Occupancy</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={busy}>
+                  <FormControl><SelectTrigger className="w-32 bg-card shadow-none sm:w-36"><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent><SelectItem value="AVAILABLE">Available</SelectItem><SelectItem value="OCCUPIED">Occupied</SelectItem></SelectContent>
                 </Select>
-                <FormMessage />
+                <FormMessage className="col-span-full" />
               </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="occupancyStatus"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Occupancy Status</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={pending}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="AVAILABLE">Available</SelectItem>
-                    <SelectItem value="OCCUPIED">Occupied</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {paymentStatus === "PAID" && occupancyStatus === "OCCUPIED" && (
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="paymentMethod"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Method</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={pending}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select method" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="CASH">Cash</SelectItem>
-                      <SelectItem value="ONLINE">Online</SelectItem>
-                      <SelectItem value="SPLIT">Split (Cash + Online)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {paymentMethod === "SPLIT" && (
-              <div className="grid grid-cols-2 gap-2">
-                <FormField
-                  control={form.control}
-                  name="cashAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cash (₹)</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={0} placeholder="0" disabled={pending} {...field} value={field.value ?? ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="onlineAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Online (₹)</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={0} placeholder="0" disabled={pending} {...field} value={field.value ?? ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            )}
+            )} />
           </div>
-        )}
 
-        {tenancyId ? (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3.5 py-3">
-            <div className="flex items-start gap-2.5">
-              <CalendarClock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div className="text-sm">
-                <p className="font-medium">Notice period</p>
-                <p className="text-xs text-muted-foreground">
-                  {noticeGivenDate
-                    ? `Notice given on ${format(noticeGivenDate, "dd MMM yyyy")} · vacate by ${format(vacateByDate(noticeGivenDate), "dd MMM yyyy")}`
-                    : "15-day notice. Vacate-by date is set when notice is given."}
-                </p>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending || noticePending || Boolean(noticeGivenDate)}
-              onClick={onGiveNotice}
-            >
-              {noticePending ? <Loader2 className="size-4 animate-spin" /> : null}
-              {noticeGivenDate ? "Notice given" : "Give Notice"}
-            </Button>
-          </div>
-        ) : null}
+          {occupancyStatus === "OCCUPIED" ? (
+            <>
+              <section className={styles.section} aria-labelledby={`${id}-tenant`}>
+                <h3 id={`${id}-tenant`} className="mb-3 flex items-center gap-2 text-[13px] font-semibold"><UserRound aria-hidden="true" className="size-3.5 text-primary/70" />Tenant details</h3>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <FormField control={form.control} name="fullName" render={({ field }) => (
+                    <FormItem className="sm:col-span-2"><FormLabel>Tenant name</FormLabel><FormControl><Input plain autoComplete="name" maxLength={120} placeholder="e.g. Aarav Reddy" disabled={busy} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="checkInDate" render={({ field }) => (
+                    <FormItem><FormLabel>Check-in date</FormLabel><FormControl><Input type="date" disabled={busy} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <FormField control={form.control} name="phone" render={({ field }) => (
+                    <FormItem><FormLabel>Phone number</FormLabel><FormControl><Input plain type="tel" autoComplete="tel" maxLength={20} placeholder="9XXXXXXXXX" disabled={busy} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem><FormLabel>Email <span className="font-normal text-muted-foreground">(optional)</span></FormLabel><FormControl><Input plain type="email" autoComplete="email" maxLength={254} placeholder="tenant@example.com" disabled={busy} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+              </section>
 
-        <div className="space-y-2">
-          <Label>KYC Image</Label>
-          {photoPreview ? (
-            <div className="relative w-fit">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photoPreview}
-                alt="KYC preview"
-                className="size-24 rounded-lg border object-cover"
-              />
-              <button
-                type="button"
-                onClick={clearPhoto}
-                className="absolute -right-2 -top-2 rounded-full border border-border bg-background p-1 transition hover:bg-hover"
-                aria-label="Remove image"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
+              <section className={styles.section} aria-labelledby={`${id}-charges`}>
+                <h3 id={`${id}-charges`} className="mb-3 flex items-center gap-2 text-[13px] font-semibold"><IndianRupee aria-hidden="true" className="size-3.5 text-primary/70" />Charges</h3>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <FormField control={form.control} name="rentAmount" render={({ field }) => (
+                    <FormItem><FormLabel>Monthly rent (₹)</FormLabel><FormControl><Input type="number" min={0} inputMode="decimal" placeholder="9000" disabled={busy} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="maintenanceCharge" render={({ field }) => (
+                    <FormItem><FormLabel>Maintenance (₹/mo)</FormLabel><FormControl><Input type="number" min={0} step={1} inputMode="decimal" placeholder="0" disabled={busy} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="securityDeposit" render={({ field }) => (
+                    <FormItem><FormLabel>Security deposit (₹)</FormLabel><FormControl><Input type="number" min={0} step={1} inputMode="decimal" placeholder="0" disabled={busy} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+                {!tenancyId ? <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{formatINR(MAINTENANCE_RESERVE_PAISE)} from the deposit is held as a maintenance reserve on move-in.</p> : null}
+              </section>
+
+              <section className={styles.section} aria-labelledby={`${id}-payment`}>
+                <h3 id={`${id}-payment`} className="mb-3 flex items-center gap-2 text-[13px] font-semibold"><Wallet aria-hidden="true" className="size-3.5 text-primary/70" />Payment</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FormField control={form.control} name="paymentStatus" render={({ field }) => (
+                    <FormItem><FormLabel>Payment status</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={busy}><FormControl><SelectTrigger className="w-full"><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="PAID">Paid</SelectItem><SelectItem value="PENDING">Not paid</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  )} />
+                  {paymentStatus === "PAID" ? <FormField control={form.control} name="paymentMethod" render={({ field }) => (
+                    <FormItem><FormLabel>Payment method</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={busy}><FormControl><SelectTrigger className="w-full"><SelectValue placeholder="Select method" /></SelectTrigger></FormControl><SelectContent><SelectItem value="CASH">Cash</SelectItem><SelectItem value="ONLINE">Online</SelectItem><SelectItem value="SPLIT">Split (cash + online)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  )} /> : <p className="self-end pb-2 text-[11px] leading-relaxed text-muted-foreground">Choose Paid to record this month&apos;s collection and invoice.</p>}
+                </div>
+                {paymentStatus === "PAID" && paymentMethod === "SPLIT" ? <div className="mt-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField control={form.control} name="cashAmount" render={({ field }) => (<FormItem><FormLabel>Cash (₹)</FormLabel><FormControl><Input type="number" min={0} inputMode="decimal" placeholder="0" disabled={busy} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="onlineAmount" render={({ field }) => (<FormItem><FormLabel>Online (₹)</FormLabel><FormControl><Input type="number" min={0} inputMode="decimal" placeholder="0" disabled={busy} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>)} />
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">Cash + online must equal {monthlyTotal}.</p>
+                </div> : null}
+              </section>
+
+              <section className={styles.section} aria-labelledby={`${id}-kyc`}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {photoPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoPreview} alt="KYC preview" className="size-12 shrink-0 rounded-lg border border-border object-cover" />
+                    ) : <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"><ImageIcon className="size-4" /></span>}
+                    <div className="min-w-0"><h3 id={`${id}-kyc`} className="text-[13px] font-semibold">KYC image</h3><p className="mt-1 max-w-52 truncate text-[11px] text-muted-foreground" title={photo?.name}>{photo ? photo.name : photoPreview ? "Saved identity image" : "Identity photo · optional"}</p></div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}><Upload aria-hidden="true" className="size-3.5" />{photoPreview ? "Replace" : "Upload image"}</Button>
+                    {photo ? <Button type="button" variant="ghost" size="icon-sm" disabled={busy} onClick={clearPhoto} aria-label="Remove selected image"><X aria-hidden="true" className="size-3.5" /></Button> : null}
+                  </div>
+                </div>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" aria-label="KYC image upload" onChange={onPhotoChange} disabled={busy} />
+              </section>
+
+              {tenancyId ? <section className={styles.section} aria-labelledby={`${id}-notice`}>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/40 px-3.5 py-3">
+                  <div className="min-w-0 flex-1"><h3 id={`${id}-notice`} className="flex items-center gap-2 text-xs font-medium"><CalendarClock aria-hidden="true" className="size-3.5 text-muted-foreground" />Notice period</h3><p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{noticeGivenDate ? `Given ${format(noticeGivenDate, "dd MMM yyyy")} · vacate by ${format(vacateByDate(noticeGivenDate), "dd MMM yyyy")}` : "15 days from the date notice is given."}</p></div>
+                  <Button type="button" variant="ghost" size="sm" disabled={busy || Boolean(noticeGivenDate)} onClick={onGiveNotice}>{noticePending ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin" /> : null}{noticeGivenDate ? "Notice given" : "Give notice"}</Button>
+                </div>
+              </section> : null}
+            </>
           ) : (
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-input px-3 py-4 text-sm text-muted-foreground transition hover:bg-hover">
-              <Upload className="size-4" />
-              Upload image
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={onPhotoChange}
-              />
-            </label>
+            <div className="rounded-xl border border-dashed border-border px-5 py-8 text-center">
+              <BedDouble aria-hidden="true" className="mx-auto mb-3 size-7 text-primary/50" /><h3 className="text-sm font-medium">Make this {noun} available</h3><p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted-foreground">{tenancyId ? `Saving will end the current tenancy and make this ${noun} ready for a new tenant.` : `This ${noun} will be available for a new tenant.`}</p>
+            </div>
           )}
         </div>
 
-        <div className="flex gap-3 pt-1">
-          <Button type="submit" className="flex-1" disabled={pending}>
-            {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-            Save
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1"
-            onClick={onClose}
-            disabled={pending}
-          >
-            Cancel
-          </Button>
+        <div className={styles.footer}>
+          <div className={styles.total}>
+            <span className="text-[11px] text-muted-foreground">{occupancyStatus === "OCCUPIED" ? "Monthly total" : "Occupancy"}</span>
+            <output aria-live="polite" className="block text-base font-semibold tracking-tight text-foreground tabular-nums">{occupancyStatus === "OCCUPIED" ? rentAmount || maintenanceCharge ? monthlyTotal : "—" : "Available"}</output>
+          </div>
+          <div className={styles.actions}>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button type="submit" disabled={busy}>{pending ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}{occupancyStatus === "AVAILABLE" ? "Save availability" : tenancyId ? "Save changes" : "Save tenant"}</Button>
+          </div>
         </div>
       </form>
     </Form>

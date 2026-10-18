@@ -46,10 +46,10 @@ export const bedFormSchema = z
     onlineAmount: z.string().optional(),
   })
   .superRefine((val, ctx) => {
+    if (val.occupancyStatus !== "OCCUPIED") return;
     if (val.email && !z.string().email().safeParse(val.email).success) {
       ctx.addIssue({ code: "custom", path: ["email"], message: "Invalid email address" });
     }
-    if (val.occupancyStatus !== "OCCUPIED") return;
     if (val.fullName.trim().length < 2) {
       ctx.addIssue({ code: "custom", path: ["fullName"], message: "Tenant name is required" });
     }

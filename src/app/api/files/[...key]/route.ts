@@ -1,3 +1,5 @@
+import { mobileContext } from "@/lib/mobile/session";
+import { propertyOwnsFile } from "@/lib/mobile/files";
 import { auth } from "@/auth";
 import { verifyFileToken } from "@/lib/file-token";
 import { storage } from "@/lib/storage";
@@ -14,6 +16,10 @@ export async function GET(
 
   const session = await auth();
   let authorized = Boolean(session?.user);
+  if (req.headers.has("authorization")) {
+    const ctx = await mobileContext();
+    authorized = Boolean(ctx && await propertyOwnsFile(ctx.property.id, keyStr));
+  }
 
   if (!authorized) {
     const { searchParams } = new URL(req.url);

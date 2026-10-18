@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { format, differenceInDays, startOfMonth, addMonths, startOfDay } from "date-fns";
-import { ArrowLeft, FileText, Mail, Phone, User } from "lucide-react";
+import { ArrowLeft, Mail, Phone, User } from "lucide-react";
 
 import { auth } from "@/auth";
 import { CollectRentButton } from "@/components/collections/collect-rent-button";
@@ -11,7 +11,7 @@ import { formatINR } from "@/lib/money";
 import { getActiveProperty } from "@/lib/property";
 import { getTenantProfile, type TenantProfile } from "@/lib/queries/tenants";
 import { rentDueDate } from "@/lib/rent";
-import { COLLECTION_STATE_META, COMPLAINT_STATUS_META, PAYMENT_STATUS_META } from "@/lib/status";
+import { COLLECTION_STATE_META, PAYMENT_STATUS_META } from "@/lib/status";
 import { DeleteTenantButton } from "@/components/tenants/delete-tenant-button";
 
 export const metadata: Metadata = {

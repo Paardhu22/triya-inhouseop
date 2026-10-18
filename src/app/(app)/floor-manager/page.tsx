@@ -9,29 +9,26 @@ import {
 import { FloorBoard } from "@/components/floor/floor-board";
 import { FloorSelectors } from "@/components/floor/floor-selectors";
 import { FloorBanner } from "@/components/floor/floor-banner";
-import { PageHeader } from "@/components/shell/page-header";
 import { getFloorLayout, getFloorNavigation } from "@/lib/queries/floor";
 import { getActiveProperty } from "@/lib/property";
 import { cn } from "@/lib/utils";
+import styles from "@/components/floor/floor-plan.module.css";
 
 export const metadata: Metadata = {
   title: "Floor Manager",
 };
 
 /**
- * The dots on a room tile are per-BED and carry that bed's payment state, not the
- * room's occupancy — so the legend is generated from BED_VISUAL_STATUS_META, the
- * very map `RoomCard` colours those dots with. Add a state there and it shows up
- * here on its own; the two can never drift apart.
+ * The floor plan and legend share the same per-bed payment status colors.
  */
 const LEGEND_ORDER: BedVisualStatus[] = ["paid", "pending", "overdue", "vacant"];
 
 function Legend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label="Bed payment status legend">
       {LEGEND_ORDER.map((status) => (
         <span key={status} className="flex items-center gap-2">
-          <span className={cn("size-3 rounded-full", BED_VISUAL_STATUS_META[status].dot)} />
+          <span aria-hidden="true" className={cn("size-2 rounded-full", BED_VISUAL_STATUS_META[status].dot)} />
           {BED_VISUAL_STATUS_META[status].label}
         </span>
       ))}
@@ -77,9 +74,12 @@ export default async function FloorManagerPage({
   const rooms = selectedFloorId ? await getFloorLayout(selectedFloorId, propertyId) : [];
 
   return (
-    <div className="relative space-y-6">
-      <PageHeader title="Floor Manager" />
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className={styles.page}>
+      <div className="shrink-0">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Floor Manager<span aria-hidden="true" className="text-primary">.</span></h1>
+        <p className="mt-1 text-xs text-muted-foreground">Your floor at a glance. Select a room or bed to manage it.</p>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <FloorSelectors
           nav={nav}
           selectedBlockId={selectedBlockId}
@@ -87,9 +87,7 @@ export default async function FloorManagerPage({
         />
         <Legend />
       </div>
-      <FloorBoard rooms={rooms} propertySlug={property.slug} canSetRent={canSetRent} />
-      {/* Spacer to prevent fixed footer from covering content when scrolling */}
-      <div style={{ height: "var(--banner-height)" }} />
+      <FloorBoard key={selectedFloorId} rooms={rooms} propertySlug={property.slug} canSetRent={canSetRent} floorLabel={activeFloor?.name ?? `Floor ${activeFloorNumber}`} />
       <FloorBanner 
         floorNumber={activeFloorNumber} 
         totalFloors={totalFloors} 

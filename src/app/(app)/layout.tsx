@@ -11,18 +11,18 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const [session, property, properties] = await Promise.all([
+    auth(),
+    getActiveProperty(),
+    listProperties(),
+  ]);
   if (!session?.user) {
     redirect("/login");
   }
 
-  const property = await getActiveProperty();
   if (!property) {
     redirect("/select-property");
   }
-  
-  const properties = await listProperties();
-
   return (
     <div className="min-h-screen bg-background">
       <DesktopSidebar role={session.user.role} />

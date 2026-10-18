@@ -1,32 +1,26 @@
 import { NextResponse } from "next/server";
-import { startOfMonth } from "date-fns";
+import { startOfMonth, subMonths } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
 import { monthlyDuePaise, resolvePaymentStatus } from "@/lib/rent";
+import { storage } from "@/lib/storage";
 import type { PaymentStatus } from "@/generated/prisma/client";
 
 // Rolls the current-cycle payment snapshot on every active tenancy so a new rent cycle
-// shows as due. `Tenancy.paymentStatus` is a denormalized view of the ledger, refreshed
-// whenever money is recorded — but nothing writes on the 1st of the month, so this job
-// re-derives it on a schedule.
+// shows as due, and purges vacated tenant records whose checkout is older than 6 months.
 //
-// The status is computed exactly the same way as everywhere else (src/lib/rent.ts):
-// from what has been collected for the CURRENT month against what is owed. That also
-// makes the job promote a tenancy to OVERDUE once its due day has passed, which the
-// previous "last payment is a month old" heuristic could never do.
-//
-// Called by an external scheduler — the /api path is excluded from the proxy, so this
-// handler is NOT behind the app's session auth; it authenticates with a shared
-// CRON_SECRET bearer token and fails closed when that secret is unset.
-export async function POST(request: Request) {
+// Called by Vercel Cron (GET) or an external scheduler (POST) — authenticates with a
+// shared CRON_SECRET bearer token and fails closed when that secret is unset.
+async function runDailyMaintenance(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
   try {
-    const month = startOfMonth(new Date());
     const now = new Date();
+    const month = startOfMonth(now);
+    const sixMonthsAgo = subMonths(now, 6);
 
     const tenancies = await prisma.tenancy.findMany({
       where: { status: "ACTIVE" },
@@ -76,10 +70,55 @@ export async function POST(request: Request) {
       updatedCount += count;
     }
 
+    // Purge vacated tenants whose ended tenancies all checked out more than 6 months ago.
+    const expiredTenants = await prisma.tenant.findMany({
+      where: {
+        tenancies: {
+          some: { status: "ENDED", checkOutDate: { lt: sixMonthsAgo } },
+          none: {
+            OR: [
+              { status: "ACTIVE" },
+              { checkOutDate: null },
+              { checkOutDate: { gte: sixMonthsAgo } },
+            ],
+          },
+        },
+      },
+      select: {
+        id: true,
+        photoUrl: true,
+        documents: { select: { storageKey: true } },
+        invoices: { select: { storageKey: true } },
+      },
+    });
+
+    let purgedTenantsCount = 0;
+    if (expiredTenants.length > 0) {
+      const expiredIds = expiredTenants.map((t) => t.id);
+      const keysToDelete = new Set<string>();
+      for (const tenant of expiredTenants) {
+        if (tenant.photoUrl) keysToDelete.add(tenant.photoUrl);
+        for (const doc of tenant.documents) keysToDelete.add(doc.storageKey);
+        for (const inv of tenant.invoices) keysToDelete.add(inv.storageKey);
+      }
+
+      const deleted = await prisma.tenant.deleteMany({
+        where: { id: { in: expiredIds } },
+      });
+      purgedTenantsCount = deleted.count;
+
+      await Promise.all(
+        Array.from(keysToDelete).map((key) =>
+          storage.remove(key).catch(() => undefined),
+        ),
+      );
+    }
+
     return NextResponse.json({
-      message: "Payment reset job completed successfully",
+      message: "Payment reset and 6-month retention cleanup completed successfully",
       scanned: tenancies.length,
       updatedCount,
+      purgedTenantsCount,
     });
   } catch (error) {
     console.error("Cron error resetting payments:", error);
@@ -89,3 +128,12 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function GET(request: Request) {
+  return runDailyMaintenance(request);
+}
+
+export async function POST(request: Request) {
+  return runDailyMaintenance(request);
+}
+

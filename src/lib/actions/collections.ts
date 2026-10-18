@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { format, parseISO, startOfMonth, subMonths } from "date-fns";
 
 import { auth } from "@/auth";
+import { getActionContext } from "@/lib/action-context";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { defaultDueDate, type InvoiceView } from "@/lib/invoice-compute";
 import {
@@ -322,12 +323,9 @@ export type CollectRentResult = {
 export async function collectRent(
   input: CollectRentInput,
 ): Promise<ActionResult<CollectRentResult>> {
-  const session = await auth();
-  if (!session?.user?.id) return actionError("Not authenticated");
-  const userId = session.user.id;
-
-  const property = await getActiveProperty();
-  if (!property) return actionError("No active property selected");
+  const context = await getActionContext();
+  if (!context.ok) return actionError(context.error);
+  const { userId, property } = context.data;
 
   const parsed = collectRentSchema.safeParse(input);
   if (!parsed.success) {

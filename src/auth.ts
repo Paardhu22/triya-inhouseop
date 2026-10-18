@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+import { getMobileSession } from "@/lib/mobile/session";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -6,7 +8,7 @@ import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth: webAuth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
     Credentials({
@@ -44,3 +46,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
 });
+
+/** Existing actions work for both Auth.js browser sessions and mobile bearer sessions. */
+export async function auth() {
+  if ((await headers()).has("authorization")) return getMobileSession();
+  return webAuth();
+}

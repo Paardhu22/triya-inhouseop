@@ -9,7 +9,7 @@ import { PrismaClient } from "@/generated/prisma/client";
 // hot reloads in development to avoid exhausting the connection pool.
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL, max: 10, idleTimeoutMillis: 300_000 }),
     log:
       process.env.NODE_ENV === "development"
         ? ["warn", "error"]
