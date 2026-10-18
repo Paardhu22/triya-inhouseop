@@ -125,52 +125,30 @@ export function LoginScreen({
           className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-amber-900/10 bg-card/95 shadow-[0_25px_65px_-20px_rgba(180,140,80,0.18)] backdrop-blur-md md:grid-cols-[0.95fr_1.05fr]"
         >
           {/* Brand Presentation Panel */}
-          <div className="relative flex flex-col justify-between overflow-hidden bg-gradient-to-br from-amber-50/70 via-stone-50/80 to-amber-100/40 p-8 sm:p-10 border-b md:border-b-0 md:border-r border-amber-900/10">
+          <div className="relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-amber-50/70 via-stone-50/80 to-amber-100/40 p-8 sm:p-10 border-b md:border-b-0 md:border-r border-amber-900/10 text-center">
             {/* Subtle background monogram */}
             <span
               aria-hidden
-              className="pointer-events-none absolute -right-6 -bottom-10 select-none font-serif text-[10rem] font-bold tracking-tighter text-amber-900/[0.04]"
+              className="pointer-events-none absolute select-none font-serif text-[14rem] font-bold tracking-tighter text-amber-900/[0.03]"
             >
               T
             </span>
 
-            {/* Top brand header */}
-            <div>
-              <div className="inline-block rounded-2xl bg-white/80 p-3 shadow-xs border border-amber-200/60 backdrop-blur-xs">
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="rounded-2xl bg-white/90 p-5 sm:p-6 shadow-sm border border-amber-200/60 backdrop-blur-xs">
                 <Image
                   src="/logo-removebg-preview.png"
                   alt="Triya Group of Hospitality"
                   width={865}
                   height={288}
                   priority
-                  className="h-10 sm:h-12 w-auto object-contain"
+                  className="h-14 sm:h-16 w-auto object-contain"
                 />
               </div>
-            </div>
 
-            {/* Middle value proposition */}
-            <div className="my-8 space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-700/20 bg-amber-600/10 px-3 py-1 text-xs font-semibold tracking-wide text-amber-900">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-600 animate-pulse" />
-                PG Operations &amp; Management
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-foreground">
-                Unified Hospitality <br />
-                <span className="text-amber-800 font-serif italic font-normal">
-                  Control Centre
-                </span>
-              </h2>
-
-              <p className="max-w-[34ch] text-sm leading-relaxed text-muted-foreground">
-                Live floor occupancy, rent collections, WhatsApp invoicing, and tenant verification synced in real time.
+              <p className="mt-6 max-w-[28ch] text-sm leading-relaxed text-muted-foreground">
+                Rooms, beds, tenants and payments — organized in one place.
               </p>
-            </div>
-
-            {/* Bottom info */}
-            <div className="pt-4 border-t border-amber-900/10 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Triya Hospitality</span>
-              <span className="font-mono text-[11px] text-amber-800/80">v2.0 • Secured</span>
             </div>
           </div>
 
