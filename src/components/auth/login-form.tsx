@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
-import { Loader2, Lock, Eye, EyeOff, User, ArrowRight } from "lucide-react";
+import { Loader2, Lock, Eye, EyeOff, User, LogIn } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -188,19 +188,13 @@ export function LoginForm({
           )}
         />
 
-        <Button
-          type="submit"
-          className="w-full h-12 rounded-xl bg-gradient-to-r from-stone-900 via-stone-850 to-amber-950 text-amber-100 font-semibold tracking-wide hover:from-stone-800 hover:to-amber-900 shadow-md shadow-stone-900/15 border border-amber-500/20 active:scale-[0.99] transition-all cursor-pointer text-sm"
-          disabled={loading}
-        >
+        <Button type="submit" className="w-full" disabled={loading}>
           {loading ? (
-            <Loader2 className="size-4 animate-spin text-amber-200" />
+            <Loader2 className="size-4 animate-spin" />
           ) : (
-            <div className="flex items-center justify-center gap-2">
-              <span>Sign in</span>
-              <ArrowRight className="size-4 text-amber-300" />
-            </div>
+            <LogIn className="size-4" />
           )}
+          Sign in
         </Button>
       </form>
     </Form>
