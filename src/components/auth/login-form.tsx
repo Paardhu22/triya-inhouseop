@@ -89,30 +89,25 @@ export function LoginForm({
                 </div>
                 <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
                   <FormControl>
-                    <SelectTrigger className="w-full h-13 px-3.5 rounded-xl border border-amber-900/15 bg-stone-50/70 hover:bg-stone-50 hover:border-amber-700/30 focus-visible:border-amber-700 focus-visible:ring-2 focus-visible:ring-amber-500/20 transition-all text-left shadow-2xs cursor-pointer">
+                    <SelectTrigger className="w-full h-12 px-3.5 rounded-xl border border-amber-900/15 bg-stone-50/70 hover:bg-stone-50 hover:border-amber-700/30 focus-visible:border-amber-700 focus-visible:ring-2 focus-visible:ring-amber-500/20 transition-all text-left shadow-2xs cursor-pointer">
                       {selectedUser ? (
                         <div className="flex items-center gap-3 w-full overflow-hidden text-left">
-                          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-100/90 border border-amber-300/70 text-amber-900 font-semibold text-xs shadow-2xs">
-                            {selectedUser.name ? selectedUser.name.charAt(0).toUpperCase() : <User className="size-4 text-amber-800" />}
+                          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-100/90 border border-amber-300/70 text-amber-900 font-semibold text-xs shadow-2xs">
+                            {selectedUser.name ? selectedUser.name.charAt(0).toUpperCase() : <User className="size-3.5 text-amber-800" />}
                           </div>
-                          <div className="flex flex-col min-w-0 flex-1 text-left">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm text-foreground truncate">
-                                {selectedUser.name ?? selectedUser.email}
-                              </span>
-                              <span
-                                className={cn(
-                                  "px-1.5 py-0.5 text-[10px] font-semibold tracking-wide rounded-md uppercase shrink-0",
-                                  selectedUser.role === "ADMIN"
-                                    ? "bg-amber-100 text-amber-900 border border-amber-300"
-                                    : "bg-stone-200/80 text-stone-700 border border-stone-300/70"
-                                )}
-                              >
-                                {selectedUser.role === "ADMIN" ? "Admin" : "PG Manager"}
-                              </span>
-                            </div>
-                            <span className="text-[11px] text-muted-foreground truncate">
-                              {selectedUser.email}
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="font-semibold text-sm text-foreground truncate">
+                              {selectedUser.name ?? selectedUser.email}
+                            </span>
+                            <span
+                              className={cn(
+                                "px-1.5 py-0.5 text-[10px] font-semibold tracking-wide rounded-md uppercase shrink-0",
+                                selectedUser.role === "ADMIN"
+                                  ? "bg-amber-100 text-amber-900 border border-amber-300"
+                                  : "bg-stone-200/80 text-stone-700 border border-stone-300/70"
+                              )}
+                            >
+                              {selectedUser.role === "ADMIN" ? "Admin" : "PG Manager"}
                             </span>
                           </div>
                         </div>
@@ -137,22 +132,15 @@ export function LoginForm({
                             value={user.email}
                             className="rounded-lg px-2.5 py-2 cursor-pointer focus:bg-amber-500/10 focus:text-foreground data-[state=checked]:bg-amber-100/60 transition-colors"
                           >
-                            <span className="flex items-center gap-3 w-full">
+                            <span className="flex items-center gap-2.5 w-full">
                               <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-amber-100 border border-amber-300/60 text-amber-900 font-semibold text-xs">
                                 {user.name ? user.name.charAt(0).toUpperCase() : <User className="size-3.5 text-amber-800" />}
                               </span>
-                              <span className="flex flex-col text-left min-w-0 flex-1">
-                                <span className="flex items-center gap-2">
-                                  <span className="font-medium text-sm text-foreground truncate">
-                                    {user.name ?? user.email}
-                                  </span>
-                                  <span className="px-1.5 py-0.2 text-[9px] font-semibold tracking-wider rounded uppercase bg-amber-100 text-amber-900 border border-amber-300">
-                                    Admin
-                                  </span>
-                                </span>
-                                <span className="text-[11px] text-muted-foreground truncate">
-                                  {user.email}
-                                </span>
+                              <span className="font-medium text-sm text-foreground truncate flex-1 text-left">
+                                {user.name ?? user.email}
+                              </span>
+                              <span className="px-1.5 py-0.5 text-[9px] font-semibold tracking-wider rounded uppercase bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                                Admin
                               </span>
                             </span>
                           </SelectItem>
@@ -173,22 +161,15 @@ export function LoginForm({
                               value={user.email}
                               className="rounded-lg px-2.5 py-2 cursor-pointer focus:bg-amber-500/10 focus:text-foreground data-[state=checked]:bg-amber-100/60 transition-colors"
                             >
-                              <span className="flex items-center gap-3 w-full">
+                              <span className="flex items-center gap-2.5 w-full">
                                 <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-stone-100 border border-stone-300/70 text-stone-800 font-semibold text-xs">
                                   {user.name ? user.name.charAt(0).toUpperCase() : <User className="size-3.5 text-stone-600" />}
                                 </span>
-                                <span className="flex flex-col text-left min-w-0 flex-1">
-                                  <span className="flex items-center gap-2">
-                                    <span className="font-medium text-sm text-foreground truncate">
-                                      {user.name ?? user.email}
-                                    </span>
-                                    <span className="px-1.5 py-0.2 text-[9px] font-semibold tracking-wider rounded uppercase bg-stone-100 text-stone-700 border border-stone-200">
-                                      PG Manager
-                                    </span>
-                                  </span>
-                                  <span className="text-[11px] text-muted-foreground truncate">
-                                    {user.email}
-                                  </span>
+                                <span className="font-medium text-sm text-foreground truncate flex-1 text-left">
+                                  {user.name ?? user.email}
+                                </span>
+                                <span className="px-1.5 py-0.5 text-[9px] font-semibold tracking-wider rounded uppercase bg-stone-100 text-stone-700 border border-stone-200 shrink-0">
+                                  PG Manager
                                 </span>
                               </span>
                             </SelectItem>
