@@ -83,6 +83,9 @@ export async function saveBed(
   });
   if (!bed) return actionError("Bed not found");
   const active = bed.tenancies[0] ?? null;
+  if (formData.get("expectedVacant") === "true" && active) {
+    return actionError("This bed was just occupied. Refresh and try again.");
+  }
 
   // --- Mark bed Available: end the current tenancy (kept as history) and free KYC files. ---
   if (data.occupancyStatus === "AVAILABLE") {
@@ -210,6 +213,13 @@ export async function saveBed(
           },
         });
       } else {
+        // A stale screen or overlapping check-in must claim the available bed
+        // atomically BEFORE creating a tenant. The loser rolls back completely.
+        const claimed = await tx.bed.updateMany({
+          where: { id: bed.id, propertyId: ctx.propertyId, status: "AVAILABLE" },
+          data: { status: "OCCUPIED" },
+        });
+        if (claimed.count !== 1) throw new Error("Bed is no longer available");
         const tenant = await tx.tenant.create({
           data: {
             propertyId: ctx.propertyId,
@@ -239,7 +249,6 @@ export async function saveBed(
           },
         });
         tenancyId = tenancy.id;
-        await tx.bed.update({ where: { id: bed.id }, data: { status: "OCCUPIED" } });
       }
 
       if (saved) {

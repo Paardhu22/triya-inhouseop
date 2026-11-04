@@ -38,6 +38,7 @@ export async function selectProperty(
   const store = await cookies();
   store.set(PROPERTY_COOKIE, propertyId, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: ONE_YEAR,

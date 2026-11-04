@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Menu } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Check, ChevronDown, Loader2, Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,9 +13,6 @@ import {
 import { SidebarContent } from "./sidebar";
 import { UserMenu } from "./user-menu";
 
-import { useTransition } from "react";
-import { ChevronDown, Loader2, Check } from "lucide-react";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PropertyLogo } from "@/components/property/property-logo";
 import { selectProperty } from "@/lib/actions/property";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type PropertyItem = { id: string; name: string; city: string | null; logoKey?: string | null };
@@ -33,6 +31,33 @@ type Props = {
   properties: PropertyItem[];
   user: { name?: string | null; email?: string | null; role: string };
 };
+
+function PropertyIdentity({ property }: { property: PropertyItem }) {
+  return (
+    <>
+      <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 ring-1 ring-inset ring-primary/10">
+        <PropertyLogo
+          logoKey={property.logoKey}
+          name={property.name}
+          className="size-7 rounded object-contain"
+          iconClassName="size-5 text-primary"
+        />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col text-left">
+        <span className="truncate text-[17px] font-semibold leading-6 text-foreground" title={property.name}>
+          {property.name}
+        </span>
+        {property.city ? (
+          <span className="truncate text-[14px] font-normal leading-5 text-muted-foreground" title={property.city}>
+            {property.city}
+          </span>
+        ) : null}
+      </span>
+    </>
+  );
+}
+
+const propertyCardClassName = "flex h-auto min-h-14 w-64 min-w-0 max-w-[calc(100vw-9rem)] items-center gap-3 rounded-xl border border-border bg-card px-3 py-1.5 shadow-2xs sm:w-72";
 
 export function Topbar({ property, properties, user }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -72,68 +97,42 @@ export function Topbar({ property, properties, user }: Props) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="ghost"
-              className="flex h-10 min-w-0 max-w-[min(16rem,calc(100vw-10rem))] items-center justify-between gap-2 px-2 py-1.5 sm:min-w-[200px]"
+              variant="outline"
+              className={cn(propertyCardClassName, "group/property hover:border-primary/30 hover:bg-primary/4 aria-expanded:border-primary/40 aria-expanded:bg-primary/4")}
               disabled={isPending}
+              aria-label={`Switch property, current property: ${property.name}`}
+              aria-busy={isPending}
             >
-              <PropertyLogo
-                logoKey={property.logoKey}
-                name={property.name}
-                className="h-6 w-6 shrink-0 rounded object-contain"
-                iconClassName="size-4 shrink-0"
-              />
-              <div className="flex flex-col items-start min-w-0 text-left">
-                <span className="truncate text-xs font-semibold leading-none text-foreground">{property.name}</span>
-                {property.city ? (
-                  <span className="truncate text-[10px] text-muted-foreground mt-0.5">{property.city}</span>
-                ) : null}
-              </div>
+              <PropertyIdentity property={property} />
               {isPending ? (
-                <Loader2 className="size-3.5 animate-spin text-muted-foreground shrink-0 ml-1" />
+                <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
               ) : (
-                <ChevronDown className="size-3.5 text-muted-foreground shrink-0 ml-1" />
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-aria-expanded/property:rotate-180" />
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[240px]">
-
+          <DropdownMenuContent align="start" sideOffset={8} className="w-80 max-w-[calc(100vw-2rem)] rounded-xl p-1.5">
             {properties.map((p) => (
               <DropdownMenuItem
                 key={p.id}
-                onClick={() => handleSelectProperty(p.id)}
-                className="flex items-center gap-2 cursor-pointer"
+                onSelect={() => handleSelectProperty(p.id)}
+                disabled={isPending}
+                className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2", p.id === property.id && "bg-primary/6")}
               >
-                <PropertyLogo
-                  logoKey={p.logoKey}
-                  name={p.name}
-                  className="size-5 shrink-0 rounded object-contain"
-                  iconClassName="size-4 shrink-0"
-                />
-                <div className="flex flex-col min-w-0">
-                  <span className="truncate text-sm font-medium">{p.name}</span>
-                  {p.city && <span className="truncate text-xs text-muted-foreground">{p.city}</span>}
-                </div>
+                <PropertyIdentity property={p} />
                 {p.id === property.id && (
-                  <Check className="size-4 ml-auto text-primary shrink-0" />
+                  <>
+                    <Check aria-hidden="true" className="ml-auto size-4 shrink-0 text-primary" />
+                    <span className="sr-only">Current property</span>
+                  </>
                 )}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <div className="flex h-10 min-w-0 max-w-[min(16rem,calc(100vw-10rem))] items-center gap-2 px-2 py-1.5 sm:min-w-[200px]">
-          <PropertyLogo
-            logoKey={property.logoKey}
-            name={property.name}
-            className="h-6 w-6 shrink-0 rounded object-contain"
-            iconClassName="size-4 shrink-0"
-          />
-          <div className="flex flex-col items-start min-w-0 text-left">
-            <span className="truncate text-xs font-semibold leading-none text-foreground">{property.name}</span>
-            {property.city ? (
-              <span className="truncate text-[10px] text-muted-foreground mt-0.5">{property.city}</span>
-            ) : null}
-          </div>
+        <div className={propertyCardClassName}>
+          <PropertyIdentity property={property} />
         </div>
       )}
 

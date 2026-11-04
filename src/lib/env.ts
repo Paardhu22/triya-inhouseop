@@ -13,9 +13,11 @@ const optionalSetting = <T extends z.ZodType>(schema: T) =>
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DIRECT_URL: optionalSetting(z.string().min(1)),
-  AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
+  AUTH_SECRET: z.string().min(32, "AUTH_SECRET must contain at least 32 characters")
+    .refine(value => !value.startsWith("replace-with-"), "Generate a real AUTH_SECRET instead of using the template placeholder"),
 
-  CRON_SECRET: optionalSetting(z.string().min(1)),
+  CRON_SECRET: optionalSetting(z.string().min(32)
+    .refine(value => !value.startsWith("replace-with-"), "Generate a real CRON_SECRET instead of using the template placeholder")),
   ALLOWED_ORIGINS: z.string().optional(),
 
   APP_PUBLIC_URL: z.string().optional(),
@@ -40,6 +42,14 @@ function loadEnv() {
       .map((issue) => `  - ${issue.path.join(".") || "(root)"}: ${issue.message}`)
       .join("\n");
     throw new Error(`Invalid environment configuration:\n${details}`);
+  }
+  if (process.env.VERCEL === "1") {
+    if (!parsed.data.NEXT_PUBLIC_SUPABASE_URL || !parsed.data.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Vercel requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for durable private file storage");
+    }
+    if (process.env.VERCEL_ENV === "production" && !parsed.data.CRON_SECRET) {
+      throw new Error("Set CRON_SECRET in production so payment, retention, session, and rate-limit cleanup can run");
+    }
   }
   return parsed.data;
 }

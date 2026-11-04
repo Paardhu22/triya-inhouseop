@@ -85,6 +85,15 @@ enum InvoiceStatus {
 // included to future-proof OAuth and the owner dashboard.
 // ============================================================================
 
+// Short-lived distributed request counters; expired rows are removed by maintenance.
+model RateLimitBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -141,6 +150,7 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expires])
 }
 
 model VerificationToken {
@@ -345,6 +355,7 @@ model Tenant {
 
   @@index([propertyId])
   @@index([phone])
+  @@index([propertyId, photoUrl])
 }
 
 // A single occupancy of a bed by a tenant. Vacating a bed ends the tenancy
@@ -423,6 +434,7 @@ model Document {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([storageKey])
 }
 
 // A generated rent invoice. The charge breakdown is snapshotted in paise at send
@@ -471,6 +483,7 @@ model Invoice {
   @@index([tenancyId])
   @@index([tenantId])
   @@index([billingMonth])
+  @@index([propertyId, storageKey])
 }
 
 // ============================================================================
@@ -525,6 +538,7 @@ model Expense {
   @@index([categoryId])
   @@index([subcategoryId])
   @@index([date])
+  @@index([propertyId, receiptKey])
 }
 
 // Property-scoped expense category (replaces the old hardcoded ExpenseCategory

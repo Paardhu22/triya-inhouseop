@@ -6,7 +6,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 const databaseUrl = process.env.DATABASE_URL ?? '';
 const dbUrl = new URL(databaseUrl);
-if (!['127.0.0.1', 'localhost'].includes(dbUrl.hostname) || dbUrl.pathname !== '/mobile_api_test') {
+if (!['127.0.0.1', 'localhost'].includes(dbUrl.hostname) || (dbUrl.pathname !== '/mobile_api_test' && !/^\/triya_security_\d{8}$/.test(dbUrl.pathname))) {
   throw new Error('These checks run only against an isolated local mobile_api_test database.');
 }
 const api = process.env.TRIYA_MOBILE_TEST_URL ?? 'http://127.0.0.1:3109';
@@ -34,6 +34,7 @@ async function action(token: string, property: string, name: string, ...args: un
 
 async function main() {
   // Clear only the guarded disposable database so this script can be repeated.
+  await prisma.rateLimitBucket.deleteMany();
   await prisma.session.deleteMany(); await prisma.user.deleteMany(); await prisma.property.deleteMany();
   const [a, b] = await Promise.all(['A', 'B'].map(name => prisma.property.create({ data: { name: `Test ${name}`, slug: `mobile-test-${name.toLowerCase()}` } })));
   const hash = await bcrypt.hash(password, 4);

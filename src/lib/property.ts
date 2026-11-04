@@ -9,20 +9,23 @@ import { prisma } from "@/lib/prisma";
 
 export const PROPERTY_COOKIE = "triya.property";
 
-/** The currently selected property id from the cookie (no validation). */
-export async function getSelectedPropertyId(): Promise<string | null> {
+/** Treat the selection cookie/header as untrusted and validate ownership every request. */
+const getSelectedProperty = cache(async () => {
+  const session = await auth();
+  if (!session?.user) return null;
   const requestHeaders = await headers();
-  if (requestHeaders.has("authorization")) {
-    const { getMobileSession } = await import("@/lib/mobile/session");
-    const session = await getMobileSession();
-    const id = requestHeaders.get("x-triya-property");
-    if (!session || !id || (session.user.role !== "ADMIN" && session.user.propertyId !== id)) return null;
-    const property = await prisma.property.findFirst({ where: { id, isActive: true }, select: { id: true } });
-    return property?.id ?? null;
-  }
-  const store = await cookies();
-  return store.get(PROPERTY_COOKIE)?.value ?? null;
-}
+  const id = requestHeaders.has("authorization")
+    ? requestHeaders.get("x-triya-property")
+    : (await cookies()).get(PROPERTY_COOKIE)?.value;
+  if (!id || id.length > 200) return null;
+  return prisma.property.findFirst({
+    where: { id, isActive: true, ...(session.user.role === "ADMIN" ? {} : { users: { some: { id: session.user.id, isActive: true } } }) },
+  });
+});
+
+export const getSelectedPropertyId = cache(async (): Promise<string | null> =>
+  (await getSelectedProperty())?.id ?? null,
+);
 
 /**
  * A Prisma `where` fragment that limits Property rows to the ones the signed-in user
@@ -38,13 +41,7 @@ export async function accessiblePropertyWhere(): Promise<Prisma.PropertyWhereInp
 }
 
 /** Request-scoped: layout and page share one authorized property lookup per render. */
-export const getActiveProperty = cache(async () => {
-  const id = await getSelectedPropertyId();
-  if (!id) return null;
-  const scope = await accessiblePropertyWhere();
-  if (!scope) return null;
-  return prisma.property.findFirst({ where: { id, isActive: true, ...scope } });
-});
+export const getActiveProperty = getSelectedProperty;
 
 /** Like getActiveProperty but throws — for pages that are always inside a property. */
 export async function requireActiveProperty() {

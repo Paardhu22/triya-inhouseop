@@ -98,7 +98,7 @@ export function OccupancyStatCard({
           className="group flex min-w-0 cursor-pointer flex-col justify-start rounded-lg bg-transparent py-5 text-left transition-colors hover:text-primary focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
           <span className="text-xs font-medium text-muted-foreground">{label}</span>
-          <span className="mt-3 truncate text-2xl font-semibold leading-none tracking-[-0.04em] text-foreground tabular-nums sm:text-[2rem]">{value}</span>
+          <span className="mt-3 truncate text-2xl font-semibold leading-none tracking-[-0.04em] text-foreground tabular-nums sm:text-[2.125rem]">{value}</span>
           <span className="mt-2 text-xs leading-relaxed font-normal text-muted-foreground">{hint}</span>
           <span className="mt-3 text-xs font-medium text-primary underline-offset-4 group-hover:underline">View list</span>
         </button>

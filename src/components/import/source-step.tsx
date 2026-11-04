@@ -90,7 +90,7 @@ export function SourceStep({ onParsed }: { onParsed: (upload: ParsedUpload) => v
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Drop a spreadsheet here</p>
                   <p className="text-xs text-muted-foreground">
-                    CSV, TSV or Excel (.xlsx), up to 5 MB
+                    CSV, TSV or Excel (.xlsx), up to 3 MB
                   </p>
                 </div>
                 <input

@@ -17,7 +17,7 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
       aria-current={active ? "page" : undefined}
       onClick={onNavigate}
       className={cn(
-        "flex min-h-11 items-center gap-3 rounded-full border border-transparent px-4 py-2.5 text-[0.8125rem] font-medium transition-[color,background-color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        "flex min-h-11 items-center gap-3 rounded-full border border-transparent px-4 py-2.5 text-sm font-medium transition-[color,background-color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         active
           ? "border-border/60 bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-xs"
           : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
@@ -53,7 +53,7 @@ export function SidebarContent({
         />
       </div>
 
-      <p className="mb-2 px-4 text-[0.6875rem] font-medium text-muted-foreground">Workspace</p>
+      <p className="mb-2 px-4 text-xs font-medium text-muted-foreground">Workspace</p>
       <nav aria-label="Workspace" className="flex flex-col gap-1">
         {MAIN_NAV.map((item) => (
           <NavLink key={item.href} item={item} onNavigate={onNavigate} />

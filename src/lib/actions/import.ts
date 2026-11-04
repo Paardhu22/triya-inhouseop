@@ -17,6 +17,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getActiveProperty } from "@/lib/property";
 import { importRunSchema } from "@/lib/validations/import";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 type CtxResult = { ok: true; ctx: ImportContext } | { ok: false; error: string };
 
@@ -41,6 +42,9 @@ async function requireContext(): Promise<CtxResult> {
     return { ok: false, error: "Your session is out of date. Please sign out and sign in again." };
   }
   if (user.role !== "ADMIN") return { ok: false, error: "Administrator access required" };
+  if (await enforceRateLimit("import-user", user.id, 10)) {
+    return { ok: false, error: "Too many import requests. Please try again shortly." };
+  }
 
   const property = await getActiveProperty();
   if (!property) return { ok: false, error: "No active property selected" };
@@ -75,7 +79,7 @@ export async function parseImportUpload(formData: FormData): Promise<ActionResul
 
     if (file instanceof File && file.size > 0) {
       if (file.size > MAX_IMPORT_BYTES) {
-        return actionError("That file is larger than 5 MB. Split it, or save just the data sheet as CSV.");
+        return actionError("That file is larger than 3 MB. Split it, or save just the data sheet as CSV.");
       }
       sheets = await parseImportFile(file);
       sourceName = file.name;

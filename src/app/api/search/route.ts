@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const propertyId = await getSelectedPropertyId();
-  if (!propertyId) return Response.json({ results: [] });
+  if (!propertyId) return Response.json({ results: [] }, { headers: { "Cache-Control": "private, no-store" } });
 
   const property = await prisma.property.findUnique({
     where: { id: propertyId },
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const isFlat = property?.isFlat ?? false;
 
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 80) ?? "";
-  if (query.length < 2) return Response.json({ results: [] });
+  if (query.length < 2) return Response.json({ results: [] }, { headers: { "Cache-Control": "private, no-store" } });
 
   const contains = { contains: query, mode: "insensitive" as const };
   const upper = query.toUpperCase().replace(/\s+/g, "_");
@@ -145,6 +145,5 @@ export async function GET(request: Request) {
     });
   }
 
-  return Response.json({ results: results.slice(0, 24) });
+  return Response.json({ results: results.slice(0, 24) }, { headers: { "Cache-Control": "private, no-store" } });
 }
-

@@ -9,7 +9,13 @@ import { PrismaClient } from "@/generated/prisma/client";
 // hot reloads in development to avoid exhausting the connection pool.
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL, max: 10, idleTimeoutMillis: 300_000 }),
+    adapter: new PrismaPg({
+      connectionString: process.env.DATABASE_URL,
+      max: 5,
+      connectionTimeoutMillis: 15_000,
+      idleTimeoutMillis: 30_000,
+      query_timeout: 30_000,
+    }),
     log:
       process.env.NODE_ENV === "development"
         ? ["warn", "error"]
@@ -22,6 +28,4 @@ const globalForPrisma = globalThis as unknown as {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;

@@ -10,6 +10,7 @@ import { generateExpenseReportPdf } from "@/lib/expense-report";
 import { prisma } from "@/lib/prisma";
 import { getActiveProperty } from "@/lib/property";
 import { getExpenses } from "@/lib/queries/expenses";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -49,6 +50,8 @@ function describeFilters(
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return new Response("Unauthorized", { status: 401 });
+  const rejected = await enforceRateLimit("expense-export", session.user.id, 5);
+  if (rejected) return rejected;
 
   const property = await getActiveProperty();
   if (!property) return new Response("No active property selected", { status: 400 });

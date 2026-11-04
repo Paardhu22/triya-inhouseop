@@ -1,12 +1,12 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import { getMobileSession } from "@/lib/mobile/session";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/prisma";
-import { loginSchema } from "@/lib/validations/auth";
+import { authenticateCredentials, credentialVersion } from "@/lib/security/credentials";
 
 export const { handlers, auth: webAuth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -16,24 +16,9 @@ export const { handlers, auth: webAuth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
-        const parsed = loginSchema.safeParse(credentials);
-        if (!parsed.success) return null;
-
-        const { email, password } = parsed.data;
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: { property: { select: { isActive: true } } },
-        });
-        if (!user || !user.isActive) return null;
-
-        // A non-admin account is scoped to one property. Block sign-in when that
-        // property is missing or deactivated — this is how "delete" (deactivate)
-        // locks a property's account out without removing the human record.
-        if (user.role !== "ADMIN" && !user.property?.isActive) return null;
-
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+      authorize: async (credentials, request) => {
+        const user = await authenticateCredentials(credentials, request.headers);
+        if (!user) return null;
 
         return {
           id: user.id,
@@ -41,6 +26,7 @@ export const { handlers, auth: webAuth, signIn, signOut } = NextAuth({
           email: user.email,
           role: user.role,
           image: user.image,
+          sessionVersion: credentialVersion(user.passwordHash),
         };
       },
     }),
@@ -48,7 +34,16 @@ export const { handlers, auth: webAuth, signIn, signOut } = NextAuth({
 });
 
 /** Existing actions work for both Auth.js browser sessions and mobile bearer sessions. */
-export async function auth() {
+export const auth = cache(async () => {
   if ((await headers()).has("authorization")) return getMobileSession();
-  return webAuth();
-}
+  const session = await webAuth();
+  if (!session?.user?.id || !session.sessionVersion) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, role: true, name: true, email: true, isActive: true, passwordHash: true, property: { select: { isActive: true } } },
+  });
+  if (!user?.isActive || (user.role !== "ADMIN" && !user.property?.isActive)) return null;
+  if (session.sessionVersion !== credentialVersion(user.passwordHash)) return null;
+  session.user = { ...session.user, id: user.id, role: user.role, name: user.name, email: user.email };
+  return session;
+});

@@ -3,11 +3,18 @@ import { revalidatePath } from "next/cache";
 import { mobileContext, getMobileSession } from "@/lib/mobile/session";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
+import { getStoragePolicy } from "@/lib/storage-policy";
+import { readFormBody, requestErrorResponse } from "@/lib/security/request";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(request: Request) {
   const ctx = await mobileContext();
   if (!ctx) return Response.json({ error: "Unauthorized" }, { status: (await getMobileSession()) ? 403 : 401 });
-  const data = await request.formData();
+  const rejected = await enforceRateLimit("document-upload", ctx.user.id, 15);
+  if (rejected) return rejected;
+  let data: FormData;
+  try { data = await readFormBody(request, getStoragePolicy().maxFileBytes + 64 * 1024); }
+  catch (error) { return requestErrorResponse(error); }
   const parsed = z.object({ tenantId: z.string().min(1), type: z.enum(["AADHAAR_FRONT", "AADHAAR_BACK", "PAN", "PHOTO", "AGREEMENT", "OTHER"]) }).safeParse({ tenantId: data.get("tenantId"), type: data.get("type") });
   const file = data.get("file");
   if (!parsed.success || !(file instanceof File)) return Response.json({ error: "Choose a document and its type" }, { status: 400 });

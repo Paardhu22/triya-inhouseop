@@ -21,7 +21,7 @@ export function signFileToken(key: string, ttlSeconds = 600): { exp: number; sig
 
 /** True when the signature matches the key+exp and the token has not expired. */
 export function verifyFileToken(key: string, exp: number, sig: string | null): boolean {
-  if (!sig || !Number.isFinite(exp) || exp * 1000 < Date.now()) return false;
+  if (!sig || !/^[a-f0-9]{64}$/.test(sig) || !Number.isSafeInteger(exp) || exp * 1000 < Date.now()) return false;
   const expected = Buffer.from(sign(`${key}.${exp}`));
   const provided = Buffer.from(sig);
   return expected.length === provided.length && timingSafeEqual(expected, provided);

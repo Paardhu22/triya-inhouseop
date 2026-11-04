@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import bcrypt from "bcryptjs";
 
 import { auth } from "@/auth";
@@ -8,6 +8,7 @@ import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 import { storage } from "@/lib/storage";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   createPropertySchema,
   setAccountPasswordSchema,
@@ -17,6 +18,7 @@ import {
 async function requireAdmin() {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN") return null;
+  if (await enforceRateLimit("admin-property-write", session.user.id, 15)) return null;
   return session.user;
 }
 
@@ -141,6 +143,7 @@ export async function createProperty(input: unknown): Promise<ActionResult<{ id:
     );
 
     revalidatePath("/admin");
+    revalidateTag("login-accounts", { expire: 0 });
     revalidatePath("/", "layout");
     return actionOk({ id: property.id });
   } catch {
@@ -162,7 +165,10 @@ export async function setAccountPassword(input: unknown): Promise<ActionResult> 
   if (!account) return actionError("Account not found");
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
-  await prisma.user.update({ where: { id: account.id }, data: { passwordHash } });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: account.id }, data: { passwordHash } }),
+    prisma.session.deleteMany({ where: { userId: account.id } }),
+  ]);
   return actionOk();
 }
 
@@ -181,6 +187,7 @@ export async function setPropertyActive(input: unknown): Promise<ActionResult> {
     data: { isActive: parsed.data.active },
   });
   if (updated.count !== 1) return actionError("Property not found");
+  revalidateTag("login-accounts", { expire: 0 });
 
   revalidatePath("/admin");
   revalidatePath("/", "layout");

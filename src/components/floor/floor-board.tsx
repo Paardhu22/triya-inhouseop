@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Scan, BedDouble } from "lucide-react";
+import { BedDouble } from "lucide-react";
 import type { FloorRoom } from "@/lib/queries/floor";
 import { bedVisualStatus } from "./bed-status";
 import { BedDialog } from "./bed-dialog";
@@ -33,7 +33,7 @@ export function FloorBoard({ rooms, propertySlug, canSetRent = false, floorLabel
       <div className={styles.board}>
         <div className={styles.toolbar}>
           <div className="min-w-0">
-            <p className="flex items-center gap-2 text-xs font-semibold"><Scan aria-hidden="true" className="size-3.5 shrink-0 text-primary" /><span className="truncate">{floorLabel}</span></p>
+            <p className="truncate text-xs font-semibold">{floorLabel}</p>
             <p className="mt-1 text-[10px] text-muted-foreground">{rooms.length} {isFlat ? "flats" : "rooms"} · {bedCount} {isFlat ? "units" : "beds"} · <span className="text-primary">{available} available</span></p>
           </div>
           {rooms.length > 0 ? (

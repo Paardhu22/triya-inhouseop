@@ -19,6 +19,8 @@ async function runDailyMaintenance(request: Request) {
 
   try {
     const now = new Date();
+    await prisma.rateLimitBucket.deleteMany({ where: { resetAt: { lt: now } } });
+    await prisma.session.deleteMany({ where: { expires: { lt: now } } });
     const month = startOfMonth(now);
     const sixMonthsAgo = subMonths(now, 6);
 
@@ -136,4 +138,3 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return runDailyMaintenance(request);
 }
-

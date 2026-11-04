@@ -23,6 +23,11 @@ export type LedgerTenancy = {
 /** Anything that can read payments — the Prisma client or a transaction. */
 type PaymentReader = Pick<Prisma.TransactionClient, "payment">;
 
+/** Serialize changes to one tenancy before reading/writing its payment balance. */
+export async function lockLedgerTenancy(tx: Prisma.TransactionClient, tenancyId: string) {
+  await tx.$queryRaw`SELECT "id" FROM "Tenancy" WHERE "id" = ${tenancyId} FOR UPDATE`;
+}
+
 /** Total collected (status PAID) against one tenancy for one billing month. */
 export async function sumCollected(
   tx: PaymentReader,
@@ -110,6 +115,7 @@ export async function settleMonth(
   },
 ): Promise<string | null> {
   const { propertyId, tenancy, forMonth, method, recordedById, at } = args;
+  await lockLedgerTenancy(tx, tenancy.id);
 
   const shortfall = monthlyDuePaise(tenancy) - (await sumCollected(tx, tenancy.id, forMonth));
   if (shortfall <= 0) return null;

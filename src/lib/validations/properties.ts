@@ -26,6 +26,11 @@ export const createPropertySchema = z
     sections: z.array(propertySectionSchema).min(1, "Add at least one floor group").max(12),
   })
   .superRefine((data, ctx) => {
+    const rooms = data.sections.reduce((sum, section) => sum + section.floors.length * section.roomsPerFloor.length, 0);
+    const beds = data.sections.reduce((sum, section) => sum + section.floors.length * section.roomsPerFloor.reduce((total, sharing) => total + sharing, 0), 0);
+    if (rooms > 1000 || beds > 5000) {
+      ctx.addIssue({ code: "custom", message: "Create at most 1,000 rooms and 5,000 beds at once", path: ["sections"] });
+    }
     if (data.hasBlocks) {
       data.sections.forEach((section, index) => {
         if (!section.name.trim()) {

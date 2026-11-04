@@ -83,13 +83,10 @@ export function LoginForm({
                   <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Select Account / PG
                   </FormLabel>
-                  <span className="text-[11px] text-muted-foreground/80 font-normal">
-                    Click to switch PG
-                  </span>
                 </div>
                 <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
                   <FormControl>
-                    <SelectTrigger className="w-full h-12 px-3.5 rounded-xl border border-amber-900/15 bg-stone-50/70 hover:bg-stone-50 hover:border-amber-700/30 focus-visible:border-amber-700 focus-visible:ring-2 focus-visible:ring-amber-500/20 transition-all text-left shadow-2xs cursor-pointer">
+                    <SelectTrigger className="w-full data-[size=default]:h-12 px-3.5 rounded-xl border border-amber-900/15 bg-stone-50/70 hover:bg-stone-50 hover:border-amber-700/30 focus-visible:border-amber-700 focus-visible:ring-2 focus-visible:ring-amber-500/20 transition-all text-left shadow-2xs cursor-pointer">
                       {selectedUser ? (
                         <div className="flex items-center gap-3 w-full overflow-hidden text-left">
                           <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-100/90 border border-amber-300/70 text-amber-900 font-semibold text-xs shadow-2xs">
@@ -179,9 +176,6 @@ export function LoginForm({
                     )}
                   </SelectContent>
                 </Select>
-                <p className="text-[11px] text-muted-foreground pt-0.5">
-                  Select <strong>Triya Admin</strong> for all properties, or a <strong>PG Manager</strong> (Joystayz, Frieden, Cozy) for single-PG operations.
-                </p>
                 <FormMessage />
               </FormItem>
             );

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const passwordSchema = z.object({
-  currentPassword: z.string().min(1, "Enter your current password"),
+  currentPassword: z.string().min(1, "Enter your current password").max(128),
   newPassword: z.string().min(8, "New password must be at least 8 characters").max(128),
 });
 
@@ -12,4 +12,3 @@ export const propertySettingsSchema = z.object({
   phone: z.string().trim().max(20),
   rulesText: z.string().trim().max(4000),
 });
-

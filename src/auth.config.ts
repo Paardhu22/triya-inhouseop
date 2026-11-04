@@ -17,13 +17,12 @@ export const authConfig = {
   providers: [],
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = Boolean(auth?.user);
+      const isLoggedIn = Boolean(auth?.user && auth.sessionVersion);
       const isOnLogin = nextUrl.pathname === "/login";
 
       if (isOnLogin) {
-        if (isLoggedIn) {
-          return Response.redirect(new URL("/dashboard", nextUrl));
-        }
+        // The login page checks the live account. Redirecting here using only a
+        // JWT would cause a redirect loop for revoked/deactivated sessions.
         return true;
       }
 
@@ -34,10 +33,12 @@ export const authConfig = {
       if (user) {
         token.id = user.id ?? token.id;
         token.role = (user as { role?: Role }).role ?? token.role;
+        token.sessionVersion = user.sessionVersion;
       }
       return token;
     },
     session({ session, token }) {
+      session.sessionVersion = typeof token.sessionVersion === "string" ? token.sessionVersion : undefined;
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;

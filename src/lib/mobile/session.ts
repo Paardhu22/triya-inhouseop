@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
 export const mobileUserSelect = { id: true, name: true, email: true, role: true, isActive: true, propertyId: true } as const;
@@ -14,7 +15,7 @@ export async function createMobileSession(userId: string) {
   return { token, expires: expires.toISOString() };
 }
 
-export async function getMobileSession() {
+export const getMobileSession = cache(async () => {
   const authorization = (await headers()).get("authorization");
   if (!authorization?.startsWith("Bearer ")) return null;
   const token = authorization.slice(7);
@@ -28,7 +29,7 @@ export async function getMobileSession() {
   const { id, name, email, role, isActive, propertyId } = session.user;
   const user = { id, name, email, role, isActive, propertyId };
   return { user, expires: session.expires.toISOString() };
-}
+});
 
 export async function deleteMobileSession() {
   const token = (await headers()).get("authorization")?.slice(7);
@@ -36,11 +37,11 @@ export async function deleteMobileSession() {
 }
 
 /** Every mobile read/write validates the current account AND property ownership. */
-export async function mobileContext() {
+export const mobileContext = cache(async () => {
   const session = await getMobileSession();
   if (!session) return null;
   const id = (await headers()).get("x-triya-property");
   if (!id || (session.user.role !== "ADMIN" && id !== session.user.propertyId)) return null;
   const property = await prisma.property.findFirst({ where: { id, isActive: true } });
   return property ? { ...session, property } : null;
-}
+});

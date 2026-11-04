@@ -1,6 +1,8 @@
 import NextAuth from "next-auth";
+import { NextRequest, NextResponse } from "next/server";
 
 import { authConfig } from "@/auth.config";
+import { screenRequest } from "@/lib/security/traffic";
 
 const { auth } = NextAuth(authConfig);
 
@@ -12,10 +14,14 @@ const handler = auth as unknown as (
   ...args: unknown[]
 ) => Response | Promise<Response | undefined> | undefined;
 
-export default function proxy(...args: unknown[]) {
-  return handler(...args);
+export default function proxy(request: NextRequest, ...args: unknown[]) {
+  const rejected = screenRequest(request);
+  if (rejected) return rejected;
+  // API routes validate their own browser/bearer/signed-file authorization.
+  if (request.nextUrl.pathname.startsWith("/api/")) return NextResponse.next();
+  return handler(request, ...args);
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  matcher: ["/((?!_next/|favicon.ico|icon.ico|logo\\.png|logo-removebg-preview\\.png|next\\.svg|globe\\.svg|file\\.svg|vercel\\.svg|window\\.svg).*)"],
 };

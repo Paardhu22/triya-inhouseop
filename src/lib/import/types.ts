@@ -134,9 +134,9 @@ export type ImportSummary = {
   problems: ResolvedRow[];
 };
 
-/** Hard caps. The 5 MB ceiling matches serverActions.bodySizeLimit in next.config.ts. */
+/** Leave room for multipart metadata below the action and Vercel request ceilings. */
 export const MAX_IMPORT_ROWS = 5000;
-export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+export const MAX_IMPORT_BYTES = 3 * 1024 * 1024;
 
 /** Who and what an import is running against. Resolved once per action call. */
 export type ImportContext = {

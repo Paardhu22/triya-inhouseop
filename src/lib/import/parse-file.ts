@@ -7,6 +7,7 @@ import ExcelJS from "exceljs";
 import Papa from "papaparse";
 
 import { MAX_IMPORT_ROWS, type ParsedSheet } from "./types";
+import { validateWorkbookArchive } from "@/lib/security/zip";
 
 export class ImportParseError extends Error {}
 
@@ -108,35 +109,53 @@ function toSheet(name: string, grid: string[][]): ParsedSheet {
 
 /** Parse CSV / TSV text, letting Papa sniff the delimiter (a paste from Excel is tab-separated). */
 function parseDelimited(name: string, text: string): ParsedSheet {
+  const rows: string[][] = [];
+  let tooLarge = false;
   const result = Papa.parse<string[]>(text, {
     header: false,
     // Blank lines are kept so row numbers still line up with the user's file; tidyGrid
     // trims the trailing ones and squares up the ragged rows hand-kept sheets are full of.
     skipEmptyLines: false,
     delimiter: "",
+    step(result, parser) {
+      if (rows.length >= MAX_IMPORT_ROWS + 10 || result.data.length > 200 || result.data.some(cell => cell.length > 2000)) {
+        tooLarge = true;
+        parser.abort();
+      } else {
+        rows.push(result.data);
+      }
+    },
   });
+  if (tooLarge) throw new ImportParseError("That sheet is too large. Use at most 5,000 rows, 200 columns, and 2,000 characters per cell.");
   const fatal = result.errors.find((error) => error.type === "Delimiter");
-  if (fatal && result.data.length === 0) {
+  if (fatal && rows.length === 0) {
     throw new ImportParseError("Could not work out how that file is separated. Save it as a CSV and try again.");
   }
-  return toSheet(name, result.data);
+  return toSheet(name, rows);
 }
 
 async function parseWorkbook(buffer: ArrayBuffer): Promise<ParsedSheet[]> {
   const workbook = new ExcelJS.Workbook();
   try {
+    validateWorkbookArchive(Buffer.from(buffer));
     await workbook.xlsx.load(buffer);
   } catch {
     throw new ImportParseError("That Excel file could not be opened. Try re-saving it as .xlsx or CSV.");
   }
 
   const sheets: ParsedSheet[] = [];
+  if (workbook.worksheets.length > 10) throw new ImportParseError("Use at most 10 sheets per workbook.");
   workbook.eachSheet((worksheet) => {
     const grid: string[][] = [];
     const width = worksheet.columnCount;
+    if (width > 200 || worksheet.rowCount > MAX_IMPORT_ROWS + 10) {
+      throw new ImportParseError("That sheet is too large. Split it into sheets with at most 5,000 rows and 200 columns.");
+    }
     for (let rowIndex = 1; rowIndex <= worksheet.rowCount; rowIndex += 1) {
       const row = worksheet.getRow(rowIndex);
-      grid.push(Array.from({ length: width }, (_, column) => cellToString(row.getCell(column + 1).value)));
+      const cells = Array.from({ length: width }, (_, column) => cellToString(row.getCell(column + 1).value));
+      if (cells.some(cell => cell.length > 2000)) throw new ImportParseError("Cells must contain at most 2,000 characters.");
+      grid.push(cells);
     }
     sheets.push(toSheet(worksheet.name || `Sheet ${sheets.length + 1}`, grid));
   });

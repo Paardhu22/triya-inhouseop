@@ -111,14 +111,6 @@ export function LoginScreen({
         >
           {/* Brand Presentation Panel */}
           <div className="relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-amber-50/70 via-stone-50/80 to-amber-100/40 p-8 sm:p-10 border-b md:border-b-0 md:border-r border-amber-900/10 text-center">
-            {/* Subtle background monogram */}
-            <span
-              aria-hidden
-              className="pointer-events-none absolute select-none font-serif text-[14rem] font-bold tracking-tighter text-amber-900/[0.03]"
-            >
-              T
-            </span>
-
             <div className="relative z-10 flex flex-col items-center">
               <div className="rounded-2xl bg-white/90 p-5 sm:p-6 shadow-sm border border-amber-200/60 backdrop-blur-xs">
                 <Image
@@ -130,10 +122,6 @@ export function LoginScreen({
                   className="h-14 sm:h-16 w-auto object-contain"
                 />
               </div>
-
-              <p className="mt-6 max-w-[28ch] text-sm leading-relaxed text-muted-foreground">
-                Rooms, beds, tenants and payments — organized in one place.
-              </p>
             </div>
           </div>
 

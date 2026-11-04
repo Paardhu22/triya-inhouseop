@@ -12,6 +12,9 @@ import * as settings from "@/lib/actions/settings";
 import { collectRentSchema } from "@/lib/validations/collections";
 import * as categories from "@/lib/actions/expense-categories";
 import { setRoomRent } from "@/lib/actions/rooms";
+import { getStoragePolicy } from "@/lib/storage-policy";
+import { RequestError, readFormBody, readJsonBody, requestErrorResponse } from "@/lib/security/request";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 const id = z.string().min(1).max(200);
 const paise = z.number().int().nonnegative().max(10_000_000_000);
@@ -26,9 +29,12 @@ const rupees = (value: unknown) => paise.parse(value) / 100;
 export async function POST(request: Request) {
   const ctx = await mobileContext();
   if (!ctx) return Response.json({ error: "Sign in and select an accessible property" }, { status: (await getMobileSession()) ? 403 : 401 });
+  const rejected = await enforceRateLimit("mobile-write", ctx.user.id, 60);
+  if (rejected) return rejected;
   try {
-    const upload = request.headers.get("content-type")?.includes("multipart/form-data") ? await request.formData() : null;
-    const payload = upload ? JSON.parse(z.string().parse(upload.get("payload"))) : await request.json();
+    const upload = request.headers.get("content-type")?.includes("multipart/form-data")
+      ? await readFormBody(request, getStoragePolicy().maxFileBytes + 64 * 1024) : null;
+    const payload = upload ? JSON.parse(z.string().max(64 * 1024).parse(upload.get("payload"))) : await readJsonBody(request);
     const { action, args } = z.object({ action: z.string(), args: z.array(z.unknown()).max(4) }).parse(payload);
     let result;
     switch (action) {
@@ -106,6 +112,7 @@ export async function POST(request: Request) {
           securityDeposit: v.securityDeposit == null ? undefined : rupees(v.securityDeposit) + 1000,
           cashAmount: v.cashAmount == null ? undefined : rupees(v.cashAmount),
           onlineAmount: v.onlineAmount == null ? undefined : rupees(v.onlineAmount) });
+        data.set("expectedVacant", "true");
         const photo = upload?.get("attachment");
         if (photo instanceof File) data.set("photo", photo);
         result = await floor.saveBed(data);
@@ -160,6 +167,7 @@ export async function POST(request: Request) {
     }
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    if (error instanceof RequestError) return requestErrorResponse(error);
     if (error instanceof z.ZodError || error instanceof SyntaxError) {
       return Response.json({ ok: false, error: "Invalid request details" }, { status: 400 });
     }

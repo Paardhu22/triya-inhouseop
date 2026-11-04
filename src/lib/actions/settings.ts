@@ -8,10 +8,14 @@ import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
 import { getSelectedPropertyId } from "@/lib/property";
 import { passwordSchema, propertySettingsSchema } from "@/lib/validations/settings";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export async function changePassword(input: unknown): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return actionError("Not authenticated");
+  if (await enforceRateLimit("password-change", session.user.id, 5, 15 * 60_000)) {
+    return actionError("Too many password attempts. Please try again later.");
+  }
   const parsed = passwordSchema.safeParse(input);
   if (!parsed.success) return actionError(parsed.error.issues[0]?.message ?? "Invalid password");
   if (parsed.data.currentPassword === parsed.data.newPassword) {
@@ -37,7 +41,10 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
     return actionError("Current password is incorrect");
   }
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
+    prisma.session.deleteMany({ where: { userId: user.id } }),
+  ]);
   return actionOk();
 }
 
@@ -67,4 +74,3 @@ export async function updatePropertySettings(input: unknown): Promise<ActionResu
   revalidatePath("/settings");
   return actionOk();
 }
-

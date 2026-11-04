@@ -1,6 +1,7 @@
 import "server-only";
 
 import twilio from "twilio";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 
 // Server-only Twilio client. Credentials come from the environment and are never
 // imported into a client bundle (guarded by "server-only").
@@ -17,7 +18,7 @@ function getClient(): ReturnType<typeof twilio> {
       "Twilio is not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.",
     );
   }
-  if (!client) client = twilio(accountSid, authToken);
+  if (!client) client = twilio(accountSid, authToken, { timeout: 10_000, autoRetry: false });
   return client;
 }
 
@@ -51,6 +52,7 @@ export async function sendWhatsAppMedia(opts: {
   if (!whatsappNumber) {
     throw new Error("Twilio is not configured. Set TWILIO_WHATSAPP_NUMBER.");
   }
+  await checkMessageBudget(opts.to);
   const message = await getClient().messages.create({
     from: fromAddress(whatsappNumber),
     to: toWhatsAppAddress(opts.to),
@@ -68,10 +70,18 @@ export async function sendWhatsAppText(opts: {
   if (!whatsappNumber) {
     throw new Error("Twilio is not configured. Set TWILIO_WHATSAPP_NUMBER.");
   }
+  await checkMessageBudget(opts.to);
   const message = await getClient().messages.create({
     from: fromAddress(whatsappNumber),
     to: toWhatsAppAddress(opts.to),
     body: opts.body,
   });
   return message.sid;
+}
+
+async function checkMessageBudget(to: string) {
+  const recipient = await consumeRateLimit("whatsapp-recipient", toWhatsAppAddress(to), 3, 15 * 60_000);
+  if (!recipient.allowed) throw new Error("This tenant has received several messages recently. Please try again later.");
+  const total = await consumeRateLimit("whatsapp-total", "app", 200, 60_000);
+  if (!total.allowed) throw new Error("Message limit reached. Please try again shortly.");
 }

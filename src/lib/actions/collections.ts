@@ -13,7 +13,7 @@ import {
   issueInvoiceForPayment,
   previewInvoice,
 } from "@/lib/invoice-delivery";
-import { loadCollectedByMonth, refreshPaymentStatus, sumCollected } from "@/lib/ledger";
+import { loadCollectedByMonth, lockLedgerTenancy, refreshPaymentStatus, sumCollected } from "@/lib/ledger";
 import { formatINR, rupeesToPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { getActiveProperty } from "@/lib/property";
@@ -372,6 +372,7 @@ export async function collectRent(
   let monthCollected: number;
   try {
     ({ paymentId, monthCollected } = await prisma.$transaction(async (tx) => {
+      await lockLedgerTenancy(tx, tenancy.id);
       const payment = await tx.payment.create({
         data: {
           propertyId: property.id,
@@ -456,6 +457,7 @@ export async function deleteRentCollection(paymentId: string): Promise<ActionRes
 
   try {
     await prisma.$transaction(async (tx) => {
+      await lockLedgerTenancy(tx, payment.tenancyId);
       await tx.payment.delete({ where: { id: payment.id } });
       await refreshPaymentStatus(tx, { ...payment.tenancy, tenantId: payment.tenantId });
     });

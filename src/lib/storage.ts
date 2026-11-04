@@ -1,5 +1,6 @@
 import "server-only";
 import { getStoragePolicy, STORAGE_MIME_EXTENSIONS } from "@/lib/storage-policy";
+import { validFileSignature } from "@/lib/security/file-signature";
 
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -45,12 +46,12 @@ function mimeTypeForExt(extWithOrWithoutDot: string): string {
 // the authenticated /api/files route.
 // ---------------------------------------------------------------------------
 function localBaseDir(): string {
-  return path.resolve(process.cwd(), process.env.STORAGE_LOCAL_DIR ?? "./storage/uploads");
+  return path.resolve(/* turbopackIgnore: true */ process.cwd(), process.env.STORAGE_LOCAL_DIR ?? "./storage/uploads");
 }
 
 function resolveKey(key: string): string {
   const base = localBaseDir();
-  const full = path.resolve(base, key);
+  const full = path.resolve(/* turbopackIgnore: true */ base, key);
   // Guard against path traversal.
   if (full !== base && !full.startsWith(base + path.sep)) {
     throw new Error("Invalid storage key");
@@ -61,9 +62,11 @@ function resolveKey(key: string): string {
 const localDriver: StorageDriver = {
   async save(file, prefix = "uploads") {
     const key = validateAndBuildKey(file, prefix);
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (!validFileSignature(bytes, file.type)) throw new Error("The file contents do not match its type");
     const full = resolveKey(key);
     await fs.mkdir(path.dirname(full), { recursive: true });
-    await fs.writeFile(full, Buffer.from(await file.arrayBuffer()));
+    await fs.writeFile(full, bytes);
 
     return { key, filename: file.name, mimeType: file.type, size: file.size };
   },
@@ -96,12 +99,10 @@ let cachedSupabase: SupabaseClient | null = null;
 
 function getSupabaseStorageClient(): { client: SupabaseClient; bucket: string } {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error(
-      "Supabase Storage requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)",
+      "Supabase Storage requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY",
     );
   }
   if (!cachedSupabase) {
@@ -126,6 +127,7 @@ const supabaseDriver: StorageDriver = {
     const key = validateAndBuildKey(file, prefix);
     const { client, bucket } = getSupabaseStorageClient();
     const bytes = Buffer.from(await file.arrayBuffer());
+    if (!validFileSignature(bytes, file.type)) throw new Error("The file contents do not match its type");
 
     let { error } = await client.storage.from(bucket).upload(key, bytes, {
       contentType: file.type,
@@ -180,6 +182,7 @@ function selectDriver(): StorageDriver {
   if (process.env.VERCEL && process.env.NEXT_PUBLIC_SUPABASE_URL) {
     return supabaseDriver;
   }
+  if (process.env.VERCEL) throw new Error("Vercel requires durable Supabase Storage; configure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
   return localDriver;
 }
 

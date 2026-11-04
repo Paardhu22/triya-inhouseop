@@ -51,7 +51,7 @@ const axisProps = {
   axisLine: false,
   tickMargin: 8,
   className: "fill-muted-foreground",
-  fontSize: 12,
+  fontSize: 13,
 } as const;
 
 type OccupancyRow = { label: string; occupied: number; available: number };
@@ -106,7 +106,7 @@ function OccupancyBars({ rows, labelWidth }: { rows: OccupancyRow[]; labelWidth:
             dataKey="tip"
             position="right"
             offset={10}
-            fontSize={12}
+            fontSize={13}
             className="fill-muted-foreground tabular-nums"
           />
         </Bar>

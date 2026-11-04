@@ -1,11 +1,14 @@
 import { addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { mobileContext, getMobileSession, mobileUserSelect } from "@/lib/mobile/session";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 /** One consistent property-scoped snapshot; the app derives its existing views from these real rows. */
 export async function GET() {
   const ctx = await mobileContext();
   if (!ctx) return Response.json({ error: "Sign in and select an accessible property" }, { status: (await getMobileSession()) ? 403 : 401 });
+  const rejected = await enforceRateLimit("snapshot-user", ctx.user.id, 12);
+  if (rejected) return rejected;
   const where = { propertyId: ctx.property.id };
   const rows = await prisma.$transaction(async tx => {
     const [users, blocks, floors, rooms, beds, tenants, tenancyRows, payments, invoices,
@@ -24,6 +27,6 @@ export async function GET() {
       payments: payments.map(({ recordedBy, ...p }) => ({ ...p, recordedByName: recordedBy?.name ?? null })),
       expenses: expenses.map(({ createdBy, ...e }) => ({ ...e, createdByName: createdBy?.name ?? null })),
     };
-  }, { isolationLevel: "RepeatableRead" });
+  }, { isolationLevel: "RepeatableRead", maxWait: 5000, timeout: 15000 });
   return Response.json(rows, { headers: { "Cache-Control": "no-store" } });
 }
