@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { format } from "date-fns";
 import { Download, Search } from "lucide-react";
 
@@ -78,7 +78,6 @@ function exportCsv(rows: TenantListItem[]) {
 }
 
 export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
-  const router = useRouter();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("ALL");
@@ -119,11 +118,12 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search name or phone"
+            aria-label="Search tenants by name or phone"
             className="pl-8"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-36" aria-label="Tenancy status">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -133,7 +133,7 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
           </SelectContent>
         </Select>
         <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v as PaymentFilter)}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40" aria-label="Payment status">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -145,7 +145,7 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={setSort}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40" aria-label="Sort tenants">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -185,13 +185,9 @@ export function TenantsClient({ tenants }: { tenants: TenantListItem[] }) {
               filtered.map((t) => {
                 const active = t.tenancies[0];
                 return (
-                  <TableRow
-                    key={t.id}
-                    className="cursor-pointer"
-                    onClick={() => router.push(`/tenants/${t.id}`)}
-                  >
+                  <TableRow key={t.id}>
                     <TableCell>
-                      <div className="font-medium">{t.fullName}</div>
+                      <Link href={`/tenants/${t.id}`} className="font-medium underline underline-offset-4">{t.fullName}</Link>
                       {t.occupation ? (
                         <div className="text-xs text-muted-foreground">{t.occupation}</div>
                       ) : null}

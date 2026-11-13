@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Inbox, Loader2, Search } from "lucide-react";
 
 import { StatusBadge } from "@/components/common/status-badge";
@@ -145,7 +146,7 @@ function DuesTab({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Select value={month} onValueChange={onMonthChange} disabled={navigating}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48" aria-label="Billing month">
             {navigating ? <Loader2 className="size-4 animate-spin" /> : null}
             <SelectValue />
           </SelectTrigger>
@@ -162,6 +163,7 @@ function DuesTab({
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            aria-label="Search tenants by name, phone or room"
             placeholder="Search name, phone or room"
             className="pl-8"
           />
@@ -199,10 +201,10 @@ function DuesTab({
                   <TableHead className="w-24">{isFlat ? "Flat" : "Room"}</TableHead>
                   <TableHead className="w-28 text-right">Month Due (₹)</TableHead>
                   <TableHead className="w-28 text-right">Collected (₹)</TableHead>
-                  <TableHead className="w-28 text-right">Balance (₹)</TableHead>
+                  <TableHead className="w-28 text-right">Total owed (₹)</TableHead>
                   <TableHead className="w-32 text-right">Earlier Dues (₹)</TableHead>
                   <TableHead className="w-32">Status</TableHead>
-                  <TableHead className="w-12 text-right">
+                  <TableHead className="w-44 text-right">
                     <span className="sr-only">Actions</span>
                   </TableHead>
                 </TableRow>
@@ -218,7 +220,7 @@ function DuesTab({
                   filtered.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>
-                        <p className="font-semibold">{r.tenant.fullName}</p>
+                        <Link href={`/tenants/${r.tenant.id}`} className="font-semibold underline-offset-4 hover:underline focus-visible:underline">{r.tenant.fullName}</Link>
                         <p className="text-xs tabular-nums text-muted-foreground">
                           {r.tenant.phone}
                         </p>
@@ -238,7 +240,10 @@ function DuesTab({
                         ) : null}
                       </TableCell>
                       <TableCell className="text-right font-bold tabular-nums">
-                        {formatINR(r.balancePaise)}
+                        {formatINR(r.outstandingPaise)}
+                        <p className="text-xs font-normal text-muted-foreground">
+                          This month {formatINR(r.balancePaise)}
+                        </p>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {r.earlierDuePaise > 0 ? (
@@ -254,7 +259,9 @@ function DuesTab({
                       </TableCell>
                       <TableCell>
                         <div className="space-y-0.5">
-                          <StatusBadge meta={COLLECTION_STATE_META[r.state]} />
+                          {r.state === "PAID" && r.earlierDuePaise > 0 ? (
+                            <StatusBadge meta={{ label: "Month paid · earlier dues", dot: "bg-[#c79a3e]" }} />
+                          ) : <StatusBadge meta={COLLECTION_STATE_META[r.state]} />}
                           {r.state !== "PAID" ? (
                             <p
                               className={
@@ -298,7 +305,7 @@ function DuesTab({
                 (cash {formatINR(totals.cash)} · online {formatINR(totals.online)})
               </span>
               <span>
-                Balance <strong className="text-foreground">{formatINR(totals.balance)}</strong>
+                This month owed <strong className="text-foreground">{formatINR(totals.balance)}</strong>
               </span>
               {totals.earlier > 0 ? (
                 <span>

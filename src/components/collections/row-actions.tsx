@@ -63,9 +63,14 @@ export function CollectionsRowActions({
 
   return (
     <>
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="outline" onClick={() => collectRef.current?.open()}>
+          <Banknote className="size-4" aria-hidden="true" />
+          Collect rent
+        </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon-sm" aria-label="Actions" disabled={reminding}>
+          <Button variant="outline" size="icon-sm" aria-label="More collection actions" disabled={reminding}>
             {reminding ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
@@ -74,10 +79,6 @@ export function CollectionsRowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onSelect={() => afterMenuCloses(() => collectRef.current?.open())}>
-            <Banknote className="size-4" />
-            Collect Rent
-          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => afterMenuCloses(() => invoiceRef.current?.open())}>
             <Send className="size-4" />
             Send Invoice
@@ -89,6 +90,7 @@ export function CollectionsRowActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
 
       <CollectRentDialog
         ref={collectRef}
