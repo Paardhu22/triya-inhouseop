@@ -2,6 +2,8 @@
 
 import {
   useCallback,
+  useId,
+  useRef,
   useImperativeHandle,
   useMemo,
   useState,
@@ -25,6 +27,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -41,7 +47,7 @@ import {
   type CollectRentResult,
 } from "@/lib/actions/collections";
 import { formatINR, paiseToRupees } from "@/lib/money";
-import { PAYMENT_METHOD_META, type RentCollectionView } from "@/lib/rent";
+import { PAYMENT_METHOD_META, type RentCollectionEntry, type RentCollectionView } from "@/lib/rent";
 import { COLLECTION_STATE_META, PAYMENT_STATUS_META } from "@/lib/status";
 import { collectRentSchema } from "@/lib/validations/collections";
 import type { PaymentMethod } from "@/generated/prisma/client";
@@ -134,6 +140,15 @@ export function CollectRentDialog({
   ref?: Ref<CollectRentHandle>;
 }) {
   const router = useRouter();
+  const formId = useId();
+  const loadSequence = useRef(0);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const removalTrigger = useRef<HTMLButtonElement>(null);
+  const removalReviewOpen = useRef(false);
+  const [removal, setRemoval] = useState<RentCollectionEntry | null>(null);
+  const [outcomeUnknown, setOutcomeUnknown] = useState(false);
+  const [removalError, setRemovalError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(() => defaultMonth ?? thisMonth());
   const [view, setView] = useState<RentCollectionView | null>(null);
@@ -150,15 +165,18 @@ export function CollectRentDialog({
 
   const load = useCallback(
     (targetMonth: string, resetFields: boolean) => {
+      const sequence = ++loadSequence.current;
       setLoading(true);
-      getRentCollection(tenancyId, targetMonth).then((res) => {
-        setLoading(false);
-        if (!res.ok) {
-          toast.error(res.error);
-          return;
-        }
+      setLoadError(null);
+      void getRentCollection(tenancyId, targetMonth).then((res) => {
+        if (sequence !== loadSequence.current) return;
+        if (!res.ok) { setLoadError(res.error); return; }
         setView(res.data);
         if (resetFields) setFields(defaultFields(res.data));
+      }).catch(() => {
+        if (sequence === loadSequence.current) setLoadError("Could not load collections. Try again.");
+      }).finally(() => {
+        if (sequence === loadSequence.current) setLoading(false);
       });
     },
     [tenancyId],
@@ -180,7 +198,7 @@ export function CollectRentDialog({
 
   function onDialogOpenChange(next: boolean) {
     if (next) openAndLoad();
-    else setOpen(false);
+    else if (!saving && !deleting && !removalReviewOpen.current) { loadSequence.current++; setOpen(false); setRemoval(null); }
   }
 
   function onMonthChange(next: string) {
@@ -230,6 +248,7 @@ export function CollectRentDialog({
     }
 
     startSaving(async () => {
+      try {
       const res = await collectRent(parsed.data);
       if (!res.ok) {
         setError(res.error);
@@ -239,27 +258,40 @@ export function CollectRentDialog({
       setOpen(false);
       router.refresh();
       onCollected?.(res.data);
-    });
-  }
-
-  function onDelete(paymentId: string) {
-    startDeleting(async () => {
-      const res = await deleteRentCollection(paymentId);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      } catch {
+        setOutcomeUnknown(true);
+        setError("We could not confirm whether this collection was recorded. Check the collection history before trying again.");
+        load(month, false);
       }
-      toast.success("Collection removed");
-      load(month, false);
-      router.refresh();
     });
   }
 
-  const busy = saving || deleting || loading;
+  function confirmRemoval() {
+    if (!removal || deleting || saving) return;
+    const paymentId = removal.id;
+    setRemovalError(null);
+    startDeleting(async () => {
+      try {
+        const res = await deleteRentCollection(paymentId);
+        if (!res.ok) { setRemovalError(res.error); return; }
+        setRemoval(null);
+        toast.success("Collection removed");
+        load(month, false);
+        router.refresh();
+      } catch {
+        setRemovalError("The result could not be confirmed. Close this review and reload the collection history before trying again.");
+      }
+    });
+  }
+
+  const busy = saving || deleting || loading || outcomeUnknown;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onDialogOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-2xl"
+        onEscapeKeyDown={(event) => { if (saving || deleting) event.preventDefault(); }}
+        onInteractOutside={(event) => { if (saving || deleting || removal) event.preventDefault(); }}>
         <DialogHeader>
           <DialogTitle>Collect Rent</DialogTitle>
           <DialogDescription>
@@ -268,17 +300,21 @@ export function CollectRentDialog({
         </DialogHeader>
 
         {!view ? (
-          <div className="flex h-56 items-center justify-center">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <div className="flex min-h-56 flex-col items-center justify-center gap-3" role="status">
+            {loadError ? <><p className="text-sm text-destructive" role="alert">{loadError}</p>
+              <Button variant="outline" onClick={() => load(month, true)} disabled={loading}>Try again</Button></>
+              : <><Loader2 className="size-5 animate-spin text-muted-foreground" /><span className="sr-only">Loading collections</span></>}
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-2">
+            {loadError ? <p role="alert" className="text-sm text-destructive">{loadError} <Button variant="link" onClick={() => load(month, false)} disabled={loading}>Retry refresh</Button></p> : null}
             {/* What is owed for the selected month, and what has come in so far. */}
             <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Billing month</Label>
+                  <Label htmlFor={`${formId}-month`} className="text-xs text-muted-foreground">Billing month</Label>
                   <Input
+                    id={`${formId}-month`}
                     type="month"
                     value={month}
                     min={view.firstMonth}
@@ -288,7 +324,9 @@ export function CollectRentDialog({
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <StatusBadge meta={COLLECTION_STATE_META[view.state]} />
+                  {view.state === "PAID" && view.earlierDuePaise > 0
+                    ? <StatusBadge meta={{ label: "Month paid · earlier dues", dot: "bg-[#c79a3e]" }} />
+                    : <StatusBadge meta={COLLECTION_STATE_META[view.state]} />}
                   {view.status === "OVERDUE" ? (
                     <StatusBadge meta={PAYMENT_STATUS_META.OVERDUE} />
                   ) : null}
@@ -300,7 +338,7 @@ export function CollectRentDialog({
                 <Metric label="Maintenance" value={formatINR(view.maintenancePaise)} />
                 <Metric label="Collected" value={formatINR(view.collectedPaise)} />
                 <Metric
-                  label={view.advancePaise > 0 ? "Advance" : "Balance"}
+                  label={view.advancePaise > 0 ? "Over-collected this month" : "This month owed"}
                   value={formatINR(
                     view.advancePaise > 0 ? view.advancePaise : view.balancePaise,
                   )}
@@ -346,8 +384,8 @@ export function CollectRentDialog({
             {/* New collection */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Amount collected (₹)</Label>
-                <Input
+                <Label htmlFor={`${formId}-amount`} className="text-xs text-muted-foreground">Amount collected (₹)</Label>
+                <Input id={`${formId}-amount`} ref={amountRef} autoFocus step="0.01" aria-describedby={error ? `${formId}-error` : undefined}
                   type="number"
                   min={0}
                   inputMode="decimal"
@@ -358,8 +396,8 @@ export function CollectRentDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Collected on</Label>
-                <Input
+                <Label htmlFor={`${formId}-date`} className="text-xs text-muted-foreground">Collected on</Label>
+                <Input id={`${formId}-date`}
                   type="datetime-local"
                   value={fields.collectedAt}
                   max={toDatetimeLocal(new Date())}
@@ -368,13 +406,13 @@ export function CollectRentDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Payment method</Label>
+                <Label htmlFor={`${formId}-method`} className="text-xs text-muted-foreground">Payment method</Label>
                 <Select
                   value={fields.method}
                   onValueChange={(v) => set("method", v as PaymentMethod)}
                   disabled={busy}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger id={`${formId}-method`} className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -385,8 +423,8 @@ export function CollectRentDialog({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Note (optional)</Label>
-                <Textarea
+                <Label htmlFor={`${formId}-note`} className="text-xs text-muted-foreground">Note (optional)</Label>
+                <Textarea id={`${formId}-note`}
                   rows={1}
                   placeholder="e.g. UPI ref / paid at the desk"
                   value={fields.notes}
@@ -398,8 +436,8 @@ export function CollectRentDialog({
               {fields.method === "SPLIT" ? (
                 <>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Cash (₹)</Label>
-                    <Input
+                    <Label htmlFor={`${formId}-cash`} className="text-xs text-muted-foreground">Cash (₹)</Label>
+                    <Input id={`${formId}-cash`} step="0.01"
                       type="number"
                       min={0}
                       inputMode="decimal"
@@ -410,8 +448,8 @@ export function CollectRentDialog({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Online (₹)</Label>
-                    <Input
+                    <Label htmlFor={`${formId}-online`} className="text-xs text-muted-foreground">Online (₹)</Label>
+                    <Input id={`${formId}-online`} step="0.01"
                       type="number"
                       min={0}
                       inputMode="decimal"
@@ -432,8 +470,8 @@ export function CollectRentDialog({
                 {preview.advance > 0 ? (
                   <>
                     {" "}
-                    — <strong className="text-foreground">{formatINR(preview.advance)}</strong> in
-                    advance.
+                    — <strong className="text-foreground">{formatINR(preview.advance)}</strong> over-collected.
+                    This amount is not automatically applied to later months.
                   </>
                 ) : preview.balance > 0 ? (
                   <>
@@ -460,8 +498,12 @@ export function CollectRentDialog({
               </Label>
             </div>
 
-            {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
+            {error ? <p id={`${formId}-error`} role="alert" className="text-sm font-medium text-destructive">{error}</p> : null}
 
+            {outcomeUnknown ? <div role="status" className="space-y-2 rounded-lg border p-3 text-sm">
+              <p>Recording is paused because the last result is unknown. Check the history below before making another entry.</p>
+              <Button variant="outline" disabled={loading || saving || deleting} onClick={() => { setOutcomeUnknown(false); setError(null); }}>I checked history; enable recording</Button>
+            </div> : null}
             {/* What has already been collected for this month. */}
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">
@@ -498,9 +540,9 @@ export function CollectRentDialog({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="Remove collection"
+                          aria-label={`Review removal of ${formatINR(c.amountPaise)} collected on ${format(new Date(c.collectedAt), "dd MMM yyyy")}`}
                           disabled={busy}
-                          onClick={() => onDelete(c.id)}
+                          onClick={(event) => { removalTrigger.current = event.currentTarget; removalReviewOpen.current = true; setRemovalError(null); setRemoval(c); }}
                         >
                           <Trash2 className="size-4 text-muted-foreground" />
                         </Button>
@@ -513,8 +555,9 @@ export function CollectRentDialog({
           </div>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+        <DialogFooter className="shrink-0 border-t pt-4">
+          {error ? <p role="status" className="mr-auto text-sm text-destructive">Review the error above before recording.</p> : null}
+          <Button variant="outline" onClick={() => onDialogOpenChange(false)} disabled={saving || deleting}>
             Cancel
           </Button>
           <Button onClick={onSubmit} disabled={busy || !view}>
@@ -522,8 +565,36 @@ export function CollectRentDialog({
             Record Collection
           </Button>
         </DialogFooter>
+    <AlertDialog open={Boolean(removal)} onOpenChange={(next) => { if (!next && !deleting) setRemoval(null); }}>
+      <AlertDialogContent
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          requestAnimationFrame(() => {
+            if (removalTrigger.current?.isConnected) removalTrigger.current.focus();
+            else amountRef.current?.focus();
+            removalReviewOpen.current = false;
+          });
+        }}
+        onEscapeKeyDown={(event) => { if (deleting) event.preventDefault(); }}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove this collection?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {removal && view ? `${view.tenantName} · ${formatINR(removal.amountPaise)} · ${PAYMENT_METHOD_META[removal.method].label} · ${format(new Date(removal.collectedAt), "dd MMM yyyy 'at' h:mm a")} · ${monthLabel(month)} rent.` : ""}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <p className="text-sm">This permanently removes the payment record and recalculates the balance. There is no undo. An invoice already issued or sent is not updated by this removal.</p>
+        {removalError ? <p role="alert" className="text-sm text-destructive">{removalError}</p> : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleting}>Keep collection</AlertDialogCancel>
+          <Button variant="destructive" onClick={confirmRemoval} disabled={deleting}>
+            {deleting ? <Loader2 className="size-4 animate-spin" /> : null} Remove collection
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 
