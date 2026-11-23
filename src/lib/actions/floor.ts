@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { startOfMonth } from "date-fns";
 
+import { auth } from "@/auth";
 import { getActionContext } from "@/lib/action-context";
+import { canReviewRegistrations } from "@/lib/registrations/permissions";
 import type { CollectRentResult } from "@/lib/actions/collections";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { issueInvoiceForPayment } from "@/lib/invoice-delivery";
@@ -25,6 +27,9 @@ function revalidateFloorViews() {
   // refusing to shrink a room that has just been emptied.
   revalidatePath("/admin");
 }
+
+/** Thrown inside the save transaction so a lost approval race rolls everything back. */
+class RegistrationAlreadyProcessed extends Error {}
 
 /** Trim a FormData text field to a string, or undefined when blank. */
 function field(formData: FormData, key: string): string | undefined {
@@ -68,6 +73,14 @@ export async function saveBed(
     return actionError(parsed.error.issues[0]?.message ?? "Invalid details");
   }
   const data = parsed.data;
+
+  // Approving a public registration is restricted to ADMIN/MANAGER. Enforced here, before
+  // any lookup, so it also covers callers that reach saveBed another way (mobile API).
+  // Saves WITHOUT a registrationId (manual create/edit/vacate) are unaffected for every role.
+  const registrationId = field(formData, "registrationId");
+  if (registrationId && !canReviewRegistrations((await auth())?.user?.role)) {
+    return actionError("Only admins and managers can approve registration requests");
+  }
 
   const bed = await prisma.bed.findFirst({
     where: { id: data.bedId, propertyId: ctx.propertyId },
@@ -165,6 +178,28 @@ export async function saveBed(
   const cashAmountPaise = data.cashAmount !== undefined ? rupeesToPaise(data.cashAmount) : null;
   const onlineAmountPaise = data.onlineAmount !== undefined ? rupeesToPaise(data.onlineAmount) : null;
 
+  // Optional: approving a public registration request. The request must be PENDING and
+  // belong to this property; it is flipped to APPROVED inside the transaction below, so a
+  // failed save leaves it PENDING. Registrations only ever create NEW tenancies.
+  let regKyc: { key: string; filename: string; mimeType: string; size: number } | null = null;
+  if (registrationId) {
+    if (active) return actionError("Approve a request onto a vacant bed only");
+    const reg = await prisma.registrationRequest.findFirst({
+      where: { id: registrationId, propertyId: ctx.propertyId },
+      select: { status: true, kycKey: true, kycFilename: true, kycMimeType: true, kycSize: true },
+    });
+    if (!reg) return actionError("Registration request not found");
+    if (reg.status !== "PENDING") return actionError("This request was already processed");
+    if (reg.kycKey) {
+      regKyc = {
+        key: reg.kycKey,
+        filename: reg.kycFilename ?? "kyc",
+        mimeType: reg.kycMimeType ?? "image/jpeg",
+        size: reg.kycSize ?? 0,
+      };
+    }
+  }
+
   const photo = formData.get("photo");
   let saved: Awaited<ReturnType<typeof storage.save>> | null = null;
   if (photo instanceof File && photo.size > 0) {
@@ -226,10 +261,22 @@ export async function saveBed(
             fullName,
             phone,
             email,
-            photoUrl: saved?.key ?? null,
+            photoUrl: saved?.key ?? regKyc?.key ?? null,
           },
         });
         tenantId = tenant.id;
+        if (registrationId) {
+          // Conditional flip = the idempotency/concurrency guard: only one approval wins.
+          const approved = await tx.registrationRequest.updateMany({
+            where: { id: registrationId, propertyId: ctx.propertyId, status: "PENDING" },
+            data: {
+              status: "APPROVED", tenantId, reviewedById: ctx.userId, reviewedAt: new Date(),
+              // Ownership of the KYC object moves to the tenant (same key, no copy).
+              kycKey: null, kycFilename: null, kycMimeType: null, kycSize: null,
+            },
+          });
+          if (approved.count !== 1) throw new RegistrationAlreadyProcessed();
+        }
         const tenancy = await tx.tenancy.create({
           data: {
             propertyId: ctx.propertyId,
@@ -249,6 +296,17 @@ export async function saveBed(
           },
         });
         tenancyId = tenancy.id;
+      }
+
+      // A KYC image carried over from a registration is linked like an uploaded one
+      // unless the admin uploaded a replacement in the form.
+      if (!saved && regKyc) {
+        await tx.document.create({
+          data: {
+            tenantId, type: "PHOTO", storageKey: regKyc.key, filename: regKyc.filename,
+            mimeType: regKyc.mimeType, size: regKyc.size,
+          },
+        });
       }
 
       if (saved) {
@@ -303,9 +361,17 @@ export async function saveBed(
       }
       await refreshPaymentStatus(tx, ledgerTenancy);
     });
-  } catch {
+  } catch (e) {
     if (saved) await storage.remove(saved.key);
+    if (e instanceof RegistrationAlreadyProcessed) {
+      return actionError("This registration request was just processed. Refresh the list.");
+    }
     return actionError("Could not save. Please try again.");
+  }
+
+  // The admin replaced the registrant's image: the registration's own file is now unowned.
+  if (registrationId && saved && regKyc) {
+    await storage.remove(regKyc.key).catch((e) => console.error("Failed to remove superseded registration KYC:", e));
   }
 
   // Clean up old files from storage after successful transaction

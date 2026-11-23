@@ -40,6 +40,8 @@ type Props = {
   /** When notice has already been served on the active tenancy. */
   noticeGivenDate?: Date | null;
   isFlat?: boolean;
+  /** Set when approving a public registration request; sent through to saveBed. */
+  registrationId?: string;
   onClose: () => void;
 };
 
@@ -51,6 +53,7 @@ export function BedForm({
   noticeGivenDate,
   onClose,
   isFlat = false,
+  registrationId,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -97,6 +100,10 @@ export function BedForm({
     const fd = new FormData();
     fd.append("bedId", bedId);
     fd.append("occupancyStatus", values.occupancyStatus);
+    if (registrationId && values.occupancyStatus === "OCCUPIED") {
+      fd.append("registrationId", registrationId);
+      fd.append("expectedVacant", "true");
+    }
     if (values.occupancyStatus === "OCCUPIED") {
       fd.append("fullName", values.fullName);
       fd.append("phone", values.phone);

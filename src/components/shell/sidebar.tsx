@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
+import { canReviewRegistrations } from "@/lib/registrations/permissions";
 import { ADMIN_NAV, MAIN_NAV, type NavItem } from "./nav-config";
 
 function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
@@ -55,7 +56,7 @@ export function SidebarContent({
 
       <p className="mb-2 px-4 text-xs font-medium text-muted-foreground">Workspace</p>
       <nav aria-label="Workspace" className="flex flex-col gap-1">
-        {MAIN_NAV.map((item) => (
+        {MAIN_NAV.filter((item) => item.href !== "/registrations" || canReviewRegistrations(role)).map((item) => (
           <NavLink key={item.href} item={item} onNavigate={onNavigate} />
         ))}
       </nav>

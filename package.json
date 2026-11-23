@@ -17,6 +17,7 @@
     "db:reset": "prisma migrate reset",
     "postinstall": "prisma generate",
     "check:mobile": "tsx scripts/check-mobile-api.ts",
+    "check:registration": "node --experimental-test-module-mocks --conditions=react-server --import tsx --test scripts/registration.test.ts scripts/registration-approval.test.ts",
     "check:security": "node --conditions=react-server --import tsx scripts/security.test.ts"
   },
   "dependencies": {
@@ -36,7 +37,7 @@
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.21.0",
     "motion": "^12.41.0",
-    "next": "16.4.2",
+    "next": "16.4.5",
     "next-auth": "5.0.0-beta.32",
     "next-themes": "^0.4.6",
     "papaparse": "^5.7.0",
@@ -66,7 +67,7 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.5",
     "prisma": "^7.8.0",
     "shadcn": "^4.22.1",
     "tailwindcss": "^4",

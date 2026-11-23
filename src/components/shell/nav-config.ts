@@ -8,6 +8,7 @@ import {
   Settings,
   ShieldCheck,
   Upload,
+  UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -24,6 +25,7 @@ export const MAIN_NAV: NavItem[] = [
   { href: "/complaints", label: "Complaints", icon: MessageSquareWarning },
   { href: "/expenses", label: "Expense Tracker", icon: Receipt },
   { href: "/tenants", label: "Tenants", icon: Users },
+  { href: "/registrations", label: "Registrations", icon: UserPlus },
   { href: "/collections", label: "Collections", icon: Banknote },
   { href: "/reports", label: "Reports", icon: ChartColumn },
 ];
