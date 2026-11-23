@@ -4,6 +4,7 @@ import { startOfMonth, subMonths } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { monthlyDuePaise, resolvePaymentStatus } from "@/lib/rent";
 import { storage } from "@/lib/storage";
+import { runRegistrationRetention } from "@/lib/registrations/retention";
 import type { PaymentStatus } from "@/generated/prisma/client";
 
 // Rolls the current-cycle payment snapshot on every active tenancy so a new rent cycle
@@ -116,7 +117,16 @@ async function runDailyMaintenance(request: Request) {
       );
     }
 
+    // Public registration retention is isolated so a failure cannot affect the job above.
+    let registrations: { expired: number; purged: number } | null = null;
+    try {
+      registrations = await runRegistrationRetention(now);
+    } catch (error) {
+      console.error("Registration retention failed", error instanceof Error ? error.name : "unknown");
+    }
+
     return NextResponse.json({
+      registrations,
       message: "Payment reset and 6-month retention cleanup completed successfully",
       scanned: tenancies.length,
       updatedCount,

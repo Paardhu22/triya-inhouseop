@@ -19,6 +19,10 @@ const envSchema = z.object({
   CRON_SECRET: optionalSetting(z.string().min(32)
     .refine(value => !value.startsWith("replace-with-"), "Generate a real CRON_SECRET instead of using the template placeholder")),
   ALLOWED_ORIGINS: z.string().optional(),
+  // Shared secret the public website's server sends to the registration endpoints.
+  // Unset = public registration endpoints refuse every request.
+  PUBLIC_REGISTRATION_SECRET: optionalSetting(z.string().min(32)
+    .refine(value => !value.startsWith("replace-with-"), "Generate a real PUBLIC_REGISTRATION_SECRET instead of using the template placeholder")),
 
   APP_PUBLIC_URL: z.string().optional(),
   STORAGE_DRIVER: z.string().optional(),

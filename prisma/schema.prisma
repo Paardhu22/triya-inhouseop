@@ -80,6 +80,13 @@ enum InvoiceStatus {
   FAILED
 }
 
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
 // ============================================================================
 // Auth (Auth.js v5). Credentials + JWT today; Account/Session/VerificationToken
 // included to future-proof OAuth and the owner dashboard.
@@ -169,6 +176,9 @@ model Property {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
+  // Explicit opt-in link to the public website listing. Null = this property does not
+  // accept public tenant registrations. Set per property by an ADMIN (Registrations page).
+  websiteSlug String? @unique
   address   String?
   city      String?
   phone     String? // contact number shown on invoices
@@ -201,6 +211,7 @@ model Property {
   expenses       Expense[]
   floorTemplates FloorTemplate[]
   invoices       Invoice[]
+  registrationRequests RegistrationRequest[]
 
   expenseCategories    ExpenseCategory[]
   expenseSubcategories ExpenseSubcategory[]
@@ -352,6 +363,7 @@ model Tenant {
   payments   Payment[]
   complaints Complaint[]
   invoices   Invoice[]
+  registrationRequests RegistrationRequest[]
 
   @@index([propertyId])
   @@index([phone])
@@ -574,4 +586,41 @@ model ExpenseSubcategory {
   @@unique([categoryId, name])
   @@index([categoryId])
   @@index([propertyId])
+}
+
+// ============================================================================
+// Public tenant registration requests (submitted from the marketing website).
+// A request is NOT a tenant: it only becomes one when an admin approves it through
+// the normal saveBed flow, which marks it APPROVED in the same transaction.
+// ============================================================================
+model RegistrationRequest {
+  id               String             @id @default(cuid())
+  propertyId       String
+  fullName         String
+  phone            String // normalized 10-digit number
+  email            String?
+  preferredCheckIn DateTime?
+  // Private storage key (registrations/<uuid>.ext). Held only while PENDING: on approval
+  // ownership moves to the tenant (same key, no copy); on reject/expiry the file is deleted.
+  kycKey           String?
+  kycFilename      String?
+  kycMimeType      String?
+  kycSize          Int?
+  consentAt        DateTime
+  consentVersion   String
+  status           RegistrationStatus @default(PENDING)
+  rejectionReason  String?
+  tenantId         String?
+  reviewedById     String? // plain id, intentionally not a FK to User
+  reviewedAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([kycKey])
+  @@index([tenantId])
 }

@@ -21,9 +21,10 @@ export async function GET(
   // A valid, file-specific signature needs no session/database lookups (Twilio).
   const { searchParams } = new URL(req.url);
   let authorized = verifyFileToken(keyStr, Number(searchParams.get("exp")), searchParams.get("sig"));
-  if (!authorized && (await auth())?.user) {
+  const session = authorized ? null : await auth();
+  if (!authorized && session?.user) {
     const property = await getActiveProperty();
-    authorized = Boolean(property && await propertyOwnsFile(property.id, keyStr));
+    authorized = Boolean(property && await propertyOwnsFile(property.id, keyStr, session.user.role));
     // The property picker renders accessible logos before a property is selected.
     if (!authorized && keyStr.startsWith("logos/")) {
       const scope = await accessiblePropertyWhere();

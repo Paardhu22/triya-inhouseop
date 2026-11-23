@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   } else {
     const ctx = await mobileContext();
     if (!ctx) return Response.json({ error: "Select an accessible property" }, { status: 403 });
-    if (!(await propertyOwnsFile(ctx.property.id, key))) return Response.json({ error: "File not found" }, { status: 404 });
+    if (!(await propertyOwnsFile(ctx.property.id, key, session.user.role))) return Response.json({ error: "File not found" }, { status: 404 });
   }
   const { exp, sig } = signFileToken(key);
   return Response.json({ path: `/api/files/${key.split("/").map(encodeURIComponent).join("/")}?exp=${exp}&sig=${sig}` }, { headers: { "Cache-Control": "no-store" } });
