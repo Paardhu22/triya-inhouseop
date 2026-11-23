@@ -41,7 +41,7 @@ function PlanRoom({ room, x, y, height, bottomDoor, floorPattern, index, isFlat,
     <g transform={`translate(${x} ${y})`}>
       <g className={styles.arrival} style={{ animationDelay: `${Math.min(index, 10) * 22}ms` }}>
         <g role="button" tabIndex={0} aria-label={`${isFlat ? "Flat" : "Room"} ${room.number}, ${statusText}. ${bedStatuses}`} onClick={onOpenRoom} onKeyDown={(event) => activate(event, onOpenRoom)} className={styles.roomButton}>
-          <title>{isFlat ? "Flat" : "Room"} {room.number} — {statusText}</title>
+          <title>{`${isFlat ? "Flat" : "Room"} ${room.number} — ${statusText}`}</title>
           <rect className={styles.roomSurface} x="3" y="3" width={ROOM_WIDTH - 6} height={height - 6} rx="3" fill={`url(#${floorPattern})`} />
           <text x="16" y="25" fill="var(--foreground)" fontSize="18" fontWeight="650">{room.number.length > 14 ? `${room.number.slice(0, 13)}…` : room.number}</text>
           <text x="16" y={height - 13} fill="var(--muted-foreground)" fontSize="10">{statusText}</text>
@@ -64,7 +64,7 @@ function PlanRoom({ room, x, y, height, bottomDoor, floorPattern, index, isFlat,
           const name = isFlat ? `Flat ${room.number}` : `Room ${room.number}, bed ${bed.label}`;
           return (
             <g key={bed.id} transform={`translate(${bedX} ${bedY})`} role="button" tabIndex={0} className={styles.bedButton} aria-label={`${name}: ${meta.label}${tenant ? `, ${tenant.fullName}` : ", assign tenant"}`} onClick={() => onOpenBed(bed.id)} onKeyDown={(event) => activate(event, () => onOpenBed(bed.id))}>
-              <title>{name} · {meta.label}{tenant ? ` · ${tenant.fullName}` : ""}</title>
+              <title>{`${name} · ${meta.label}${tenant ? ` · ${tenant.fullName}` : ""}`}</title>
               <rect x="-2" y="-3" width={bedWidth + 4} height="9" rx="2" fill="#b6a18d" />
               <rect className={styles.bedFrame} width={bedWidth} height={bedHeight} rx="4" />
               <rect x="5" y="5" width={bedWidth - 10} height={bedHeight * 0.2} rx="3" fill="#f9fafb" stroke="#dce0e6" strokeWidth="0.8" />
